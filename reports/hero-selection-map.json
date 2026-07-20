@@ -1,0 +1,769 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-20T21:03:44.002Z",
+  "source": "Dota 2 VPK heroes/selection assets",
+  "entries": [
+    {
+      "abilityId": -155,
+      "name": "Largo",
+      "shortName": "largo",
+      "file": "heroes/selection/largo.png"
+    },
+    {
+      "abilityId": -145,
+      "name": "Kez",
+      "shortName": "kez",
+      "file": "heroes/selection/kez.png"
+    },
+    {
+      "abilityId": -138,
+      "name": "Muerta",
+      "shortName": "muerta",
+      "file": "heroes/selection/muerta.png"
+    },
+    {
+      "abilityId": -137,
+      "name": "Primal Beast",
+      "shortName": "primal_beast",
+      "file": "heroes/selection/primal_beast.png"
+    },
+    {
+      "abilityId": -136,
+      "name": "Marci",
+      "shortName": "marci",
+      "file": "heroes/selection/marci.png"
+    },
+    {
+      "abilityId": -135,
+      "name": "Dawnbreaker",
+      "shortName": "dawnbreaker",
+      "file": "heroes/selection/dawnbreaker.png"
+    },
+    {
+      "abilityId": -131,
+      "name": "Ringmaster",
+      "shortName": "ringmaster",
+      "file": "heroes/selection/ringmaster.png"
+    },
+    {
+      "abilityId": -129,
+      "name": "Mars",
+      "shortName": "mars",
+      "file": "heroes/selection/mars.png"
+    },
+    {
+      "abilityId": -128,
+      "name": "Snapfire",
+      "shortName": "snapfire",
+      "file": "heroes/selection/snapfire.png"
+    },
+    {
+      "abilityId": -126,
+      "name": "Void Spirit",
+      "shortName": "void_spirit",
+      "file": "heroes/selection/void_spirit.png"
+    },
+    {
+      "abilityId": -123,
+      "name": "Hoodwink",
+      "shortName": "hoodwink",
+      "file": "heroes/selection/hoodwink.png"
+    },
+    {
+      "abilityId": -121,
+      "name": "Grimstroke",
+      "shortName": "grimstroke",
+      "file": "heroes/selection/grimstroke.png"
+    },
+    {
+      "abilityId": -120,
+      "name": "Pangolier",
+      "shortName": "pangolier",
+      "file": "heroes/selection/pangolier.png"
+    },
+    {
+      "abilityId": -119,
+      "name": "Dark Willow",
+      "shortName": "dark_willow",
+      "file": "heroes/selection/dark_willow.png"
+    },
+    {
+      "abilityId": -114,
+      "name": "Monkey King",
+      "shortName": "monkey_king",
+      "file": "heroes/selection/monkey_king.png"
+    },
+    {
+      "abilityId": -113,
+      "name": "Arc Warden",
+      "shortName": "arc_warden",
+      "file": "heroes/selection/arc_warden.png"
+    },
+    {
+      "abilityId": -112,
+      "name": "Winter Wyvern",
+      "shortName": "winter_wyvern",
+      "file": "heroes/selection/winter_wyvern.png"
+    },
+    {
+      "abilityId": -111,
+      "name": "Oracle",
+      "shortName": "oracle",
+      "file": "heroes/selection/oracle.png"
+    },
+    {
+      "abilityId": -110,
+      "name": "Phoenix",
+      "shortName": "phoenix",
+      "file": "heroes/selection/phoenix.png"
+    },
+    {
+      "abilityId": -109,
+      "name": "Terrorblade",
+      "shortName": "terrorblade",
+      "file": "heroes/selection/terrorblade.png"
+    },
+    {
+      "abilityId": -108,
+      "name": "Underlord",
+      "shortName": "abyssal_underlord",
+      "file": "heroes/selection/abyssal_underlord.png"
+    },
+    {
+      "abilityId": -107,
+      "name": "Earth Spirit",
+      "shortName": "earth_spirit",
+      "file": "heroes/selection/earth_spirit.png"
+    },
+    {
+      "abilityId": -106,
+      "name": "Ember Spirit",
+      "shortName": "ember_spirit",
+      "file": "heroes/selection/ember_spirit.png"
+    },
+    {
+      "abilityId": -105,
+      "name": "Techies",
+      "shortName": "techies",
+      "file": "heroes/selection/techies.png"
+    },
+    {
+      "abilityId": -104,
+      "name": "Legion Commander",
+      "shortName": "legion_commander",
+      "file": "heroes/selection/legion_commander.png"
+    },
+    {
+      "abilityId": -103,
+      "name": "Elder Titan",
+      "shortName": "elder_titan",
+      "file": "heroes/selection/elder_titan.png"
+    },
+    {
+      "abilityId": -102,
+      "name": "Abaddon",
+      "shortName": "abaddon",
+      "file": "heroes/selection/abaddon.png"
+    },
+    {
+      "abilityId": -101,
+      "name": "Skywrath Mage",
+      "shortName": "skywrath_mage",
+      "file": "heroes/selection/skywrath_mage.png"
+    },
+    {
+      "abilityId": -100,
+      "name": "Tusk",
+      "shortName": "tusk",
+      "file": "heroes/selection/tusk.png"
+    },
+    {
+      "abilityId": -99,
+      "name": "Bristleback",
+      "shortName": "bristleback",
+      "file": "heroes/selection/bristleback.png"
+    },
+    {
+      "abilityId": -98,
+      "name": "Timbersaw",
+      "shortName": "shredder",
+      "file": "heroes/selection/shredder.png"
+    },
+    {
+      "abilityId": -97,
+      "name": "Magnus",
+      "shortName": "magnataur",
+      "file": "heroes/selection/magnataur.png"
+    },
+    {
+      "abilityId": -96,
+      "name": "Centaur Warrunner",
+      "shortName": "centaur",
+      "file": "heroes/selection/centaur.png"
+    },
+    {
+      "abilityId": -95,
+      "name": "Troll Warlord",
+      "shortName": "troll_warlord",
+      "file": "heroes/selection/troll_warlord.png"
+    },
+    {
+      "abilityId": -94,
+      "name": "Medusa",
+      "shortName": "medusa",
+      "file": "heroes/selection/medusa.png"
+    },
+    {
+      "abilityId": -93,
+      "name": "Slark",
+      "shortName": "slark",
+      "file": "heroes/selection/slark.png"
+    },
+    {
+      "abilityId": -92,
+      "name": "Visage",
+      "shortName": "visage",
+      "file": "heroes/selection/visage.png"
+    },
+    {
+      "abilityId": -91,
+      "name": "Io",
+      "shortName": "wisp",
+      "file": "heroes/selection/wisp.png"
+    },
+    {
+      "abilityId": -90,
+      "name": "Keeper of the Light",
+      "shortName": "keeper_of_the_light",
+      "file": "heroes/selection/keeper_of_the_light.png"
+    },
+    {
+      "abilityId": -89,
+      "name": "Naga Siren",
+      "shortName": "naga_siren",
+      "file": "heroes/selection/naga_siren.png"
+    },
+    {
+      "abilityId": -88,
+      "name": "Nyx Assassin",
+      "shortName": "nyx_assassin",
+      "file": "heroes/selection/nyx_assassin.png"
+    },
+    {
+      "abilityId": -87,
+      "name": "Disruptor",
+      "shortName": "disruptor",
+      "file": "heroes/selection/disruptor.png"
+    },
+    {
+      "abilityId": -86,
+      "name": "Rubick",
+      "shortName": "rubick",
+      "file": "heroes/selection/rubick.png"
+    },
+    {
+      "abilityId": -85,
+      "name": "Undying",
+      "shortName": "undying",
+      "file": "heroes/selection/undying.png"
+    },
+    {
+      "abilityId": -84,
+      "name": "Ogre Magi",
+      "shortName": "ogre_magi",
+      "file": "heroes/selection/ogre_magi.png"
+    },
+    {
+      "abilityId": -83,
+      "name": "Treant Protector",
+      "shortName": "treant",
+      "file": "heroes/selection/treant.png"
+    },
+    {
+      "abilityId": -82,
+      "name": "Meepo",
+      "shortName": "meepo",
+      "file": "heroes/selection/meepo.png"
+    },
+    {
+      "abilityId": -81,
+      "name": "Chaos Knight",
+      "shortName": "chaos_knight",
+      "file": "heroes/selection/chaos_knight.png"
+    },
+    {
+      "abilityId": -80,
+      "name": "Lone Druid",
+      "shortName": "lone_druid",
+      "file": "heroes/selection/lone_druid.png"
+    },
+    {
+      "abilityId": -79,
+      "name": "Shadow Demon",
+      "shortName": "shadow_demon",
+      "file": "heroes/selection/shadow_demon.png"
+    },
+    {
+      "abilityId": -78,
+      "name": "Brewmaster",
+      "shortName": "brewmaster",
+      "file": "heroes/selection/brewmaster.png"
+    },
+    {
+      "abilityId": -77,
+      "name": "Lycan",
+      "shortName": "lycan",
+      "file": "heroes/selection/lycan.png"
+    },
+    {
+      "abilityId": -76,
+      "name": "Outworld Devourer",
+      "shortName": "obsidian_destroyer",
+      "file": "heroes/selection/obsidian_destroyer.png"
+    },
+    {
+      "abilityId": -75,
+      "name": "Silencer",
+      "shortName": "silencer",
+      "file": "heroes/selection/silencer.png"
+    },
+    {
+      "abilityId": -74,
+      "name": "Invoker",
+      "shortName": "invoker",
+      "file": "heroes/selection/invoker.png"
+    },
+    {
+      "abilityId": -73,
+      "name": "Alchemist",
+      "shortName": "alchemist",
+      "file": "heroes/selection/alchemist.png"
+    },
+    {
+      "abilityId": -72,
+      "name": "Gyrocopter",
+      "shortName": "gyrocopter",
+      "file": "heroes/selection/gyrocopter.png"
+    },
+    {
+      "abilityId": -71,
+      "name": "Spirit Breaker",
+      "shortName": "spirit_breaker",
+      "file": "heroes/selection/spirit_breaker.png"
+    },
+    {
+      "abilityId": -70,
+      "name": "Ursa",
+      "shortName": "ursa",
+      "file": "heroes/selection/ursa.png"
+    },
+    {
+      "abilityId": -69,
+      "name": "Doom",
+      "shortName": "doom_bringer",
+      "file": "heroes/selection/doom_bringer.png"
+    },
+    {
+      "abilityId": -68,
+      "name": "Ancient Apparition",
+      "shortName": "ancient_apparition",
+      "file": "heroes/selection/ancient_apparition.png"
+    },
+    {
+      "abilityId": -67,
+      "name": "Spectre",
+      "shortName": "spectre",
+      "file": "heroes/selection/spectre.png"
+    },
+    {
+      "abilityId": -66,
+      "name": "Chen",
+      "shortName": "chen",
+      "file": "heroes/selection/chen.png"
+    },
+    {
+      "abilityId": -65,
+      "name": "Batrider",
+      "shortName": "batrider",
+      "file": "heroes/selection/batrider.png"
+    },
+    {
+      "abilityId": -64,
+      "name": "Jakiro",
+      "shortName": "jakiro",
+      "file": "heroes/selection/jakiro.png"
+    },
+    {
+      "abilityId": -63,
+      "name": "Weaver",
+      "shortName": "weaver",
+      "file": "heroes/selection/weaver.png"
+    },
+    {
+      "abilityId": -62,
+      "name": "Bounty Hunter",
+      "shortName": "bounty_hunter",
+      "file": "heroes/selection/bounty_hunter.png"
+    },
+    {
+      "abilityId": -61,
+      "name": "Broodmother",
+      "shortName": "broodmother",
+      "file": "heroes/selection/broodmother.png"
+    },
+    {
+      "abilityId": -60,
+      "name": "Night Stalker",
+      "shortName": "night_stalker",
+      "file": "heroes/selection/night_stalker.png"
+    },
+    {
+      "abilityId": -59,
+      "name": "Huskar",
+      "shortName": "huskar",
+      "file": "heroes/selection/huskar.png"
+    },
+    {
+      "abilityId": -58,
+      "name": "Enchantress",
+      "shortName": "enchantress",
+      "file": "heroes/selection/enchantress.png"
+    },
+    {
+      "abilityId": -57,
+      "name": "Omniknight",
+      "shortName": "omniknight",
+      "file": "heroes/selection/omniknight.png"
+    },
+    {
+      "abilityId": -56,
+      "name": "Clinkz",
+      "shortName": "clinkz",
+      "file": "heroes/selection/clinkz.png"
+    },
+    {
+      "abilityId": -55,
+      "name": "Dark Seer",
+      "shortName": "dark_seer",
+      "file": "heroes/selection/dark_seer.png"
+    },
+    {
+      "abilityId": -54,
+      "name": "Lifestealer",
+      "shortName": "life_stealer",
+      "file": "heroes/selection/life_stealer.png"
+    },
+    {
+      "abilityId": -53,
+      "name": "Nature's Prophet",
+      "shortName": "furion",
+      "file": "heroes/selection/furion.png"
+    },
+    {
+      "abilityId": -52,
+      "name": "Leshrac",
+      "shortName": "leshrac",
+      "file": "heroes/selection/leshrac.png"
+    },
+    {
+      "abilityId": -51,
+      "name": "Clockwerk",
+      "shortName": "rattletrap",
+      "file": "heroes/selection/rattletrap.png"
+    },
+    {
+      "abilityId": -50,
+      "name": "Dazzle",
+      "shortName": "dazzle",
+      "file": "heroes/selection/dazzle.png"
+    },
+    {
+      "abilityId": -49,
+      "name": "Dragon Knight",
+      "shortName": "dragon_knight",
+      "file": "heroes/selection/dragon_knight.png"
+    },
+    {
+      "abilityId": -48,
+      "name": "Luna",
+      "shortName": "luna",
+      "file": "heroes/selection/luna.png"
+    },
+    {
+      "abilityId": -47,
+      "name": "Viper",
+      "shortName": "viper",
+      "file": "heroes/selection/viper.png"
+    },
+    {
+      "abilityId": -46,
+      "name": "Templar Assassin",
+      "shortName": "templar_assassin",
+      "file": "heroes/selection/templar_assassin.png"
+    },
+    {
+      "abilityId": -45,
+      "name": "Pugna",
+      "shortName": "pugna",
+      "file": "heroes/selection/pugna.png"
+    },
+    {
+      "abilityId": -44,
+      "name": "Phantom Assassin",
+      "shortName": "phantom_assassin",
+      "file": "heroes/selection/phantom_assassin.png"
+    },
+    {
+      "abilityId": -43,
+      "name": "Death Prophet",
+      "shortName": "death_prophet",
+      "file": "heroes/selection/death_prophet.png"
+    },
+    {
+      "abilityId": -42,
+      "name": "Wraith King",
+      "shortName": "skeleton_king",
+      "file": "heroes/selection/skeleton_king.png"
+    },
+    {
+      "abilityId": -41,
+      "name": "Faceless Void",
+      "shortName": "faceless_void",
+      "file": "heroes/selection/faceless_void.png"
+    },
+    {
+      "abilityId": -40,
+      "name": "Venomancer",
+      "shortName": "venomancer",
+      "file": "heroes/selection/venomancer.png"
+    },
+    {
+      "abilityId": -39,
+      "name": "Queen of Pain",
+      "shortName": "queenofpain",
+      "file": "heroes/selection/queenofpain.png"
+    },
+    {
+      "abilityId": -38,
+      "name": "Beastmaster",
+      "shortName": "beastmaster",
+      "file": "heroes/selection/beastmaster.png"
+    },
+    {
+      "abilityId": -37,
+      "name": "Warlock",
+      "shortName": "warlock",
+      "file": "heroes/selection/warlock.png"
+    },
+    {
+      "abilityId": -36,
+      "name": "Necrophos",
+      "shortName": "necrolyte",
+      "file": "heroes/selection/necrolyte.png"
+    },
+    {
+      "abilityId": -35,
+      "name": "Sniper",
+      "shortName": "sniper",
+      "file": "heroes/selection/sniper.png"
+    },
+    {
+      "abilityId": -34,
+      "name": "Tinker",
+      "shortName": "tinker",
+      "file": "heroes/selection/tinker.png"
+    },
+    {
+      "abilityId": -33,
+      "name": "Enigma",
+      "shortName": "enigma",
+      "file": "heroes/selection/enigma.png"
+    },
+    {
+      "abilityId": -32,
+      "name": "Riki",
+      "shortName": "riki",
+      "file": "heroes/selection/riki.png"
+    },
+    {
+      "abilityId": -31,
+      "name": "Lich",
+      "shortName": "lich",
+      "file": "heroes/selection/lich.png"
+    },
+    {
+      "abilityId": -30,
+      "name": "Witch Doctor",
+      "shortName": "witch_doctor",
+      "file": "heroes/selection/witch_doctor.png"
+    },
+    {
+      "abilityId": -29,
+      "name": "Tidehunter",
+      "shortName": "tidehunter",
+      "file": "heroes/selection/tidehunter.png"
+    },
+    {
+      "abilityId": -28,
+      "name": "Slardar",
+      "shortName": "slardar",
+      "file": "heroes/selection/slardar.png"
+    },
+    {
+      "abilityId": -27,
+      "name": "Shadow Shaman",
+      "shortName": "shadow_shaman",
+      "file": "heroes/selection/shadow_shaman.png"
+    },
+    {
+      "abilityId": -26,
+      "name": "Lion",
+      "shortName": "lion",
+      "file": "heroes/selection/lion.png"
+    },
+    {
+      "abilityId": -25,
+      "name": "Lina",
+      "shortName": "lina",
+      "file": "heroes/selection/lina.png"
+    },
+    {
+      "abilityId": -23,
+      "name": "Kunkka",
+      "shortName": "kunkka",
+      "file": "heroes/selection/kunkka.png"
+    },
+    {
+      "abilityId": -22,
+      "name": "Zeus",
+      "shortName": "zuus",
+      "file": "heroes/selection/zuus.png"
+    },
+    {
+      "abilityId": -21,
+      "name": "Windranger",
+      "shortName": "windrunner",
+      "file": "heroes/selection/windrunner.png"
+    },
+    {
+      "abilityId": -20,
+      "name": "Vengeful Spirit",
+      "shortName": "vengefulspirit",
+      "file": "heroes/selection/vengefulspirit.png"
+    },
+    {
+      "abilityId": -19,
+      "name": "Tiny",
+      "shortName": "tiny",
+      "file": "heroes/selection/tiny.png"
+    },
+    {
+      "abilityId": -18,
+      "name": "Sven",
+      "shortName": "sven",
+      "file": "heroes/selection/sven.png"
+    },
+    {
+      "abilityId": -17,
+      "name": "Storm Spirit",
+      "shortName": "storm_spirit",
+      "file": "heroes/selection/storm_spirit.png"
+    },
+    {
+      "abilityId": -16,
+      "name": "Sand King",
+      "shortName": "sand_king",
+      "file": "heroes/selection/sand_king.png"
+    },
+    {
+      "abilityId": -15,
+      "name": "Razor",
+      "shortName": "razor",
+      "file": "heroes/selection/razor.png"
+    },
+    {
+      "abilityId": -14,
+      "name": "Pudge",
+      "shortName": "pudge",
+      "file": "heroes/selection/pudge.png"
+    },
+    {
+      "abilityId": -13,
+      "name": "Puck",
+      "shortName": "puck",
+      "file": "heroes/selection/puck.png"
+    },
+    {
+      "abilityId": -12,
+      "name": "Phantom Lancer",
+      "shortName": "phantom_lancer",
+      "file": "heroes/selection/phantom_lancer.png"
+    },
+    {
+      "abilityId": -11,
+      "name": "Shadow Fiend",
+      "shortName": "nevermore",
+      "file": "heroes/selection/nevermore.png"
+    },
+    {
+      "abilityId": -10,
+      "name": "Morphling",
+      "shortName": "morphling",
+      "file": "heroes/selection/morphling.png"
+    },
+    {
+      "abilityId": -9,
+      "name": "Mirana",
+      "shortName": "mirana",
+      "file": "heroes/selection/mirana.png"
+    },
+    {
+      "abilityId": -8,
+      "name": "Juggernaut",
+      "shortName": "juggernaut",
+      "file": "heroes/selection/juggernaut.png"
+    },
+    {
+      "abilityId": -7,
+      "name": "Earthshaker",
+      "shortName": "earthshaker",
+      "file": "heroes/selection/earthshaker.png"
+    },
+    {
+      "abilityId": -6,
+      "name": "Drow Ranger",
+      "shortName": "drow_ranger",
+      "file": "heroes/selection/drow_ranger.png"
+    },
+    {
+      "abilityId": -5,
+      "name": "Crystal Maiden",
+      "shortName": "crystal_maiden",
+      "file": "heroes/selection/crystal_maiden.png"
+    },
+    {
+      "abilityId": -4,
+      "name": "Bloodseeker",
+      "shortName": "bloodseeker",
+      "file": "heroes/selection/bloodseeker.png"
+    },
+    {
+      "abilityId": -3,
+      "name": "Bane",
+      "shortName": "bane",
+      "file": "heroes/selection/bane.png"
+    },
+    {
+      "abilityId": -2,
+      "name": "Axe",
+      "shortName": "axe",
+      "file": "heroes/selection/axe.png"
+    },
+    {
+      "abilityId": -1,
+      "name": "Anti-Mage",
+      "shortName": "antimage",
+      "file": "heroes/selection/antimage.png"
+    }
+  ]
+}

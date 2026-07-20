@@ -1,0 +1,34 @@
+{
+  "name": "dota2-omg-pick-analyzer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "sync:data": "tsx scripts/sync-windrun.ts",
+    "build:icons": "tsx scripts/build-icon-signatures.ts",
+    "build:hero-map": "tsx scripts/build-hero-selection-map.ts",
+    "cache:icons": "tsx scripts/cache-ability-icons.ts",
+    "verify:icons": "tsx scripts/verify-icon-signatures.ts"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "lucide-react": "latest",
+    "pngjs": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@types/node": "latest",
+    "@types/pngjs": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

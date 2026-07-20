@@ -1,0 +1,1 @@
+export const MAX_MATCH_CANDIDATES = 10

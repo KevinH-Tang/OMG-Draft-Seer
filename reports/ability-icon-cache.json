@@ -1,0 +1,4468 @@
+{
+  "version": 2,
+  "generatedAt": "2026-07-20T21:02:21.955Z",
+  "source": "Windrun DatDota CDN icon cache",
+  "count": 636,
+  "cached": 636,
+  "missing": 0,
+  "pruned": 344,
+  "categories": {
+    "heroes": 127,
+    "ultimates": 122,
+    "abilities": 387
+  },
+  "entries": [
+    {
+      "abilityId": -155,
+      "shortName": "largo",
+      "category": "hero",
+      "fileName": "hero-icons/-155.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -145,
+      "shortName": "kez",
+      "category": "hero",
+      "fileName": "hero-icons/-145.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -138,
+      "shortName": "muerta",
+      "category": "hero",
+      "fileName": "hero-icons/-138.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -137,
+      "shortName": "primal_beast",
+      "category": "hero",
+      "fileName": "hero-icons/-137.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -136,
+      "shortName": "marci",
+      "category": "hero",
+      "fileName": "hero-icons/-136.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -135,
+      "shortName": "dawnbreaker",
+      "category": "hero",
+      "fileName": "hero-icons/-135.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -131,
+      "shortName": "ringmaster",
+      "category": "hero",
+      "fileName": "hero-icons/-131.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -129,
+      "shortName": "mars",
+      "category": "hero",
+      "fileName": "hero-icons/-129.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -128,
+      "shortName": "snapfire",
+      "category": "hero",
+      "fileName": "hero-icons/-128.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -126,
+      "shortName": "void_spirit",
+      "category": "hero",
+      "fileName": "hero-icons/-126.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -123,
+      "shortName": "hoodwink",
+      "category": "hero",
+      "fileName": "hero-icons/-123.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -121,
+      "shortName": "grimstroke",
+      "category": "hero",
+      "fileName": "hero-icons/-121.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -120,
+      "shortName": "pangolier",
+      "category": "hero",
+      "fileName": "hero-icons/-120.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -119,
+      "shortName": "dark_willow",
+      "category": "hero",
+      "fileName": "hero-icons/-119.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -114,
+      "shortName": "monkey_king",
+      "category": "hero",
+      "fileName": "hero-icons/-114.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -113,
+      "shortName": "arc_warden",
+      "category": "hero",
+      "fileName": "hero-icons/-113.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -112,
+      "shortName": "winter_wyvern",
+      "category": "hero",
+      "fileName": "hero-icons/-112.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -111,
+      "shortName": "oracle",
+      "category": "hero",
+      "fileName": "hero-icons/-111.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -110,
+      "shortName": "phoenix",
+      "category": "hero",
+      "fileName": "hero-icons/-110.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -109,
+      "shortName": "terrorblade",
+      "category": "hero",
+      "fileName": "hero-icons/-109.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -108,
+      "shortName": "abyssal_underlord",
+      "category": "hero",
+      "fileName": "hero-icons/-108.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -107,
+      "shortName": "earth_spirit",
+      "category": "hero",
+      "fileName": "hero-icons/-107.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -106,
+      "shortName": "ember_spirit",
+      "category": "hero",
+      "fileName": "hero-icons/-106.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -105,
+      "shortName": "techies",
+      "category": "hero",
+      "fileName": "hero-icons/-105.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -104,
+      "shortName": "legion_commander",
+      "category": "hero",
+      "fileName": "hero-icons/-104.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -103,
+      "shortName": "elder_titan",
+      "category": "hero",
+      "fileName": "hero-icons/-103.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -102,
+      "shortName": "abaddon",
+      "category": "hero",
+      "fileName": "hero-icons/-102.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -101,
+      "shortName": "skywrath_mage",
+      "category": "hero",
+      "fileName": "hero-icons/-101.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -100,
+      "shortName": "tusk",
+      "category": "hero",
+      "fileName": "hero-icons/-100.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -99,
+      "shortName": "bristleback",
+      "category": "hero",
+      "fileName": "hero-icons/-99.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -98,
+      "shortName": "shredder",
+      "category": "hero",
+      "fileName": "hero-icons/-98.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -97,
+      "shortName": "magnataur",
+      "category": "hero",
+      "fileName": "hero-icons/-97.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -96,
+      "shortName": "centaur",
+      "category": "hero",
+      "fileName": "hero-icons/-96.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -95,
+      "shortName": "troll_warlord",
+      "category": "hero",
+      "fileName": "hero-icons/-95.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -94,
+      "shortName": "medusa",
+      "category": "hero",
+      "fileName": "hero-icons/-94.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -93,
+      "shortName": "slark",
+      "category": "hero",
+      "fileName": "hero-icons/-93.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -92,
+      "shortName": "visage",
+      "category": "hero",
+      "fileName": "hero-icons/-92.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -91,
+      "shortName": "wisp",
+      "category": "hero",
+      "fileName": "hero-icons/-91.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -90,
+      "shortName": "keeper_of_the_light",
+      "category": "hero",
+      "fileName": "hero-icons/-90.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -89,
+      "shortName": "naga_siren",
+      "category": "hero",
+      "fileName": "hero-icons/-89.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -88,
+      "shortName": "nyx_assassin",
+      "category": "hero",
+      "fileName": "hero-icons/-88.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -87,
+      "shortName": "disruptor",
+      "category": "hero",
+      "fileName": "hero-icons/-87.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -86,
+      "shortName": "rubick",
+      "category": "hero",
+      "fileName": "hero-icons/-86.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -85,
+      "shortName": "undying",
+      "category": "hero",
+      "fileName": "hero-icons/-85.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -84,
+      "shortName": "ogre_magi",
+      "category": "hero",
+      "fileName": "hero-icons/-84.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -83,
+      "shortName": "treant",
+      "category": "hero",
+      "fileName": "hero-icons/-83.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -82,
+      "shortName": "meepo",
+      "category": "hero",
+      "fileName": "hero-icons/-82.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -81,
+      "shortName": "chaos_knight",
+      "category": "hero",
+      "fileName": "hero-icons/-81.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -80,
+      "shortName": "lone_druid",
+      "category": "hero",
+      "fileName": "hero-icons/-80.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -79,
+      "shortName": "shadow_demon",
+      "category": "hero",
+      "fileName": "hero-icons/-79.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -78,
+      "shortName": "brewmaster",
+      "category": "hero",
+      "fileName": "hero-icons/-78.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -77,
+      "shortName": "lycan",
+      "category": "hero",
+      "fileName": "hero-icons/-77.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -76,
+      "shortName": "obsidian_destroyer",
+      "category": "hero",
+      "fileName": "hero-icons/-76.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -75,
+      "shortName": "silencer",
+      "category": "hero",
+      "fileName": "hero-icons/-75.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -74,
+      "shortName": "invoker",
+      "category": "hero",
+      "fileName": "hero-icons/-74.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -73,
+      "shortName": "alchemist",
+      "category": "hero",
+      "fileName": "hero-icons/-73.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -72,
+      "shortName": "gyrocopter",
+      "category": "hero",
+      "fileName": "hero-icons/-72.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -71,
+      "shortName": "spirit_breaker",
+      "category": "hero",
+      "fileName": "hero-icons/-71.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -70,
+      "shortName": "ursa",
+      "category": "hero",
+      "fileName": "hero-icons/-70.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -69,
+      "shortName": "doom_bringer",
+      "category": "hero",
+      "fileName": "hero-icons/-69.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -68,
+      "shortName": "ancient_apparition",
+      "category": "hero",
+      "fileName": "hero-icons/-68.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -67,
+      "shortName": "spectre",
+      "category": "hero",
+      "fileName": "hero-icons/-67.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -66,
+      "shortName": "chen",
+      "category": "hero",
+      "fileName": "hero-icons/-66.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -65,
+      "shortName": "batrider",
+      "category": "hero",
+      "fileName": "hero-icons/-65.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -64,
+      "shortName": "jakiro",
+      "category": "hero",
+      "fileName": "hero-icons/-64.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -63,
+      "shortName": "weaver",
+      "category": "hero",
+      "fileName": "hero-icons/-63.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -62,
+      "shortName": "bounty_hunter",
+      "category": "hero",
+      "fileName": "hero-icons/-62.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -61,
+      "shortName": "broodmother",
+      "category": "hero",
+      "fileName": "hero-icons/-61.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -60,
+      "shortName": "night_stalker",
+      "category": "hero",
+      "fileName": "hero-icons/-60.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -59,
+      "shortName": "huskar",
+      "category": "hero",
+      "fileName": "hero-icons/-59.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -58,
+      "shortName": "enchantress",
+      "category": "hero",
+      "fileName": "hero-icons/-58.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -57,
+      "shortName": "omniknight",
+      "category": "hero",
+      "fileName": "hero-icons/-57.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -56,
+      "shortName": "clinkz",
+      "category": "hero",
+      "fileName": "hero-icons/-56.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -55,
+      "shortName": "dark_seer",
+      "category": "hero",
+      "fileName": "hero-icons/-55.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -54,
+      "shortName": "life_stealer",
+      "category": "hero",
+      "fileName": "hero-icons/-54.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -53,
+      "shortName": "furion",
+      "category": "hero",
+      "fileName": "hero-icons/-53.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -52,
+      "shortName": "leshrac",
+      "category": "hero",
+      "fileName": "hero-icons/-52.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -51,
+      "shortName": "rattletrap",
+      "category": "hero",
+      "fileName": "hero-icons/-51.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -50,
+      "shortName": "dazzle",
+      "category": "hero",
+      "fileName": "hero-icons/-50.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -49,
+      "shortName": "dragon_knight",
+      "category": "hero",
+      "fileName": "hero-icons/-49.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -48,
+      "shortName": "luna",
+      "category": "hero",
+      "fileName": "hero-icons/-48.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -47,
+      "shortName": "viper",
+      "category": "hero",
+      "fileName": "hero-icons/-47.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -46,
+      "shortName": "templar_assassin",
+      "category": "hero",
+      "fileName": "hero-icons/-46.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -45,
+      "shortName": "pugna",
+      "category": "hero",
+      "fileName": "hero-icons/-45.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -44,
+      "shortName": "phantom_assassin",
+      "category": "hero",
+      "fileName": "hero-icons/-44.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -43,
+      "shortName": "death_prophet",
+      "category": "hero",
+      "fileName": "hero-icons/-43.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -42,
+      "shortName": "skeleton_king",
+      "category": "hero",
+      "fileName": "hero-icons/-42.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -41,
+      "shortName": "faceless_void",
+      "category": "hero",
+      "fileName": "hero-icons/-41.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -40,
+      "shortName": "venomancer",
+      "category": "hero",
+      "fileName": "hero-icons/-40.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -39,
+      "shortName": "queenofpain",
+      "category": "hero",
+      "fileName": "hero-icons/-39.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -38,
+      "shortName": "beastmaster",
+      "category": "hero",
+      "fileName": "hero-icons/-38.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -37,
+      "shortName": "warlock",
+      "category": "hero",
+      "fileName": "hero-icons/-37.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -36,
+      "shortName": "necrolyte",
+      "category": "hero",
+      "fileName": "hero-icons/-36.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -35,
+      "shortName": "sniper",
+      "category": "hero",
+      "fileName": "hero-icons/-35.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -34,
+      "shortName": "tinker",
+      "category": "hero",
+      "fileName": "hero-icons/-34.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -33,
+      "shortName": "enigma",
+      "category": "hero",
+      "fileName": "hero-icons/-33.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -32,
+      "shortName": "riki",
+      "category": "hero",
+      "fileName": "hero-icons/-32.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -31,
+      "shortName": "lich",
+      "category": "hero",
+      "fileName": "hero-icons/-31.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -30,
+      "shortName": "witch_doctor",
+      "category": "hero",
+      "fileName": "hero-icons/-30.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -29,
+      "shortName": "tidehunter",
+      "category": "hero",
+      "fileName": "hero-icons/-29.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -28,
+      "shortName": "slardar",
+      "category": "hero",
+      "fileName": "hero-icons/-28.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -27,
+      "shortName": "shadow_shaman",
+      "category": "hero",
+      "fileName": "hero-icons/-27.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -26,
+      "shortName": "lion",
+      "category": "hero",
+      "fileName": "hero-icons/-26.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -25,
+      "shortName": "lina",
+      "category": "hero",
+      "fileName": "hero-icons/-25.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -23,
+      "shortName": "kunkka",
+      "category": "hero",
+      "fileName": "hero-icons/-23.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -22,
+      "shortName": "zuus",
+      "category": "hero",
+      "fileName": "hero-icons/-22.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -21,
+      "shortName": "windrunner",
+      "category": "hero",
+      "fileName": "hero-icons/-21.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -20,
+      "shortName": "vengefulspirit",
+      "category": "hero",
+      "fileName": "hero-icons/-20.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -19,
+      "shortName": "tiny",
+      "category": "hero",
+      "fileName": "hero-icons/-19.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -18,
+      "shortName": "sven",
+      "category": "hero",
+      "fileName": "hero-icons/-18.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -17,
+      "shortName": "storm_spirit",
+      "category": "hero",
+      "fileName": "hero-icons/-17.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -16,
+      "shortName": "sand_king",
+      "category": "hero",
+      "fileName": "hero-icons/-16.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -15,
+      "shortName": "razor",
+      "category": "hero",
+      "fileName": "hero-icons/-15.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -14,
+      "shortName": "pudge",
+      "category": "hero",
+      "fileName": "hero-icons/-14.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -13,
+      "shortName": "puck",
+      "category": "hero",
+      "fileName": "hero-icons/-13.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -12,
+      "shortName": "phantom_lancer",
+      "category": "hero",
+      "fileName": "hero-icons/-12.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -11,
+      "shortName": "nevermore",
+      "category": "hero",
+      "fileName": "hero-icons/-11.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -10,
+      "shortName": "morphling",
+      "category": "hero",
+      "fileName": "hero-icons/-10.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -9,
+      "shortName": "mirana",
+      "category": "hero",
+      "fileName": "hero-icons/-9.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -8,
+      "shortName": "juggernaut",
+      "category": "hero",
+      "fileName": "hero-icons/-8.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -7,
+      "shortName": "earthshaker",
+      "category": "hero",
+      "fileName": "hero-icons/-7.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -6,
+      "shortName": "drow_ranger",
+      "category": "hero",
+      "fileName": "hero-icons/-6.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -5,
+      "shortName": "crystal_maiden",
+      "category": "hero",
+      "fileName": "hero-icons/-5.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -4,
+      "shortName": "bloodseeker",
+      "category": "hero",
+      "fileName": "hero-icons/-4.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -3,
+      "shortName": "bane",
+      "category": "hero",
+      "fileName": "hero-icons/-3.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -2,
+      "shortName": "axe",
+      "category": "hero",
+      "fileName": "hero-icons/-2.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": -1,
+      "shortName": "antimage",
+      "category": "hero",
+      "fileName": "hero-icons/-1.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 338,
+      "shortName": "treant_natures_grasp",
+      "category": "ability",
+      "fileName": "ability-icons/338.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 343,
+      "shortName": "drow_ranger_multishot",
+      "category": "ability",
+      "fileName": "ability-icons/343.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 352,
+      "shortName": "ringmaster_tame_the_beasts",
+      "category": "ability",
+      "fileName": "ability-icons/352.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 383,
+      "shortName": "ringmaster_the_box",
+      "category": "ability",
+      "fileName": "ability-icons/383.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 385,
+      "shortName": "ringmaster_wheel",
+      "category": "ultimate",
+      "fileName": "ability-icons/385.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 386,
+      "shortName": "ringmaster_impalement",
+      "category": "ability",
+      "fileName": "ability-icons/386.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 641,
+      "shortName": "zuus_heavenly_jump",
+      "category": "ability",
+      "fileName": "ability-icons/641.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 656,
+      "shortName": "omniknight_hammer_of_purity",
+      "category": "ability",
+      "fileName": "ability-icons/656.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 865,
+      "shortName": "abyssal_underlord_dark_portal",
+      "category": "ultimate",
+      "fileName": "ability-icons/865.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 879,
+      "shortName": "techies_sticky_bomb",
+      "category": "ability",
+      "fileName": "ability-icons/879.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 886,
+      "shortName": "techies_reactive_tazer",
+      "category": "ability",
+      "fileName": "ability-icons/886.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 895,
+      "shortName": "omniknight_martyr",
+      "category": "ability",
+      "fileName": "ability-icons/895.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 992,
+      "shortName": "primal_beast_onslaught",
+      "category": "ability",
+      "fileName": "ability-icons/992.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 994,
+      "shortName": "primal_beast_trample",
+      "category": "ability",
+      "fileName": "ability-icons/994.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 995,
+      "shortName": "primal_beast_uproar",
+      "category": "ability",
+      "fileName": "ability-icons/995.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 996,
+      "shortName": "primal_beast_pulverize",
+      "category": "ultimate",
+      "fileName": "ability-icons/996.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1001,
+      "shortName": "shadow_demon_disseminate",
+      "category": "ability",
+      "fileName": "ability-icons/1001.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1104,
+      "shortName": "nyx_assassin_jolt",
+      "category": "ability",
+      "fileName": "ability-icons/1104.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1105,
+      "shortName": "venomancer_noxious_plague",
+      "category": "ultimate",
+      "fileName": "ability-icons/1105.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1116,
+      "shortName": "alchemist_corrosive_weaponry",
+      "category": "ability",
+      "fileName": "ability-icons/1116.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1120,
+      "shortName": "clinkz_strafe",
+      "category": "ability",
+      "fileName": "ability-icons/1120.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1213,
+      "shortName": "mirana_invis",
+      "category": "ultimate",
+      "fileName": "ability-icons/1213.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1216,
+      "shortName": "nevermore_frenzy",
+      "category": "ability",
+      "fileName": "ability-icons/1216.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1221,
+      "shortName": "phantom_lancer_phantom_edge",
+      "category": "ability",
+      "fileName": "ability-icons/1221.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1224,
+      "shortName": "razor_storm_surge",
+      "category": "ability",
+      "fileName": "ability-icons/1224.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1229,
+      "shortName": "sandking_scorpion_strike",
+      "category": "ability",
+      "fileName": "ability-icons/1229.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1270,
+      "shortName": "necrolyte_ghost_shroud",
+      "category": "ability",
+      "fileName": "ability-icons/1270.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1287,
+      "shortName": "phantom_assassin_immaterial",
+      "category": "ability",
+      "fileName": "ability-icons/1287.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1314,
+      "shortName": "bounty_hunter_shuriken_toss",
+      "category": "ability",
+      "fileName": "ability-icons/1314.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1317,
+      "shortName": "jakiro_liquid_ice",
+      "category": "ability",
+      "fileName": "ability-icons/1317.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1392,
+      "shortName": "elder_titan_ancestral_spirit",
+      "category": "ability",
+      "fileName": "ability-icons/1392.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1416,
+      "shortName": "mars_arena_of_blood",
+      "category": "ultimate",
+      "fileName": "ability-icons/1416.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1427,
+      "shortName": "marci_bodyguard",
+      "category": "ability",
+      "fileName": "ability-icons/1427.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1462,
+      "shortName": "luna_lunar_orbit",
+      "category": "ability",
+      "fileName": "ability-icons/1462.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1475,
+      "shortName": "medusa_gorgon_grasp",
+      "category": "ability",
+      "fileName": "ability-icons/1475.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1498,
+      "shortName": "kez_echo_slash",
+      "category": "ability",
+      "fileName": "ability-icons/1498.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1499,
+      "shortName": "kez_grappling_claw",
+      "category": "ability",
+      "fileName": "ability-icons/1499.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1500,
+      "shortName": "kez_kazurai_katana",
+      "category": "ability",
+      "fileName": "ability-icons/1500.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1501,
+      "shortName": "kez_raptor_dance",
+      "category": "ultimate",
+      "fileName": "ability-icons/1501.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1517,
+      "shortName": "kez_falcon_rush_ad",
+      "category": "ability",
+      "fileName": "ability-icons/1517.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1518,
+      "shortName": "kez_talon_toss_ad",
+      "category": "ability",
+      "fileName": "ability-icons/1518.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1519,
+      "shortName": "kez_shodo_sai_ad",
+      "category": "ability",
+      "fileName": "ability-icons/1519.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1520,
+      "shortName": "kez_ravens_veil_ad",
+      "category": "ultimate",
+      "fileName": "ability-icons/1520.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1550,
+      "shortName": "dazzle_nothl_projection",
+      "category": "ultimate",
+      "fileName": "ability-icons/1550.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1659,
+      "shortName": "largo_catchy_lick",
+      "category": "ability",
+      "fileName": "ability-icons/1659.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1660,
+      "shortName": "largo_frogstomp",
+      "category": "ability",
+      "fileName": "ability-icons/1660.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1661,
+      "shortName": "largo_croak_of_genius",
+      "category": "ability",
+      "fileName": "ability-icons/1661.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1662,
+      "shortName": "largo_amphibian_rhapsody",
+      "category": "ultimate",
+      "fileName": "ability-icons/1662.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1679,
+      "shortName": "spectre_shadow_step",
+      "category": "ability",
+      "fileName": "ability-icons/1679.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1684,
+      "shortName": "lone_druid_entangle",
+      "category": "ability",
+      "fileName": "ability-icons/1684.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1693,
+      "shortName": "slark_saltwater_shiv",
+      "category": "ability",
+      "fileName": "ability-icons/1693.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1744,
+      "shortName": "tinker_deploy_turrets",
+      "category": "ability",
+      "fileName": "ability-icons/1744.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1749,
+      "shortName": "venomancer_snakebite",
+      "category": "ability",
+      "fileName": "ability-icons/1749.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 1752,
+      "shortName": "dragon_knight_wyrms_wrath",
+      "category": "ability",
+      "fileName": "ability-icons/1752.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5003,
+      "shortName": "antimage_mana_break",
+      "category": "ability",
+      "fileName": "ability-icons/5003.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5004,
+      "shortName": "antimage_blink",
+      "category": "ability",
+      "fileName": "ability-icons/5004.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5006,
+      "shortName": "antimage_mana_void",
+      "category": "ultimate",
+      "fileName": "ability-icons/5006.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5007,
+      "shortName": "axe_berserkers_call",
+      "category": "ability",
+      "fileName": "ability-icons/5007.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5008,
+      "shortName": "axe_battle_hunger",
+      "category": "ability",
+      "fileName": "ability-icons/5008.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5009,
+      "shortName": "axe_counter_helix",
+      "category": "ability",
+      "fileName": "ability-icons/5009.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5010,
+      "shortName": "axe_culling_blade",
+      "category": "ultimate",
+      "fileName": "ability-icons/5010.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5011,
+      "shortName": "bane_brain_sap",
+      "category": "ability",
+      "fileName": "ability-icons/5011.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5012,
+      "shortName": "bane_enfeeble",
+      "category": "ability",
+      "fileName": "ability-icons/5012.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5013,
+      "shortName": "bane_fiends_grip",
+      "category": "ultimate",
+      "fileName": "ability-icons/5013.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5014,
+      "shortName": "bane_nightmare",
+      "category": "ability",
+      "fileName": "ability-icons/5014.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5015,
+      "shortName": "bloodseeker_bloodrage",
+      "category": "ability",
+      "fileName": "ability-icons/5015.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5016,
+      "shortName": "bloodseeker_blood_bath",
+      "category": "ability",
+      "fileName": "ability-icons/5016.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5017,
+      "shortName": "bloodseeker_thirst",
+      "category": "ability",
+      "fileName": "ability-icons/5017.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5018,
+      "shortName": "bloodseeker_rupture",
+      "category": "ultimate",
+      "fileName": "ability-icons/5018.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5019,
+      "shortName": "drow_ranger_frost_arrows",
+      "category": "ability",
+      "fileName": "ability-icons/5019.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5022,
+      "shortName": "drow_ranger_marksmanship",
+      "category": "ultimate",
+      "fileName": "ability-icons/5022.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5023,
+      "shortName": "earthshaker_fissure",
+      "category": "ability",
+      "fileName": "ability-icons/5023.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5024,
+      "shortName": "earthshaker_enchant_totem",
+      "category": "ability",
+      "fileName": "ability-icons/5024.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5025,
+      "shortName": "earthshaker_aftershock",
+      "category": "ability",
+      "fileName": "ability-icons/5025.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5026,
+      "shortName": "earthshaker_echo_slam",
+      "category": "ultimate",
+      "fileName": "ability-icons/5026.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5027,
+      "shortName": "juggernaut_blade_dance",
+      "category": "ability",
+      "fileName": "ability-icons/5027.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5028,
+      "shortName": "juggernaut_blade_fury",
+      "category": "ability",
+      "fileName": "ability-icons/5028.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5029,
+      "shortName": "juggernaut_healing_ward",
+      "category": "ability",
+      "fileName": "ability-icons/5029.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5030,
+      "shortName": "juggernaut_omni_slash",
+      "category": "ultimate",
+      "fileName": "ability-icons/5030.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5031,
+      "shortName": "kunkka_torrent",
+      "category": "ability",
+      "fileName": "ability-icons/5031.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5032,
+      "shortName": "kunkka_tidebringer",
+      "category": "ability",
+      "fileName": "ability-icons/5032.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5033,
+      "shortName": "kunkka_x_marks_the_spot",
+      "category": "ability",
+      "fileName": "ability-icons/5033.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5035,
+      "shortName": "kunkka_ghostship",
+      "category": "ultimate",
+      "fileName": "ability-icons/5035.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5040,
+      "shortName": "lina_dragon_slave",
+      "category": "ability",
+      "fileName": "ability-icons/5040.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5041,
+      "shortName": "lina_light_strike_array",
+      "category": "ability",
+      "fileName": "ability-icons/5041.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5042,
+      "shortName": "lina_fiery_soul",
+      "category": "ability",
+      "fileName": "ability-icons/5042.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5043,
+      "shortName": "lina_laguna_blade",
+      "category": "ultimate",
+      "fileName": "ability-icons/5043.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5044,
+      "shortName": "lion_impale",
+      "category": "ability",
+      "fileName": "ability-icons/5044.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5045,
+      "shortName": "lion_voodoo",
+      "category": "ability",
+      "fileName": "ability-icons/5045.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5046,
+      "shortName": "lion_mana_drain",
+      "category": "ability",
+      "fileName": "ability-icons/5046.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5047,
+      "shortName": "lion_finger_of_death",
+      "category": "ultimate",
+      "fileName": "ability-icons/5047.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5048,
+      "shortName": "mirana_arrow",
+      "category": "ability",
+      "fileName": "ability-icons/5048.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5050,
+      "shortName": "mirana_leap",
+      "category": "ability",
+      "fileName": "ability-icons/5050.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5051,
+      "shortName": "mirana_starfall",
+      "category": "ability",
+      "fileName": "ability-icons/5051.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5052,
+      "shortName": "morphling_waveform",
+      "category": "ability",
+      "fileName": "ability-icons/5052.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5053,
+      "shortName": "morphling_adaptive_strike_agi",
+      "category": "ability",
+      "fileName": "ability-icons/5053.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5060,
+      "shortName": "nevermore_shadowraze2",
+      "category": "ability",
+      "fileName": "ability-icons/5060.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5063,
+      "shortName": "nevermore_dark_lord",
+      "category": "ability",
+      "fileName": "ability-icons/5063.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5064,
+      "shortName": "nevermore_requiem",
+      "category": "ultimate",
+      "fileName": "ability-icons/5064.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5065,
+      "shortName": "phantom_lancer_spirit_lance",
+      "category": "ability",
+      "fileName": "ability-icons/5065.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5066,
+      "shortName": "phantom_lancer_doppelwalk",
+      "category": "ability",
+      "fileName": "ability-icons/5066.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5067,
+      "shortName": "phantom_lancer_juxtapose",
+      "category": "ultimate",
+      "fileName": "ability-icons/5067.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5069,
+      "shortName": "puck_illusory_orb",
+      "category": "ability",
+      "fileName": "ability-icons/5069.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5071,
+      "shortName": "puck_waning_rift",
+      "category": "ability",
+      "fileName": "ability-icons/5071.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5072,
+      "shortName": "puck_phase_shift",
+      "category": "ability",
+      "fileName": "ability-icons/5072.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5073,
+      "shortName": "puck_dream_coil",
+      "category": "ultimate",
+      "fileName": "ability-icons/5073.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5074,
+      "shortName": "pudge_flesh_heap",
+      "category": "ability",
+      "fileName": "ability-icons/5074.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5075,
+      "shortName": "pudge_meat_hook",
+      "category": "ability",
+      "fileName": "ability-icons/5075.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5076,
+      "shortName": "pudge_rot",
+      "category": "ability",
+      "fileName": "ability-icons/5076.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5077,
+      "shortName": "pudge_dismember",
+      "category": "ultimate",
+      "fileName": "ability-icons/5077.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5078,
+      "shortName": "shadow_shaman_ether_shock",
+      "category": "ability",
+      "fileName": "ability-icons/5078.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5079,
+      "shortName": "shadow_shaman_voodoo",
+      "category": "ability",
+      "fileName": "ability-icons/5079.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5080,
+      "shortName": "shadow_shaman_shackles",
+      "category": "ability",
+      "fileName": "ability-icons/5080.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5081,
+      "shortName": "shadow_shaman_mass_serpent_ward",
+      "category": "ultimate",
+      "fileName": "ability-icons/5081.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5082,
+      "shortName": "razor_plasma_field",
+      "category": "ability",
+      "fileName": "ability-icons/5082.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5083,
+      "shortName": "razor_static_link",
+      "category": "ability",
+      "fileName": "ability-icons/5083.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5085,
+      "shortName": "razor_eye_of_the_storm",
+      "category": "ultimate",
+      "fileName": "ability-icons/5085.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5086,
+      "shortName": "skeleton_king_hellfire_blast",
+      "category": "ability",
+      "fileName": "ability-icons/5086.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5088,
+      "shortName": "skeleton_king_mortal_strike",
+      "category": "ability",
+      "fileName": "ability-icons/5088.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5089,
+      "shortName": "skeleton_king_reincarnation",
+      "category": "ultimate",
+      "fileName": "ability-icons/5089.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5090,
+      "shortName": "death_prophet_carrion_swarm",
+      "category": "ability",
+      "fileName": "ability-icons/5090.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5091,
+      "shortName": "death_prophet_silence",
+      "category": "ability",
+      "fileName": "ability-icons/5091.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5093,
+      "shortName": "death_prophet_exorcism",
+      "category": "ultimate",
+      "fileName": "ability-icons/5093.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5094,
+      "shortName": "sven_storm_bolt",
+      "category": "ability",
+      "fileName": "ability-icons/5094.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5095,
+      "shortName": "sven_great_cleave",
+      "category": "ability",
+      "fileName": "ability-icons/5095.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5096,
+      "shortName": "sven_warcry",
+      "category": "ability",
+      "fileName": "ability-icons/5096.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5097,
+      "shortName": "sven_gods_strength",
+      "category": "ultimate",
+      "fileName": "ability-icons/5097.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5098,
+      "shortName": "storm_spirit_static_remnant",
+      "category": "ability",
+      "fileName": "ability-icons/5098.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5099,
+      "shortName": "storm_spirit_electric_vortex",
+      "category": "ability",
+      "fileName": "ability-icons/5099.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5100,
+      "shortName": "storm_spirit_overload",
+      "category": "ability",
+      "fileName": "ability-icons/5100.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5101,
+      "shortName": "storm_spirit_ball_lightning",
+      "category": "ultimate",
+      "fileName": "ability-icons/5101.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5102,
+      "shortName": "sandking_burrowstrike",
+      "category": "ability",
+      "fileName": "ability-icons/5102.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5103,
+      "shortName": "sandking_sand_storm",
+      "category": "ability",
+      "fileName": "ability-icons/5103.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5105,
+      "shortName": "sandking_epicenter",
+      "category": "ultimate",
+      "fileName": "ability-icons/5105.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5106,
+      "shortName": "tiny_avalanche",
+      "category": "ability",
+      "fileName": "ability-icons/5106.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5107,
+      "shortName": "tiny_toss",
+      "category": "ability",
+      "fileName": "ability-icons/5107.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5108,
+      "shortName": "tiny_tree_grab",
+      "category": "ability",
+      "fileName": "ability-icons/5108.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5109,
+      "shortName": "tiny_grow",
+      "category": "ultimate",
+      "fileName": "ability-icons/5109.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5110,
+      "shortName": "zuus_arc_lightning",
+      "category": "ability",
+      "fileName": "ability-icons/5110.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5111,
+      "shortName": "zuus_lightning_bolt",
+      "category": "ability",
+      "fileName": "ability-icons/5111.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5113,
+      "shortName": "zuus_thundergods_wrath",
+      "category": "ultimate",
+      "fileName": "ability-icons/5113.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5114,
+      "shortName": "slardar_sprint",
+      "category": "ability",
+      "fileName": "ability-icons/5114.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5115,
+      "shortName": "slardar_slithereen_crush",
+      "category": "ability",
+      "fileName": "ability-icons/5115.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5116,
+      "shortName": "slardar_bash",
+      "category": "ability",
+      "fileName": "ability-icons/5116.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5117,
+      "shortName": "slardar_amplify_damage",
+      "category": "ultimate",
+      "fileName": "ability-icons/5117.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5118,
+      "shortName": "tidehunter_gush",
+      "category": "ability",
+      "fileName": "ability-icons/5118.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5119,
+      "shortName": "tidehunter_kraken_shell",
+      "category": "ability",
+      "fileName": "ability-icons/5119.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5120,
+      "shortName": "tidehunter_anchor_smash",
+      "category": "ability",
+      "fileName": "ability-icons/5120.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5121,
+      "shortName": "tidehunter_ravage",
+      "category": "ultimate",
+      "fileName": "ability-icons/5121.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5122,
+      "shortName": "vengefulspirit_magic_missile",
+      "category": "ability",
+      "fileName": "ability-icons/5122.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5123,
+      "shortName": "vengefulspirit_command_aura",
+      "category": "ability",
+      "fileName": "ability-icons/5123.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5124,
+      "shortName": "vengefulspirit_wave_of_terror",
+      "category": "ability",
+      "fileName": "ability-icons/5124.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5125,
+      "shortName": "vengefulspirit_nether_swap",
+      "category": "ultimate",
+      "fileName": "ability-icons/5125.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5126,
+      "shortName": "crystal_maiden_crystal_nova",
+      "category": "ability",
+      "fileName": "ability-icons/5126.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5127,
+      "shortName": "crystal_maiden_frostbite",
+      "category": "ability",
+      "fileName": "ability-icons/5127.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5129,
+      "shortName": "crystal_maiden_freezing_field",
+      "category": "ultimate",
+      "fileName": "ability-icons/5129.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5130,
+      "shortName": "windrunner_shackleshot",
+      "category": "ability",
+      "fileName": "ability-icons/5130.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5131,
+      "shortName": "windrunner_powershot",
+      "category": "ability",
+      "fileName": "ability-icons/5131.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5132,
+      "shortName": "windrunner_windrun",
+      "category": "ability",
+      "fileName": "ability-icons/5132.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5133,
+      "shortName": "windrunner_focusfire",
+      "category": "ultimate",
+      "fileName": "ability-icons/5133.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5134,
+      "shortName": "lich_frost_nova",
+      "category": "ability",
+      "fileName": "ability-icons/5134.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5136,
+      "shortName": "lich_frost_shield",
+      "category": "ability",
+      "fileName": "ability-icons/5136.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5137,
+      "shortName": "lich_chain_frost",
+      "category": "ultimate",
+      "fileName": "ability-icons/5137.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5138,
+      "shortName": "witch_doctor_paralyzing_cask",
+      "category": "ability",
+      "fileName": "ability-icons/5138.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5139,
+      "shortName": "witch_doctor_voodoo_restoration",
+      "category": "ability",
+      "fileName": "ability-icons/5139.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5140,
+      "shortName": "witch_doctor_maledict",
+      "category": "ability",
+      "fileName": "ability-icons/5140.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5141,
+      "shortName": "witch_doctor_death_ward",
+      "category": "ultimate",
+      "fileName": "ability-icons/5141.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5142,
+      "shortName": "riki_smoke_screen",
+      "category": "ability",
+      "fileName": "ability-icons/5142.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5143,
+      "shortName": "riki_blink_strike",
+      "category": "ability",
+      "fileName": "ability-icons/5143.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5144,
+      "shortName": "riki_backstab",
+      "category": "ultimate",
+      "fileName": "ability-icons/5144.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5145,
+      "shortName": "riki_tricks_of_the_trade",
+      "category": "ability",
+      "fileName": "ability-icons/5145.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5146,
+      "shortName": "enigma_malefice",
+      "category": "ability",
+      "fileName": "ability-icons/5146.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5147,
+      "shortName": "enigma_demonic_conversion",
+      "category": "ability",
+      "fileName": "ability-icons/5147.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5148,
+      "shortName": "enigma_midnight_pulse",
+      "category": "ability",
+      "fileName": "ability-icons/5148.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5149,
+      "shortName": "enigma_black_hole",
+      "category": "ultimate",
+      "fileName": "ability-icons/5149.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5150,
+      "shortName": "tinker_laser",
+      "category": "ability",
+      "fileName": "ability-icons/5150.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5152,
+      "shortName": "tinker_march_of_the_machines",
+      "category": "ability",
+      "fileName": "ability-icons/5152.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5153,
+      "shortName": "tinker_rearm",
+      "category": "ultimate",
+      "fileName": "ability-icons/5153.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5154,
+      "shortName": "sniper_shrapnel",
+      "category": "ability",
+      "fileName": "ability-icons/5154.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5155,
+      "shortName": "sniper_headshot",
+      "category": "ability",
+      "fileName": "ability-icons/5155.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5156,
+      "shortName": "sniper_take_aim",
+      "category": "ability",
+      "fileName": "ability-icons/5156.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5157,
+      "shortName": "sniper_assassinate",
+      "category": "ultimate",
+      "fileName": "ability-icons/5157.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5158,
+      "shortName": "necrolyte_death_pulse",
+      "category": "ability",
+      "fileName": "ability-icons/5158.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5159,
+      "shortName": "necrolyte_heartstopper_aura",
+      "category": "ability",
+      "fileName": "ability-icons/5159.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5161,
+      "shortName": "necrolyte_reapers_scythe",
+      "category": "ultimate",
+      "fileName": "ability-icons/5161.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5162,
+      "shortName": "warlock_fatal_bonds",
+      "category": "ability",
+      "fileName": "ability-icons/5162.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5163,
+      "shortName": "warlock_shadow_word",
+      "category": "ability",
+      "fileName": "ability-icons/5163.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5164,
+      "shortName": "warlock_upheaval",
+      "category": "ability",
+      "fileName": "ability-icons/5164.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5165,
+      "shortName": "warlock_rain_of_chaos",
+      "category": "ultimate",
+      "fileName": "ability-icons/5165.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5168,
+      "shortName": "beastmaster_wild_axes",
+      "category": "ability",
+      "fileName": "ability-icons/5168.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5173,
+      "shortName": "queenofpain_shadow_strike",
+      "category": "ability",
+      "fileName": "ability-icons/5173.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5174,
+      "shortName": "queenofpain_blink",
+      "category": "ability",
+      "fileName": "ability-icons/5174.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5175,
+      "shortName": "queenofpain_scream_of_pain",
+      "category": "ability",
+      "fileName": "ability-icons/5175.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5176,
+      "shortName": "queenofpain_sonic_wave",
+      "category": "ultimate",
+      "fileName": "ability-icons/5176.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5177,
+      "shortName": "beastmaster_primal_roar",
+      "category": "ultimate",
+      "fileName": "ability-icons/5177.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5178,
+      "shortName": "venomancer_venomous_gale",
+      "category": "ability",
+      "fileName": "ability-icons/5178.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5180,
+      "shortName": "venomancer_plague_ward",
+      "category": "ability",
+      "fileName": "ability-icons/5180.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5182,
+      "shortName": "faceless_void_time_walk",
+      "category": "ability",
+      "fileName": "ability-icons/5182.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5184,
+      "shortName": "faceless_void_time_lock",
+      "category": "ability",
+      "fileName": "ability-icons/5184.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5185,
+      "shortName": "faceless_void_chronosphere",
+      "category": "ultimate",
+      "fileName": "ability-icons/5185.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5186,
+      "shortName": "pugna_nether_blast",
+      "category": "ability",
+      "fileName": "ability-icons/5186.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5187,
+      "shortName": "pugna_decrepify",
+      "category": "ability",
+      "fileName": "ability-icons/5187.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5188,
+      "shortName": "pugna_nether_ward",
+      "category": "ability",
+      "fileName": "ability-icons/5188.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5189,
+      "shortName": "pugna_life_drain",
+      "category": "ultimate",
+      "fileName": "ability-icons/5189.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5190,
+      "shortName": "phantom_assassin_stifling_dagger",
+      "category": "ability",
+      "fileName": "ability-icons/5190.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5191,
+      "shortName": "phantom_assassin_phantom_strike",
+      "category": "ability",
+      "fileName": "ability-icons/5191.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5193,
+      "shortName": "phantom_assassin_coup_de_grace",
+      "category": "ultimate",
+      "fileName": "ability-icons/5193.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5194,
+      "shortName": "templar_assassin_refraction",
+      "category": "ability",
+      "fileName": "ability-icons/5194.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5195,
+      "shortName": "templar_assassin_meld",
+      "category": "ability",
+      "fileName": "ability-icons/5195.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5196,
+      "shortName": "templar_assassin_psi_blades",
+      "category": "ability",
+      "fileName": "ability-icons/5196.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5197,
+      "shortName": "templar_assassin_psionic_trap",
+      "category": "ultimate",
+      "fileName": "ability-icons/5197.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5218,
+      "shortName": "viper_poison_attack",
+      "category": "ability",
+      "fileName": "ability-icons/5218.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5219,
+      "shortName": "viper_nethertoxin",
+      "category": "ability",
+      "fileName": "ability-icons/5219.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5220,
+      "shortName": "viper_corrosive_skin",
+      "category": "ability",
+      "fileName": "ability-icons/5220.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5221,
+      "shortName": "viper_viper_strike",
+      "category": "ultimate",
+      "fileName": "ability-icons/5221.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5222,
+      "shortName": "luna_lucent_beam",
+      "category": "ability",
+      "fileName": "ability-icons/5222.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5223,
+      "shortName": "luna_moon_glaive",
+      "category": "ability",
+      "fileName": "ability-icons/5223.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5225,
+      "shortName": "luna_eclipse",
+      "category": "ultimate",
+      "fileName": "ability-icons/5225.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5226,
+      "shortName": "dragon_knight_breathe_fire",
+      "category": "ability",
+      "fileName": "ability-icons/5226.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5227,
+      "shortName": "dragon_knight_dragon_tail",
+      "category": "ability",
+      "fileName": "ability-icons/5227.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5229,
+      "shortName": "dragon_knight_elder_dragon_form",
+      "category": "ultimate",
+      "fileName": "ability-icons/5229.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5233,
+      "shortName": "dazzle_poison_touch",
+      "category": "ability",
+      "fileName": "ability-icons/5233.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5234,
+      "shortName": "dazzle_shallow_grave",
+      "category": "ability",
+      "fileName": "ability-icons/5234.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5235,
+      "shortName": "dazzle_shadow_wave",
+      "category": "ability",
+      "fileName": "ability-icons/5235.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5237,
+      "shortName": "rattletrap_battery_assault",
+      "category": "ability",
+      "fileName": "ability-icons/5237.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5238,
+      "shortName": "rattletrap_power_cogs",
+      "category": "ability",
+      "fileName": "ability-icons/5238.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5239,
+      "shortName": "rattletrap_rocket_flare",
+      "category": "ability",
+      "fileName": "ability-icons/5239.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5240,
+      "shortName": "rattletrap_hookshot",
+      "category": "ultimate",
+      "fileName": "ability-icons/5240.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5241,
+      "shortName": "leshrac_split_earth",
+      "category": "ability",
+      "fileName": "ability-icons/5241.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5242,
+      "shortName": "leshrac_diabolic_edict",
+      "category": "ability",
+      "fileName": "ability-icons/5242.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5243,
+      "shortName": "leshrac_lightning_storm",
+      "category": "ability",
+      "fileName": "ability-icons/5243.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5244,
+      "shortName": "leshrac_pulse_nova",
+      "category": "ultimate",
+      "fileName": "ability-icons/5244.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5245,
+      "shortName": "furion_sprout",
+      "category": "ability",
+      "fileName": "ability-icons/5245.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5246,
+      "shortName": "furion_teleportation",
+      "category": "ability",
+      "fileName": "ability-icons/5246.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5247,
+      "shortName": "furion_force_of_nature",
+      "category": "ability",
+      "fileName": "ability-icons/5247.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5248,
+      "shortName": "furion_wrath_of_nature",
+      "category": "ultimate",
+      "fileName": "ability-icons/5248.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5249,
+      "shortName": "life_stealer_rage",
+      "category": "ability",
+      "fileName": "ability-icons/5249.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5250,
+      "shortName": "life_stealer_feast",
+      "category": "ability",
+      "fileName": "ability-icons/5250.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5251,
+      "shortName": "life_stealer_open_wounds",
+      "category": "ability",
+      "fileName": "ability-icons/5251.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5252,
+      "shortName": "life_stealer_infest",
+      "category": "ultimate",
+      "fileName": "ability-icons/5252.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5255,
+      "shortName": "dark_seer_vacuum",
+      "category": "ability",
+      "fileName": "ability-icons/5255.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5256,
+      "shortName": "dark_seer_ion_shell",
+      "category": "ability",
+      "fileName": "ability-icons/5256.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5257,
+      "shortName": "dark_seer_surge",
+      "category": "ability",
+      "fileName": "ability-icons/5257.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5258,
+      "shortName": "dark_seer_wall_of_replica",
+      "category": "ultimate",
+      "fileName": "ability-icons/5258.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5260,
+      "shortName": "clinkz_searing_arrows",
+      "category": "ability",
+      "fileName": "ability-icons/5260.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5261,
+      "shortName": "clinkz_wind_walk",
+      "category": "ultimate",
+      "fileName": "ability-icons/5261.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5262,
+      "shortName": "clinkz_death_pact",
+      "category": "ability",
+      "fileName": "ability-icons/5262.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5263,
+      "shortName": "omniknight_purification",
+      "category": "ability",
+      "fileName": "ability-icons/5263.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5266,
+      "shortName": "omniknight_guardian_angel",
+      "category": "ultimate",
+      "fileName": "ability-icons/5266.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5267,
+      "shortName": "enchantress_untouchable",
+      "category": "ultimate",
+      "fileName": "ability-icons/5267.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5268,
+      "shortName": "enchantress_enchant",
+      "category": "ability",
+      "fileName": "ability-icons/5268.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5269,
+      "shortName": "enchantress_natures_attendants",
+      "category": "ability",
+      "fileName": "ability-icons/5269.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5270,
+      "shortName": "enchantress_impetus",
+      "category": "ability",
+      "fileName": "ability-icons/5270.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5272,
+      "shortName": "huskar_burning_spear",
+      "category": "ability",
+      "fileName": "ability-icons/5272.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5273,
+      "shortName": "huskar_berserkers_blood",
+      "category": "ability",
+      "fileName": "ability-icons/5273.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5274,
+      "shortName": "huskar_life_break",
+      "category": "ultimate",
+      "fileName": "ability-icons/5274.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5275,
+      "shortName": "night_stalker_void",
+      "category": "ability",
+      "fileName": "ability-icons/5275.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5276,
+      "shortName": "night_stalker_crippling_fear",
+      "category": "ability",
+      "fileName": "ability-icons/5276.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5278,
+      "shortName": "night_stalker_darkness",
+      "category": "ultimate",
+      "fileName": "ability-icons/5278.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5279,
+      "shortName": "broodmother_spawn_spiderlings",
+      "category": "ultimate",
+      "fileName": "ability-icons/5279.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5280,
+      "shortName": "broodmother_spin_web",
+      "category": "ability",
+      "fileName": "ability-icons/5280.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5281,
+      "shortName": "broodmother_incapacitating_bite",
+      "category": "ability",
+      "fileName": "ability-icons/5281.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5282,
+      "shortName": "broodmother_insatiable_hunger",
+      "category": "ability",
+      "fileName": "ability-icons/5282.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5286,
+      "shortName": "bounty_hunter_jinada",
+      "category": "ability",
+      "fileName": "ability-icons/5286.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5287,
+      "shortName": "bounty_hunter_wind_walk",
+      "category": "ability",
+      "fileName": "ability-icons/5287.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5288,
+      "shortName": "bounty_hunter_track",
+      "category": "ultimate",
+      "fileName": "ability-icons/5288.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5289,
+      "shortName": "weaver_the_swarm",
+      "category": "ability",
+      "fileName": "ability-icons/5289.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5290,
+      "shortName": "weaver_shukuchi",
+      "category": "ability",
+      "fileName": "ability-icons/5290.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5291,
+      "shortName": "weaver_geminate_attack",
+      "category": "ability",
+      "fileName": "ability-icons/5291.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5292,
+      "shortName": "weaver_time_lapse",
+      "category": "ultimate",
+      "fileName": "ability-icons/5292.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5297,
+      "shortName": "jakiro_dual_breath",
+      "category": "ability",
+      "fileName": "ability-icons/5297.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5298,
+      "shortName": "jakiro_ice_path",
+      "category": "ability",
+      "fileName": "ability-icons/5298.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5299,
+      "shortName": "jakiro_liquid_fire",
+      "category": "ability",
+      "fileName": "ability-icons/5299.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5300,
+      "shortName": "jakiro_macropyre",
+      "category": "ultimate",
+      "fileName": "ability-icons/5300.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5320,
+      "shortName": "batrider_sticky_napalm",
+      "category": "ability",
+      "fileName": "ability-icons/5320.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5321,
+      "shortName": "batrider_flamebreak",
+      "category": "ability",
+      "fileName": "ability-icons/5321.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5322,
+      "shortName": "batrider_firefly",
+      "category": "ability",
+      "fileName": "ability-icons/5322.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5323,
+      "shortName": "batrider_flaming_lasso",
+      "category": "ultimate",
+      "fileName": "ability-icons/5323.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5328,
+      "shortName": "chen_penitence",
+      "category": "ability",
+      "fileName": "ability-icons/5328.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5330,
+      "shortName": "chen_holy_persuasion",
+      "category": "ability",
+      "fileName": "ability-icons/5330.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5331,
+      "shortName": "chen_hand_of_god",
+      "category": "ultimate",
+      "fileName": "ability-icons/5331.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5334,
+      "shortName": "spectre_spectral_dagger",
+      "category": "ability",
+      "fileName": "ability-icons/5334.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5336,
+      "shortName": "spectre_dispersion",
+      "category": "ability",
+      "fileName": "ability-icons/5336.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5337,
+      "shortName": "spectre_haunt",
+      "category": "ultimate",
+      "fileName": "ability-icons/5337.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5339,
+      "shortName": "doom_bringer_devour",
+      "category": "ability",
+      "fileName": "ability-icons/5339.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5340,
+      "shortName": "doom_bringer_scorched_earth",
+      "category": "ability",
+      "fileName": "ability-icons/5340.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5341,
+      "shortName": "doom_bringer_infernal_blade",
+      "category": "ability",
+      "fileName": "ability-icons/5341.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5342,
+      "shortName": "doom_bringer_doom",
+      "category": "ultimate",
+      "fileName": "ability-icons/5342.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5345,
+      "shortName": "ancient_apparition_cold_feet",
+      "category": "ability",
+      "fileName": "ability-icons/5345.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5346,
+      "shortName": "ancient_apparition_ice_vortex",
+      "category": "ability",
+      "fileName": "ability-icons/5346.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5347,
+      "shortName": "ancient_apparition_chilling_touch",
+      "category": "ability",
+      "fileName": "ability-icons/5347.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5348,
+      "shortName": "ancient_apparition_ice_blast",
+      "category": "ultimate",
+      "fileName": "ability-icons/5348.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5353,
+      "shortName": "spirit_breaker_charge_of_darkness",
+      "category": "ability",
+      "fileName": "ability-icons/5353.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5355,
+      "shortName": "spirit_breaker_greater_bash",
+      "category": "ability",
+      "fileName": "ability-icons/5355.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5356,
+      "shortName": "spirit_breaker_nether_strike",
+      "category": "ultimate",
+      "fileName": "ability-icons/5356.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5357,
+      "shortName": "ursa_earthshock",
+      "category": "ability",
+      "fileName": "ability-icons/5357.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5358,
+      "shortName": "ursa_overpower",
+      "category": "ability",
+      "fileName": "ability-icons/5358.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5359,
+      "shortName": "ursa_fury_swipes",
+      "category": "ability",
+      "fileName": "ability-icons/5359.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5360,
+      "shortName": "ursa_enrage",
+      "category": "ultimate",
+      "fileName": "ability-icons/5360.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5361,
+      "shortName": "gyrocopter_rocket_barrage",
+      "category": "ability",
+      "fileName": "ability-icons/5361.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5362,
+      "shortName": "gyrocopter_homing_missile",
+      "category": "ability",
+      "fileName": "ability-icons/5362.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5363,
+      "shortName": "gyrocopter_flak_cannon",
+      "category": "ability",
+      "fileName": "ability-icons/5363.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5364,
+      "shortName": "gyrocopter_call_down",
+      "category": "ultimate",
+      "fileName": "ability-icons/5364.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5365,
+      "shortName": "alchemist_acid_spray",
+      "category": "ability",
+      "fileName": "ability-icons/5365.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5366,
+      "shortName": "alchemist_unstable_concoction",
+      "category": "ability",
+      "fileName": "ability-icons/5366.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5369,
+      "shortName": "alchemist_chemical_rage",
+      "category": "ultimate",
+      "fileName": "ability-icons/5369.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5377,
+      "shortName": "silencer_curse_of_the_silent",
+      "category": "ability",
+      "fileName": "ability-icons/5377.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5378,
+      "shortName": "silencer_glaives_of_wisdom",
+      "category": "ability",
+      "fileName": "ability-icons/5378.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5379,
+      "shortName": "silencer_last_word",
+      "category": "ability",
+      "fileName": "ability-icons/5379.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5380,
+      "shortName": "silencer_global_silence",
+      "category": "ultimate",
+      "fileName": "ability-icons/5380.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5391,
+      "shortName": "obsidian_destroyer_arcane_orb",
+      "category": "ability",
+      "fileName": "ability-icons/5391.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5392,
+      "shortName": "obsidian_destroyer_astral_imprisonment",
+      "category": "ability",
+      "fileName": "ability-icons/5392.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5394,
+      "shortName": "obsidian_destroyer_sanity_eclipse",
+      "category": "ultimate",
+      "fileName": "ability-icons/5394.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5395,
+      "shortName": "lycan_summon_wolves",
+      "category": "ability",
+      "fileName": "ability-icons/5395.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5396,
+      "shortName": "lycan_howl",
+      "category": "ability",
+      "fileName": "ability-icons/5396.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5397,
+      "shortName": "lycan_feral_impulse",
+      "category": "ability",
+      "fileName": "ability-icons/5397.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5398,
+      "shortName": "lycan_shapeshift",
+      "category": "ultimate",
+      "fileName": "ability-icons/5398.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5400,
+      "shortName": "brewmaster_thunder_clap",
+      "category": "ability",
+      "fileName": "ability-icons/5400.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5402,
+      "shortName": "brewmaster_drunken_brawler",
+      "category": "ability",
+      "fileName": "ability-icons/5402.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5403,
+      "shortName": "brewmaster_primal_split",
+      "category": "ultimate",
+      "fileName": "ability-icons/5403.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5414,
+      "shortName": "lone_druid_savage_roar",
+      "category": "ability",
+      "fileName": "ability-icons/5414.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5415,
+      "shortName": "lone_druid_true_form",
+      "category": "ultimate",
+      "fileName": "ability-icons/5415.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5421,
+      "shortName": "shadow_demon_disruption",
+      "category": "ability",
+      "fileName": "ability-icons/5421.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5423,
+      "shortName": "shadow_demon_shadow_poison",
+      "category": "ability",
+      "fileName": "ability-icons/5423.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5425,
+      "shortName": "shadow_demon_demonic_purge",
+      "category": "ultimate",
+      "fileName": "ability-icons/5425.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5426,
+      "shortName": "chaos_knight_chaos_bolt",
+      "category": "ability",
+      "fileName": "ability-icons/5426.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5427,
+      "shortName": "chaos_knight_reality_rift",
+      "category": "ability",
+      "fileName": "ability-icons/5427.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5428,
+      "shortName": "chaos_knight_chaos_strike",
+      "category": "ability",
+      "fileName": "ability-icons/5428.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5429,
+      "shortName": "chaos_knight_phantasm",
+      "category": "ultimate",
+      "fileName": "ability-icons/5429.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5430,
+      "shortName": "meepo_earthbind",
+      "category": "ability",
+      "fileName": "ability-icons/5430.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5431,
+      "shortName": "meepo_poof",
+      "category": "ability",
+      "fileName": "ability-icons/5431.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5435,
+      "shortName": "treant_leech_seed",
+      "category": "ability",
+      "fileName": "ability-icons/5435.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5436,
+      "shortName": "treant_living_armor",
+      "category": "ability",
+      "fileName": "ability-icons/5436.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5437,
+      "shortName": "treant_overgrowth",
+      "category": "ultimate",
+      "fileName": "ability-icons/5437.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5438,
+      "shortName": "ogre_magi_fireblast",
+      "category": "ability",
+      "fileName": "ability-icons/5438.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5439,
+      "shortName": "ogre_magi_ignite",
+      "category": "ability",
+      "fileName": "ability-icons/5439.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5440,
+      "shortName": "ogre_magi_bloodlust",
+      "category": "ability",
+      "fileName": "ability-icons/5440.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5442,
+      "shortName": "undying_decay",
+      "category": "ability",
+      "fileName": "ability-icons/5442.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5443,
+      "shortName": "undying_soul_rip",
+      "category": "ability",
+      "fileName": "ability-icons/5443.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5444,
+      "shortName": "undying_tombstone",
+      "category": "ability",
+      "fileName": "ability-icons/5444.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5447,
+      "shortName": "undying_flesh_golem",
+      "category": "ultimate",
+      "fileName": "ability-icons/5447.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5448,
+      "shortName": "rubick_telekinesis",
+      "category": "ability",
+      "fileName": "ability-icons/5448.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5450,
+      "shortName": "rubick_fade_bolt",
+      "category": "ability",
+      "fileName": "ability-icons/5450.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5458,
+      "shortName": "disruptor_thunder_strike",
+      "category": "ability",
+      "fileName": "ability-icons/5458.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5459,
+      "shortName": "disruptor_glimpse",
+      "category": "ability",
+      "fileName": "ability-icons/5459.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5460,
+      "shortName": "disruptor_kinetic_field",
+      "category": "ability",
+      "fileName": "ability-icons/5460.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5461,
+      "shortName": "disruptor_static_storm",
+      "category": "ultimate",
+      "fileName": "ability-icons/5461.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5462,
+      "shortName": "nyx_assassin_impale",
+      "category": "ability",
+      "fileName": "ability-icons/5462.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5464,
+      "shortName": "nyx_assassin_spiked_carapace",
+      "category": "ability",
+      "fileName": "ability-icons/5464.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5465,
+      "shortName": "nyx_assassin_vendetta",
+      "category": "ultimate",
+      "fileName": "ability-icons/5465.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5467,
+      "shortName": "naga_siren_mirror_image",
+      "category": "ability",
+      "fileName": "ability-icons/5467.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5468,
+      "shortName": "naga_siren_ensnare",
+      "category": "ability",
+      "fileName": "ability-icons/5468.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5469,
+      "shortName": "naga_siren_rip_tide",
+      "category": "ability",
+      "fileName": "ability-icons/5469.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5470,
+      "shortName": "naga_siren_song_of_the_siren",
+      "category": "ultimate",
+      "fileName": "ability-icons/5470.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5471,
+      "shortName": "keeper_of_the_light_illuminate",
+      "category": "ability",
+      "fileName": "ability-icons/5471.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5473,
+      "shortName": "keeper_of_the_light_chakra_magic",
+      "category": "ability",
+      "fileName": "ability-icons/5473.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5474,
+      "shortName": "keeper_of_the_light_spirit_form",
+      "category": "ultimate",
+      "fileName": "ability-icons/5474.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5476,
+      "shortName": "keeper_of_the_light_blinding_light",
+      "category": "ability",
+      "fileName": "ability-icons/5476.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5480,
+      "shortName": "visage_grave_chill",
+      "category": "ability",
+      "fileName": "ability-icons/5480.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5481,
+      "shortName": "visage_soul_assumption",
+      "category": "ability",
+      "fileName": "ability-icons/5481.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5482,
+      "shortName": "visage_gravekeepers_cloak",
+      "category": "ability",
+      "fileName": "ability-icons/5482.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5483,
+      "shortName": "visage_summon_familiars",
+      "category": "ultimate",
+      "fileName": "ability-icons/5483.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5485,
+      "shortName": "wisp_tether",
+      "category": "ability",
+      "fileName": "ability-icons/5485.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5486,
+      "shortName": "wisp_spirits",
+      "category": "ability",
+      "fileName": "ability-icons/5486.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5487,
+      "shortName": "wisp_overcharge",
+      "category": "ability",
+      "fileName": "ability-icons/5487.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5488,
+      "shortName": "wisp_relocate",
+      "category": "ultimate",
+      "fileName": "ability-icons/5488.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5494,
+      "shortName": "slark_dark_pact",
+      "category": "ability",
+      "fileName": "ability-icons/5494.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5495,
+      "shortName": "slark_pounce",
+      "category": "ability",
+      "fileName": "ability-icons/5495.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5497,
+      "shortName": "slark_shadow_dance",
+      "category": "ultimate",
+      "fileName": "ability-icons/5497.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5504,
+      "shortName": "medusa_split_shot",
+      "category": "ability",
+      "fileName": "ability-icons/5504.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5505,
+      "shortName": "medusa_mystic_snake",
+      "category": "ability",
+      "fileName": "ability-icons/5505.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5507,
+      "shortName": "medusa_stone_gaze",
+      "category": "ultimate",
+      "fileName": "ability-icons/5507.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5509,
+      "shortName": "troll_warlord_whirling_axes_ranged",
+      "category": "ability",
+      "fileName": "ability-icons/5509.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5510,
+      "shortName": "troll_warlord_whirling_axes_melee",
+      "category": "ability",
+      "fileName": "ability-icons/5510.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5511,
+      "shortName": "troll_warlord_fervor",
+      "category": "ability",
+      "fileName": "ability-icons/5511.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5512,
+      "shortName": "troll_warlord_battle_trance",
+      "category": "ultimate",
+      "fileName": "ability-icons/5512.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5514,
+      "shortName": "centaur_hoof_stomp",
+      "category": "ability",
+      "fileName": "ability-icons/5514.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5515,
+      "shortName": "centaur_double_edge",
+      "category": "ability",
+      "fileName": "ability-icons/5515.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5516,
+      "shortName": "centaur_return",
+      "category": "ability",
+      "fileName": "ability-icons/5516.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5517,
+      "shortName": "centaur_stampede",
+      "category": "ultimate",
+      "fileName": "ability-icons/5517.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5518,
+      "shortName": "magnataur_shockwave",
+      "category": "ability",
+      "fileName": "ability-icons/5518.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5519,
+      "shortName": "magnataur_empower",
+      "category": "ability",
+      "fileName": "ability-icons/5519.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5520,
+      "shortName": "magnataur_skewer",
+      "category": "ability",
+      "fileName": "ability-icons/5520.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5521,
+      "shortName": "magnataur_reverse_polarity",
+      "category": "ultimate",
+      "fileName": "ability-icons/5521.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5524,
+      "shortName": "shredder_whirling_death",
+      "category": "ability",
+      "fileName": "ability-icons/5524.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5525,
+      "shortName": "shredder_timber_chain",
+      "category": "ability",
+      "fileName": "ability-icons/5525.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5526,
+      "shortName": "shredder_reactive_armor",
+      "category": "ability",
+      "fileName": "ability-icons/5526.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5527,
+      "shortName": "shredder_chakram",
+      "category": "ultimate",
+      "fileName": "ability-icons/5527.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5548,
+      "shortName": "bristleback_viscous_nasal_goo",
+      "category": "ability",
+      "fileName": "ability-icons/5548.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5549,
+      "shortName": "bristleback_quill_spray",
+      "category": "ability",
+      "fileName": "ability-icons/5549.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5550,
+      "shortName": "bristleback_bristleback",
+      "category": "ability",
+      "fileName": "ability-icons/5550.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5551,
+      "shortName": "bristleback_warpath",
+      "category": "ultimate",
+      "fileName": "ability-icons/5551.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5565,
+      "shortName": "tusk_ice_shards",
+      "category": "ability",
+      "fileName": "ability-icons/5565.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5566,
+      "shortName": "tusk_snowball",
+      "category": "ability",
+      "fileName": "ability-icons/5566.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5568,
+      "shortName": "tusk_walrus_punch",
+      "category": "ultimate",
+      "fileName": "ability-icons/5568.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5581,
+      "shortName": "skywrath_mage_arcane_bolt",
+      "category": "ability",
+      "fileName": "ability-icons/5581.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5582,
+      "shortName": "skywrath_mage_concussive_shot",
+      "category": "ability",
+      "fileName": "ability-icons/5582.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5583,
+      "shortName": "skywrath_mage_ancient_seal",
+      "category": "ability",
+      "fileName": "ability-icons/5583.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5584,
+      "shortName": "skywrath_mage_mystic_flare",
+      "category": "ultimate",
+      "fileName": "ability-icons/5584.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5585,
+      "shortName": "abaddon_death_coil",
+      "category": "ability",
+      "fileName": "ability-icons/5585.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5586,
+      "shortName": "abaddon_aphotic_shield",
+      "category": "ability",
+      "fileName": "ability-icons/5586.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5587,
+      "shortName": "abaddon_frostmourne",
+      "category": "ability",
+      "fileName": "ability-icons/5587.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5588,
+      "shortName": "abaddon_borrowed_time",
+      "category": "ultimate",
+      "fileName": "ability-icons/5588.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5589,
+      "shortName": "elder_titan_echo_stomp",
+      "category": "ability",
+      "fileName": "ability-icons/5589.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5593,
+      "shortName": "elder_titan_natural_order",
+      "category": "ability",
+      "fileName": "ability-icons/5593.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5594,
+      "shortName": "elder_titan_earth_splitter",
+      "category": "ultimate",
+      "fileName": "ability-icons/5594.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5595,
+      "shortName": "legion_commander_overwhelming_odds",
+      "category": "ability",
+      "fileName": "ability-icons/5595.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5596,
+      "shortName": "legion_commander_press_the_attack",
+      "category": "ability",
+      "fileName": "ability-icons/5596.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5597,
+      "shortName": "legion_commander_moment_of_courage",
+      "category": "ability",
+      "fileName": "ability-icons/5597.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5598,
+      "shortName": "legion_commander_duel",
+      "category": "ultimate",
+      "fileName": "ability-icons/5598.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5599,
+      "shortName": "techies_land_mines",
+      "category": "ultimate",
+      "fileName": "ability-icons/5599.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5601,
+      "shortName": "techies_suicide",
+      "category": "ability",
+      "fileName": "ability-icons/5601.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5603,
+      "shortName": "ember_spirit_searing_chains",
+      "category": "ability",
+      "fileName": "ability-icons/5603.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5604,
+      "shortName": "ember_spirit_sleight_of_fist",
+      "category": "ability",
+      "fileName": "ability-icons/5604.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5605,
+      "shortName": "ember_spirit_flame_guard",
+      "category": "ability",
+      "fileName": "ability-icons/5605.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5606,
+      "shortName": "ember_spirit_fire_remnant",
+      "category": "ultimate",
+      "fileName": "ability-icons/5606.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5608,
+      "shortName": "earth_spirit_boulder_smash",
+      "category": "ability",
+      "fileName": "ability-icons/5608.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5609,
+      "shortName": "earth_spirit_rolling_boulder",
+      "category": "ability",
+      "fileName": "ability-icons/5609.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5610,
+      "shortName": "earth_spirit_geomagnetic_grip",
+      "category": "ability",
+      "fileName": "ability-icons/5610.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5612,
+      "shortName": "earth_spirit_magnetize",
+      "category": "ultimate",
+      "fileName": "ability-icons/5612.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5613,
+      "shortName": "abyssal_underlord_firestorm",
+      "category": "ability",
+      "fileName": "ability-icons/5613.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5614,
+      "shortName": "abyssal_underlord_pit_of_malice",
+      "category": "ability",
+      "fileName": "ability-icons/5614.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5615,
+      "shortName": "abyssal_underlord_atrophy_aura",
+      "category": "ability",
+      "fileName": "ability-icons/5615.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5619,
+      "shortName": "terrorblade_reflection",
+      "category": "ability",
+      "fileName": "ability-icons/5619.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5620,
+      "shortName": "terrorblade_conjure_image",
+      "category": "ability",
+      "fileName": "ability-icons/5620.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5621,
+      "shortName": "terrorblade_metamorphosis",
+      "category": "ability",
+      "fileName": "ability-icons/5621.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5622,
+      "shortName": "terrorblade_sunder",
+      "category": "ultimate",
+      "fileName": "ability-icons/5622.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5623,
+      "shortName": "phoenix_icarus_dive",
+      "category": "ability",
+      "fileName": "ability-icons/5623.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5625,
+      "shortName": "phoenix_fire_spirits",
+      "category": "ability",
+      "fileName": "ability-icons/5625.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5626,
+      "shortName": "phoenix_sun_ray",
+      "category": "ability",
+      "fileName": "ability-icons/5626.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5630,
+      "shortName": "phoenix_supernova",
+      "category": "ultimate",
+      "fileName": "ability-icons/5630.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5632,
+      "shortName": "drow_ranger_wave_of_silence",
+      "category": "ability",
+      "fileName": "ability-icons/5632.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5637,
+      "shortName": "oracle_fortunes_end",
+      "category": "ability",
+      "fileName": "ability-icons/5637.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5638,
+      "shortName": "oracle_fates_edict",
+      "category": "ability",
+      "fileName": "ability-icons/5638.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5639,
+      "shortName": "oracle_purifying_flames",
+      "category": "ability",
+      "fileName": "ability-icons/5639.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5640,
+      "shortName": "oracle_false_promise",
+      "category": "ultimate",
+      "fileName": "ability-icons/5640.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5651,
+      "shortName": "winter_wyvern_arctic_burn",
+      "category": "ability",
+      "fileName": "ability-icons/5651.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5652,
+      "shortName": "winter_wyvern_splinter_blast",
+      "category": "ability",
+      "fileName": "ability-icons/5652.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5653,
+      "shortName": "winter_wyvern_cold_embrace",
+      "category": "ability",
+      "fileName": "ability-icons/5653.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5654,
+      "shortName": "winter_wyvern_winters_curse",
+      "category": "ultimate",
+      "fileName": "ability-icons/5654.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5677,
+      "shortName": "arc_warden_flux",
+      "category": "ability",
+      "fileName": "ability-icons/5677.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5678,
+      "shortName": "arc_warden_magnetic_field",
+      "category": "ability",
+      "fileName": "ability-icons/5678.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5679,
+      "shortName": "arc_warden_spark_wraith",
+      "category": "ability",
+      "fileName": "ability-icons/5679.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5685,
+      "shortName": "death_prophet_spirit_siphon",
+      "category": "ability",
+      "fileName": "ability-icons/5685.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5691,
+      "shortName": "faceless_void_time_dilation",
+      "category": "ability",
+      "fileName": "ability-icons/5691.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5716,
+      "shortName": "monkey_king_boundless_strike",
+      "category": "ability",
+      "fileName": "ability-icons/5716.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5721,
+      "shortName": "monkey_king_tree_dance",
+      "category": "ability",
+      "fileName": "ability-icons/5721.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5723,
+      "shortName": "monkey_king_jingu_mastery",
+      "category": "ability",
+      "fileName": "ability-icons/5723.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5725,
+      "shortName": "monkey_king_wukongs_command",
+      "category": "ultimate",
+      "fileName": "ability-icons/5725.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5751,
+      "shortName": "muerta_dead_shot",
+      "category": "ability",
+      "fileName": "ability-icons/5751.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5752,
+      "shortName": "muerta_the_calling",
+      "category": "ability",
+      "fileName": "ability-icons/5752.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5753,
+      "shortName": "muerta_gunslinger",
+      "category": "ability",
+      "fileName": "ability-icons/5753.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 5754,
+      "shortName": "muerta_pierce_the_veil",
+      "category": "ultimate",
+      "fileName": "ability-icons/5754.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6339,
+      "shortName": "dark_willow_bramble_maze",
+      "category": "ability",
+      "fileName": "ability-icons/6339.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6341,
+      "shortName": "dark_willow_shadow_realm",
+      "category": "ability",
+      "fileName": "ability-icons/6341.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6342,
+      "shortName": "dark_willow_cursed_crown",
+      "category": "ability",
+      "fileName": "ability-icons/6342.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6343,
+      "shortName": "pangolier_gyroshell",
+      "category": "ultimate",
+      "fileName": "ability-icons/6343.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6344,
+      "shortName": "pangolier_swashbuckle",
+      "category": "ability",
+      "fileName": "ability-icons/6344.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6461,
+      "shortName": "pangolier_shield_crash",
+      "category": "ability",
+      "fileName": "ability-icons/6461.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6470,
+      "shortName": "void_spirit_dissimilate",
+      "category": "ability",
+      "fileName": "ability-icons/6470.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6480,
+      "shortName": "snapfire_scatterblast",
+      "category": "ability",
+      "fileName": "ability-icons/6480.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6482,
+      "shortName": "snapfire_mortimer_kisses",
+      "category": "ultimate",
+      "fileName": "ability-icons/6482.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6483,
+      "shortName": "snapfire_firesnap_cookie",
+      "category": "ability",
+      "fileName": "ability-icons/6483.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6488,
+      "shortName": "snapfire_lil_shredder",
+      "category": "ability",
+      "fileName": "ability-icons/6488.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6491,
+      "shortName": "grimstroke_soul_chain",
+      "category": "ultimate",
+      "fileName": "ability-icons/6491.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6495,
+      "shortName": "mars_gods_rebuke",
+      "category": "ability",
+      "fileName": "ability-icons/6495.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6582,
+      "shortName": "mars_bulwark",
+      "category": "ability",
+      "fileName": "ability-icons/6582.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 6583,
+      "shortName": "mars_spear",
+      "category": "ability",
+      "fileName": "ability-icons/6583.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7230,
+      "shortName": "beastmaster_summon_razorback",
+      "category": "ability",
+      "fileName": "ability-icons/7230.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7231,
+      "shortName": "beastmaster_summon_raptor",
+      "category": "ability",
+      "fileName": "ability-icons/7231.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7300,
+      "shortName": "huskar_inner_fire",
+      "category": "ability",
+      "fileName": "ability-icons/7300.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7301,
+      "shortName": "spirit_breaker_bulldoze",
+      "category": "ability",
+      "fileName": "ability-icons/7301.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7306,
+      "shortName": "chen_divine_favor",
+      "category": "ability",
+      "fileName": "ability-icons/7306.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7307,
+      "shortName": "pangolier_lucky_shot",
+      "category": "ability",
+      "fileName": "ability-icons/7307.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7309,
+      "shortName": "lone_druid_spirit_link",
+      "category": "ability",
+      "fileName": "ability-icons/7309.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7310,
+      "shortName": "brewmaster_cinder_brew",
+      "category": "ability",
+      "fileName": "ability-icons/7310.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7314,
+      "shortName": "antimage_counterspell",
+      "category": "ability",
+      "fileName": "ability-icons/7314.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7318,
+      "shortName": "meepo_ransack",
+      "category": "ability",
+      "fileName": "ability-icons/7318.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7320,
+      "shortName": "rubick_arcane_supremacy",
+      "category": "ability",
+      "fileName": "ability-icons/7320.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7322,
+      "shortName": "tusk_tag_team",
+      "category": "ability",
+      "fileName": "ability-icons/7322.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7325,
+      "shortName": "lich_sinister_gaze",
+      "category": "ability",
+      "fileName": "ability-icons/7325.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7701,
+      "shortName": "void_spirit_aether_remnant",
+      "category": "ability",
+      "fileName": "ability-icons/7701.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7705,
+      "shortName": "void_spirit_astral_step",
+      "category": "ultimate",
+      "fileName": "ability-icons/7705.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7710,
+      "shortName": "void_spirit_resonant_pulse",
+      "category": "ability",
+      "fileName": "ability-icons/7710.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7836,
+      "shortName": "invoker_cold_snap_ad",
+      "category": "ability",
+      "fileName": "ability-icons/7836.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7837,
+      "shortName": "invoker_ghost_walk_ad",
+      "category": "ability",
+      "fileName": "ability-icons/7837.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7838,
+      "shortName": "invoker_tornado_ad",
+      "category": "ability",
+      "fileName": "ability-icons/7838.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7839,
+      "shortName": "invoker_emp_ad",
+      "category": "ability",
+      "fileName": "ability-icons/7839.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7840,
+      "shortName": "invoker_alacrity_ad",
+      "category": "ability",
+      "fileName": "ability-icons/7840.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7841,
+      "shortName": "invoker_sun_strike_ad",
+      "category": "ability",
+      "fileName": "ability-icons/7841.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7842,
+      "shortName": "invoker_forge_spirit_ad",
+      "category": "ability",
+      "fileName": "ability-icons/7842.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7843,
+      "shortName": "invoker_chaos_meteor_ad",
+      "category": "ability",
+      "fileName": "ability-icons/7843.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7844,
+      "shortName": "invoker_ice_wall_ad",
+      "category": "ability",
+      "fileName": "ability-icons/7844.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7845,
+      "shortName": "invoker_deafening_blast_ad",
+      "category": "ability",
+      "fileName": "ability-icons/7845.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7902,
+      "shortName": "dawnbreaker_fire_wreath",
+      "category": "ability",
+      "fileName": "ability-icons/7902.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7906,
+      "shortName": "dawnbreaker_solar_guardian",
+      "category": "ultimate",
+      "fileName": "ability-icons/7906.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7914,
+      "shortName": "dawnbreaker_celestial_hammer",
+      "category": "ability",
+      "fileName": "ability-icons/7914.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 7918,
+      "shortName": "dawnbreaker_luminosity",
+      "category": "ability",
+      "fileName": "ability-icons/7918.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 8000,
+      "shortName": "grimstroke_dark_artistry",
+      "category": "ability",
+      "fileName": "ability-icons/8000.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 8006,
+      "shortName": "grimstroke_ink_creature",
+      "category": "ability",
+      "fileName": "ability-icons/8006.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 8007,
+      "shortName": "grimstroke_spirit_walk",
+      "category": "ability",
+      "fileName": "ability-icons/8007.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 8106,
+      "shortName": "hoodwink_sharpshooter",
+      "category": "ultimate",
+      "fileName": "ability-icons/8106.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 8158,
+      "shortName": "hoodwink_bushwhack",
+      "category": "ability",
+      "fileName": "ability-icons/8158.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 8192,
+      "shortName": "marci_grapple",
+      "category": "ability",
+      "fileName": "ability-icons/8192.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 8198,
+      "shortName": "marci_unleash",
+      "category": "ultimate",
+      "fileName": "ability-icons/8198.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 8235,
+      "shortName": "marci_companion_run",
+      "category": "ability",
+      "fileName": "ability-icons/8235.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 8340,
+      "shortName": "dark_willow_terrorize",
+      "category": "ultimate",
+      "fileName": "ability-icons/8340.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 8429,
+      "shortName": "hoodwink_acorn_shot",
+      "category": "ability",
+      "fileName": "ability-icons/8429.png",
+      "status": "cached"
+    },
+    {
+      "abilityId": 9501,
+      "shortName": "hoodwink_scurry",
+      "category": "ability",
+      "fileName": "ability-icons/9501.png",
+      "status": "cached"
+    }
+  ]
+}
