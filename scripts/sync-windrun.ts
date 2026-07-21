@@ -20,11 +20,12 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 async function main() {
-  const [abilityResponse, heroResponse, statsResponse, pairsResponse] = await Promise.all([
+  const [abilityResponse, heroResponse, statsResponse, pairsResponse, tripletsResponse] = await Promise.all([
     getJson<{ data: RemoteAbility[] }>('/static/abilities'),
     getJson<{ data: RemoteHero[] | Record<string, RemoteHero> }>('/static/heroes'),
-    getJson<{ data: { abilityStats: { abilityId: number; numPicks: number; avgPickPosition: number; wins: number }[]; patches?: { overall?: string[] } } }>('/abilities'),
+    getJson<{ data: { abilityStats: { abilityId: number; numPicks: number; avgPickPosition: number; wins: number }[]; abilityValuations?: Record<string, number>; patches?: { overall?: string[] } } }>('/abilities'),
     getJson<{ data: { abilityPairs: { abilityIdOne: number; abilityIdTwo: number; numPicks: number; wins: number }[] } }>('/ability-pairs'),
+    getJson<{ data: { abilityTriplets: { abilityIdOne: number; abilityIdTwo: number; abilityIdThree: number; numPicks: number; wins: number }[] } }>('/ability-triplets'),
   ])
   const heroes = Array.isArray(heroResponse.data) ? heroResponse.data : Object.values(heroResponse.data)
   const snapshot = {
@@ -44,7 +45,9 @@ async function main() {
     ],
     heroes: heroes.map((item) => ({ id: item.id, name: item.englishName ?? item.name ?? `Hero ${item.id}`, primaryAttribute: item.primaryAttribute ?? 'uni' })),
     abilityStats: statsResponse.data.abilityStats.map((item) => ({ abilityId: item.abilityId, picks: item.numPicks, avgPickPosition: item.avgPickPosition, wins: item.wins })),
+    abilityValuations: statsResponse.data.abilityValuations ?? {},
     pairStats: pairsResponse.data.abilityPairs.map((item) => ({ abilityIdOne: item.abilityIdOne, abilityIdTwo: item.abilityIdTwo, picks: item.numPicks, wins: item.wins })),
+    tripletStats: tripletsResponse.data.abilityTriplets.map((item) => ({ abilityIdOne: item.abilityIdOne, abilityIdTwo: item.abilityIdTwo, abilityIdThree: item.abilityIdThree, picks: item.numPicks, wins: item.wins })),
   }
   await mkdir(dirname(output), { recursive: true })
   const temporary = `${output}.tmp`

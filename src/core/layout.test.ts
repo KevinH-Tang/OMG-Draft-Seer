@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { clampRectToCanvas, cropCenter, FIXED_SLOT_LAYOUT, FIXED_SLOT_RECTS, slotLabel, SUPPORTED_HEIGHT, SUPPORTED_WIDTH, ULTIMATE_SLOT_ORDER, validateScreenshotDimensions } from './layout'
+import { clampRectToCanvas, cropCenter, DEFAULT_LAYOUT_DOCUMENT, FIXED_SLOT_LAYOUT, FIXED_SLOT_RECTS, scaleLayoutToCanvas, slotLabel, SUPPORTED_HEIGHT, SUPPORTED_WIDTH, ULTIMATE_SLOT_ORDER, validateScreenshotDimensions } from './layout'
 
-describe('fixed screenshot layout', () => {
+describe('default screenshot layout', () => {
   it('contains 12 heroes, 36 normal skills and 12 ultimate skills inside the image', () => {
+    expect(DEFAULT_LAYOUT_DOCUMENT.width).toBe(SUPPORTED_WIDTH)
+    expect(DEFAULT_LAYOUT_DOCUMENT.height).toBe(SUPPORTED_HEIGHT)
     expect(FIXED_SLOT_RECTS).toHaveLength(60)
     expect(FIXED_SLOT_LAYOUT.filter((slot) => slot.category === 'hero')).toHaveLength(12)
     expect(FIXED_SLOT_LAYOUT.filter((slot) => slot.category === 'normal')).toHaveLength(36)
@@ -36,9 +38,24 @@ describe('fixed screenshot layout', () => {
     ])
   })
 
-  it('rejects all dimensions except 2560 by 1440', () => {
+  it('accepts positive input dimensions for layout scaling', () => {
     expect(validateScreenshotDimensions(2560, 1440)).toBeNull()
-    expect(validateScreenshotDimensions(1920, 1080)).toContain('2560×1440')
+    expect(validateScreenshotDimensions(1920, 1080)).toBeNull()
+    expect(validateScreenshotDimensions(0, 1080)).toContain('尺寸无效')
+  })
+
+  it('scales the JSON layout to the input image dimensions', () => {
+    const scaled = scaleLayoutToCanvas(FIXED_SLOT_LAYOUT, SUPPORTED_WIDTH, SUPPORTED_HEIGHT, 1280, 720)
+
+    expect(scaled[0]).toEqual({
+      category: 'hero',
+      rect: { x: 407, y: 224, width: 54, height: 40 },
+    })
+    expect(scaled).toHaveLength(60)
+    for (const slot of scaled) {
+      expect(slot.rect.x + slot.rect.width).toBeLessThanOrEqual(1280)
+      expect(slot.rect.y + slot.rect.height).toBeLessThanOrEqual(720)
+    }
   })
 
   it('crops the center without escaping its slot', () => {

@@ -1,3 +1,4 @@
+import defaultLayoutJson from '../../omg-layout-2560x1440.json'
 import type { Rect, SlotCategory } from '../types'
 
 export const SUPPORTED_WIDTH = 2560
@@ -9,57 +10,58 @@ export interface FixedSlot {
   rect: Rect
 }
 
-export interface LayoutProfile {
-  cellWidth: number
-  cellHeight: number
-  ultimateX: number
-  ultimateY: number
-  ultimateColumnGap: number
-  ultimateRowGap: number
-  boardY: number
-  boardRowGap: number
-  heroLeftX: number
-  normalX: number
-  normalColumnGap: number
-  heroRightX: number
+export interface LayoutDocument {
+  version: 1
+  width: number
+  height: number
+  slots: FixedSlot[]
 }
 
-export const DEFAULT_LAYOUT_PROFILE: LayoutProfile = {
-  cellWidth: 78,
-  cellHeight: 78,
-  ultimateX: 729,
-  ultimateY: 162,
-  ultimateColumnGap: 101,
-  ultimateRowGap: 102,
-  boardY: 364,
-  boardRowGap: 92,
-  heroLeftX: 652,
-  normalX: 754,
-  normalColumnGap: 101,
-  heroRightX: 1339,
+const SLOT_CATEGORIES: readonly SlotCategory[] = ['hero', 'normal', 'ultimate']
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
-const rect = (x: number, y: number, profile: LayoutProfile): Rect => ({ x, y, width: profile.cellWidth, height: profile.cellHeight })
-
-export function buildFixedSlotLayout(profile: LayoutProfile): FixedSlot[] {
-  const boardRows = Array.from({ length: 6 }, (_, index) => profile.boardY + index * profile.boardRowGap)
-  return [
-    ...boardRows.flatMap((y) => [
-      { category: 'hero' as const, rect: rect(profile.heroLeftX, y, profile) },
-      { category: 'hero' as const, rect: rect(profile.heroRightX, y, profile) },
-    ]),
-    ...boardRows.flatMap((y) => Array.from({ length: 6 }, (_, index) => ({
-      category: 'normal' as const,
-      rect: rect(profile.normalX + index * profile.normalColumnGap, y, profile),
-    }))),
-    ...Array.from({ length: 2 }, (_, row) => Array.from({ length: 6 }, (_, column) => ({
-      category: 'ultimate' as const,
-      rect: rect(profile.ultimateX + column * profile.ultimateColumnGap, profile.ultimateY + row * profile.ultimateRowGap, profile),
-    }))).flat(),
-  ]
+function isSlotCategory(value: unknown): value is SlotCategory {
+  return typeof value === 'string' && SLOT_CATEGORIES.includes(value as SlotCategory)
 }
 
-export const FIXED_SLOT_LAYOUT: readonly FixedSlot[] = buildFixedSlotLayout(DEFAULT_LAYOUT_PROFILE)
+function isRectWithinCanvas(rect: Rect, width: number, height: number): boolean {
+  return Number.isFinite(rect.x) && Number.isFinite(rect.y)
+    && Number.isFinite(rect.width) && Number.isFinite(rect.height)
+    && rect.x >= 0 && rect.y >= 0 && rect.width > 0 && rect.height > 0
+    && rect.x + rect.width <= width && rect.y + rect.height <= height
+}
+
+export function parseLayoutDocument(value: unknown): LayoutDocument | null {
+  if (!isRecord(value) || value.version !== 1) return null
+  const width = value.width
+  const height = value.height
+  if (typeof width !== 'number' || typeof height !== 'number' || !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) return null
+  if (!Array.isArray(value.slots) || value.slots.length !== 60) return null
+
+  const slots: FixedSlot[] = []
+  for (const item of value.slots) {
+    if (!isRecord(item) || !isSlotCategory(item.category) || !isRecord(item.rect)) return null
+    const rect: Rect = {
+      x: Number(item.rect.x),
+      y: Number(item.rect.y),
+      width: Number(item.rect.width),
+      height: Number(item.rect.height),
+    }
+    if (!isRectWithinCanvas(rect, width, height)) return null
+    slots.push({ category: item.category, rect })
+  }
+
+  return { version: 1, width, height, slots }
+}
+
+const parsedDefaultLayout = parseLayoutDocument(defaultLayoutJson)
+if (!parsedDefaultLayout) throw new Error('Invalid default OMG layout document')
+
+export const DEFAULT_LAYOUT_DOCUMENT: LayoutDocument = parsedDefaultLayout
+export const FIXED_SLOT_LAYOUT: readonly FixedSlot[] = DEFAULT_LAYOUT_DOCUMENT.slots
 
 export const FIXED_SLOT_RECTS: readonly Rect[] = FIXED_SLOT_LAYOUT.map((slot) => slot.rect)
 
@@ -74,8 +76,8 @@ export function slotLabel(index: number): string {
 }
 
 export function validateScreenshotDimensions(width: number, height: number): string | null {
-  if (width !== SUPPORTED_WIDTH || height !== SUPPORTED_HEIGHT) {
-    return `首版仅支持 ${SUPPORTED_WIDTH}×${SUPPORTED_HEIGHT} 截图；当前图片为 ${width}×${height}。`
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    return `图片尺寸无效：当前图片为 ${width}×${height}。`
   }
   return null
 }
@@ -100,4 +102,26 @@ export function clampRectToCanvas(rect: Rect, canvasWidth = SUPPORTED_WIDTH, can
     width,
     height,
   }
+}
+
+export function scaleRect(rect: Rect, sourceWidth: number, sourceHeight: number, targetWidth: number, targetHeight: number): Rect {
+  return clampRectToCanvas({
+    x: rect.x * targetWidth / sourceWidth,
+    y: rect.y * targetHeight / sourceHeight,
+    width: rect.width * targetWidth / sourceWidth,
+    height: rect.height * targetHeight / sourceHeight,
+  }, targetWidth, targetHeight)
+}
+
+export function scaleLayoutToCanvas(
+  layout: readonly FixedSlot[],
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+): FixedSlot[] {
+  return layout.map((slot) => ({
+    category: slot.category,
+    rect: scaleRect(slot.rect, sourceWidth, sourceHeight, targetWidth, targetHeight),
+  }))
 }

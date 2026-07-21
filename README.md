@@ -1,24 +1,122 @@
 # Dota 2 OMG Pick Analyzer
 
-本地网页工具，用于分析 Dota 2 OMG 选技截图。当前版本聚焦“布局已校正的截图 -> 图标模板匹配 -> 人工确认 -> 构筑推荐”闭环。
+本地网页工具，用于分析 Dota 2 OMG 选技截图。当前版本聚焦“布局校正 -> 图标模板匹配 -> 人工确认 -> 构筑推荐”闭环。
 
-## 当前范围
+## 当前实现
 
-- 只支持 `2560x1440` 的固定 OMG 选技界面截图。
+- 默认布局基准为 `2560x1440`，上传其他分辨率时会按宽高比例缩放布局坐标。
 - 候选池共 60 格：12 个英雄、36 个普通技能、12 个终极技能。
-- 不支持其他分辨率、UI 缩放、皮肤或其他游戏画面。
+- 仍不支持不同 UI 构成、皮肤或其他游戏画面；非等比例图片可能需要重新校正布局。
 - 布局不是自动检测的：需要先在网页中对齐方框，再进行裁剪和匹配。
+- `Skill Analysis` 用于截图识别、人工确认和四技能构筑推荐。
+- `Tier List` 使用当前快照的单技能胜率、平均选取位置和 Ability Valuation 排序。
+- `Ability Pairs` 展示技能对胜率、协同以及可比较的三技能组合。
+- 桌面端只支持 Windows 和 macOS；浏览器版仍可通过 HTTP 服务运行。
+
+项目当前状态、上传清单和已废弃文件清单见 [`docs/project-status.md`](docs/project-status.md)。Windows 构建、安装和验收步骤见 [`docs/windows-build-test.md`](docs/windows-build-test.md)。桌面化迁移记录见 [`docs/cross-platform-refactor-plan.md`](docs/cross-platform-refactor-plan.md)。
+
+## 目录结构
+
+```text
+.
+|-- .gitignore
+|-- .github/
+|   `-- workflows/ci.yml             # Windows/macOS 矩阵，实际运行待后续验收
+|-- AGENTS.md
+|-- README.md
+|-- index.html
+|-- my_plan.md
+|-- omg-layout-2560x1440.json
+|-- .nvmrc
+|-- package.json
+|-- package-lock.json
+|-- tsconfig.json
+|-- tsconfig.app.json
+|-- tsconfig.node.json
+|-- src-tauri/
+|   |-- capabilities/default.json
+|   |-- Cargo.toml
+|   |-- Cargo.lock
+|   |-- build.rs
+|   |-- icons/                       # Windrun favicon-derived desktop icons
+|   |-- src/
+|   |   |-- lib.rs
+|   |   `-- main.rs
+|   `-- tauri.conf.json
+|-- vite.config.ts
+|-- docs/
+|   |-- cross-platform-refactor-plan.md
+|   |-- project-status.md
+|   |-- windows-build-test.md
+|   `-- recommendation-metrics.md
+|-- heroes/
+|   `-- selection/                    # 127 张英雄模板源图
+|-- public/
+|   |-- assets/
+|   |   |-- ability-icons/             # 509 张本地图标
+|   |   `-- hero-icons/                # 127 张本地图标
+|   `-- data/
+|       |-- icon-signatures.json
+|       `-- snapshots/
+|           `-- latest.json
+|-- reports/
+|   |-- ability-icon-cache.json
+|   |-- hero-selection-map.json
+|   `-- icon-self-check.json
+|-- scripts/
+|   |-- build-hero-selection-map.ts
+|   |-- build-icon-signatures.ts
+|   |-- cache-ability-icons.ts
+|   |-- sync-windrun.ts
+|   |-- verify-icon-signatures.ts
+|   `-- verify-runtime-assets.ts
+|-- src/
+|   |-- App.tsx
+|   |-- core/
+|   |   |-- icon-path.ts / icon-path.test.ts
+|   |   |-- layout.ts / layout.test.ts
+|   |   |-- matching.ts
+|   |   |-- pairs.ts / pairs.test.ts
+|   |   |-- recognition.ts / recognition.test.ts
+|   |   |-- recommendation.ts / recommendation.test.ts
+|   |   |-- template-matching.ts / template-matching.test.ts
+|   |   `-- tiers.ts / tiers.test.ts
+|   |-- data/
+|   |   `-- demoSnapshot.ts
+|   |-- platform/
+|   |   |-- capabilities.ts
+|   |   |-- files.ts
+|   |   |-- resources.ts
+|   |   `-- storage.ts
+|   |-- workers/
+|   |   `-- recognizer.worker.ts
+|   |-- main.tsx
+|   |-- styles.css
+|   |-- types.ts
+|   `-- vite-env.d.ts
+`-- tests/
+    `-- fixtures/
+        `-- README.md
+```
+
+`dist/`、`node_modules/`、`src-tauri/target/` 和 `src-tauri/gen/` 都是被忽略的生成目录，不属于版本化源代码；已废弃的旧脚本和文档清单见 [`docs/project-status.md`](docs/project-status.md)。
 
 ## 运行
 
-```powershell
-npm install
+```sh
+npm ci
 npm run dev
 ```
 
 打开 `http://127.0.0.1:5173`。
 
-运行时只读取仓库内的固定快照和本地图标资源；需要主动更新数据时，再按顺序运行 `npm run sync:data`、`npm run build:icons`、`npm run cache:icons` 和 `npm run verify:icons`。
+构建后可用 `npm run preview` 验证生产 `dist/`。网页必须通过 Vite 或其他 HTTP 服务访问，不支持直接打开 `file://` 文件。
+
+桌面开发需要 Rust 1.85 或更高版本及 Tauri 系统依赖；当前推荐安装 Rust 1.90.0。Windows 环境准备、上传内容和验收命令见 [`docs/windows-build-test.md`](docs/windows-build-test.md)。安装完成后可运行 `npm run desktop:dev`，生产桌面构建运行 `npm run desktop:build`。桌面图标来源和生成方式见 [`src-tauri/icons/README.md`](src-tauri/icons/README.md)。
+
+当前已在 Apple Silicon macOS 上生成 `.app` 和 `.dmg`；Windows 构建及 Windows/macOS 桌面运行时交互仍需目标系统验证。
+
+运行时只读取仓库内的固定快照、模板签名和本地图标资源；需要主动更新数据时，按 [`docs/project-status.md`](docs/project-status.md) 中的顺序运行数据流水线。
 
 ## 截图布局校正
 
@@ -27,27 +125,26 @@ npm run dev
 - 拖动方框可移动该格。
 - 拖动右下角圆点可调整该格尺寸。
 - 点击 `Re-slice` 后，裁剪像素和匹配结果会按当前布局重新计算。
-- `Save layout` 会下载完整的 `omg-layout-2560x1440.json`；`Load layout` 可在另一台机器恢复同一布局。
-- 校正中的覆盖坐标也会保存在浏览器 `localStorage`。
+- 默认布局来自根目录的 `omg-layout-2560x1440.json`；`Save layout` 会按当前图片分辨率下载完整布局，`Load layout` 会根据当前图片再次缩放。
+- 校正中的覆盖坐标通过 `src/platform/storage.ts` 的浏览器适配器保存在 `localStorage`。
 
-布局文件包含 60 个最终方框坐标，不依赖推导参数，因此应作为截图布局的版本化基准。
+布局文件包含 60 个最终方框坐标，不依赖推导参数，因此应作为截图布局的版本化基准。默认文件的尺寸是坐标源尺寸，运行时会将 `x/width` 按图片宽度、`y/height` 按图片高度分别缩放。
 
 ## 数据与图标
 
-`npm run sync:data` 从 Windrun 公开 API 生成固定的 `public/data/snapshots/latest.json`。当前完整快照包含：
+`npm run sync:data` 从 Windrun 公开 API 生成固定的 `public/data/snapshots/latest.json`。当前快照包含：
 
-- 127 个英雄候选
-- 2,829 个普通技能候选
-- 166 个终极技能候选
+- 3,122 个能力条目：127 个英雄、2,829 个普通技能、166 个终极技能。
+- 636 个有统计记录的运行时候选：127 个英雄、387 个普通技能、122 个终极技能。
 
-`npm run build:icons` 仅为具有 OMG 统计记录的候选生成图标签名，并写入 `public/data/icon-signatures.json`。当前包含 636 个候选能力、4,452 个变换签名；缺失的远端资源不会参与自动匹配。
+`npm run build:hero-map` 校验本地英雄选择图，并写入 `reports/hero-selection-map.json`。`npm run build:icons` 为所有英雄和具有 OMG 统计记录的技能候选生成图像签名，并写入 `public/data/icon-signatures.json`。当前包含 636 个候选能力、4,452 个变换签名；缺失的远端资源不会参与自动匹配。
 
-`npm run cache:icons` 只把 636 个候选能力的 DatDota CDN 图标缓存到 `public/assets/hero-icons` 和 `public/assets/ability-icons`，并清理旧资源。网页优先读取本地缓存，缺失资源再回退 CDN。缓存清单写入 `reports/ability-icon-cache.json`。
+`npm run cache:icons` 把运行时候选的 DatDota CDN 图标缓存到 `public/assets/hero-icons` 和 `public/assets/ability-icons`，并清理旧资源。网页优先读取本地缓存，缺失资源再回退 CDN。缓存清单写入 `reports/ability-icon-cache.json`。
 
 - 普通和终极技能图标来自 DatDota 的能力图标资源。
 - 英雄模板使用本地 Dota 2 VPK 导出的 `heroes/selection/{shortName}.png` 资源，生成特征时从非正方形图片中心裁剪最大正方形；ID、shortName 和文件路径映射写入 `reports/hero-selection-map.json`。
-- 英雄匹配模板使用本地 `heroes/selection/{shortName}.png` 资源；Heroes 展示图标缓存到 `public/assets/hero-icons/{abilityId}.png`，普通和终极技能展示图标缓存到 `public/assets/ability-icons/{abilityId}.png`。缓存源是 Windrun 使用的 DatDota CDN，缺失资源才回退 CDN。
-- 运行时不需要逐张下载图标：网页 Worker 只读取本地图标签名 JSON。
+- 英雄匹配模板使用本地 `heroes/selection/{shortName}.png` 资源；英雄展示图标缓存到 `public/assets/hero-icons/{abilityId}.png`，普通和终极技能展示图标缓存到 `public/assets/ability-icons/{abilityId}.png`。缓存源是 Windrun 使用的 DatDota CDN，缺失资源才回退 CDN。
+- 运行时不需要逐张下载图标：网页 Worker 只读取本地 `public/data/icon-signatures.json`。
 
 ## 匹配方式
 
@@ -60,14 +157,7 @@ npm run dev
 - 当前匹配模式
 - top-10 候选及评分
 
-“模板匹配”表示正在使用真实图标签名；“颜色回退”表示本地签名文件未加载，结果不能作为识别结论。
-
-已录入两条黄金标注，方便回归检查：
-
-- 第 7 格：英雄 `Faceless Void`，ID `-41`
-- 第 51 格：终极技能 `Doom`，ID `5342`
-
-在这两格的调试面板中会显示黄金目标是否进入 top-10。黄金标注不会覆盖模型输出。
+“模板匹配”表示正在使用真实图像签名；“颜色回退”表示本地签名文件未加载，结果不能作为识别结论。
 
 ## 推荐
 
@@ -77,9 +167,10 @@ npm run dev
 
 ## 验证
 
-```powershell
+```sh
 npm test
 npm run build
+npm run verify:runtime
 ```
 
 当前测试覆盖固定布局分类与尺寸校验、中心裁剪、模板特征与评分、候选排序、组合合法性和推荐排序。
@@ -88,4 +179,5 @@ npm run build
 
 - 图标模板仍需要用更多人工标注截图验证 top-1/top-10 准确率。
 - 当前布局只适配同一 OMG UI 构成；不同游戏 UI 或截图比例需要独立布局文件和新的黄金截图集。
+- 当前已有浏览器适配层和已在 macOS Apple Silicon 上构建验证的 Tauri 最小外壳；没有 Wails 或原生窗口捕获实现。
 - 数据和图标资源来自第三方或公开 CDN；发布或再分发前应确认对应许可与使用条款。

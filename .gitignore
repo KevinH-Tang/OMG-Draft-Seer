@@ -1,6 +1,6 @@
 node_modules/
 dist/
 *.tsbuildinfo
-hero_crops/
-test_data/
-__pycache__/
+*.DS_Store
+src-tauri/target/
+src-tauri/gen/

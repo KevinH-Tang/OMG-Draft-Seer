@@ -1,0 +1,17 @@
+[package]
+name = "dota2-omg-pick-analyzer"
+version = "0.1.0"
+description = "Dota 2 OMG pick analyzer desktop shell"
+authors = ["Dota 2 OMG Pick Analyzer contributors"]
+edition = "2021"
+rust-version = "1.85"
+
+[lib]
+name = "dota2_omg_pick_analyzer_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+tauri = { version = "2.11.5", features = [] }

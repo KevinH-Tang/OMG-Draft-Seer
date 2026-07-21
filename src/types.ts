@@ -28,6 +28,14 @@ export interface PairStats {
   wins: number
 }
 
+export interface TripletStats {
+  abilityIdOne: number
+  abilityIdTwo: number
+  abilityIdThree: number
+  picks: number
+  wins: number
+}
+
 export interface Snapshot {
   version: string
   patch: string
@@ -36,7 +44,9 @@ export interface Snapshot {
   abilities: Ability[]
   heroes: Hero[]
   abilityStats: AbilityStats[]
+  abilityValuations?: Record<string, number>
   pairStats: PairStats[]
+  tripletStats?: TripletStats[]
 }
 
 export interface Rect {
