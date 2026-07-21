@@ -1,4 +1,8 @@
-# Dota 2 OMG Pick Analyzer
+# OMG-Draft-Seer
+
+I'm a beacon of synergy, blazing out across a black sea of OMG picks.
+
+许可证：AGPL-3.0-only，完整文本见 [`LICENSE`](LICENSE)。
 
 本地网页工具，用于分析 Dota 2 OMG 选技截图。当前版本聚焦“布局校正 -> 图标模板匹配 -> 人工确认 -> 构筑推荐”闭环。
 
@@ -20,6 +24,7 @@
 ```text
 .
 |-- .gitignore
+|-- LICENSE
 |-- .github/
 |   `-- workflows/ci.yml             # Windows/macOS 矩阵，实际运行待后续验收
 |-- AGENTS.md
@@ -181,3 +186,7 @@ npm run verify:runtime
 - 当前布局只适配同一 OMG UI 构成；不同游戏 UI 或截图比例需要独立布局文件和新的黄金截图集。
 - 当前已有浏览器适配层和已在 macOS Apple Silicon 上构建验证的 Tauri 最小外壳；没有 Wails 或原生窗口捕获实现。
 - 数据和图标资源来自第三方或公开 CDN；发布或再分发前应确认对应许可与使用条款。
+
+## 致谢
+
+感谢 [Noxville/windrun](https://github.com/Noxville/windrun) 项目及其贡献者。本项目使用 Windrun 公开 API 生成统计快照，并引用其公开数据字段；本项目的推荐指标和排序逻辑由本项目自行定义，不代表 Windrun 官方评分。相关数据和资源的许可与再分发范围仍需按上游说明复核。

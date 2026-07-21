@@ -110,6 +110,10 @@ npm run desktop:build
 - Wails、Go 原生 UI、游戏窗口捕获、全局快捷键和叠加层，仅保留方案记录；当前没有实现依据，不应提前恢复。
 - Windrun favicon、DatDota CDN 和本地 VPK 资源的公开再分发，等待来源许可复核。
 
+## 上游致谢
+
+感谢 [Noxville/windrun](https://github.com/Noxville/windrun) 项目及其贡献者。本项目通过 Windrun 公开 API 生成版本化统计快照；推荐指标和排序逻辑由本项目自行定义，不代表 Windrun 官方评分。数据和资源的许可与再分发范围仍需按上游说明复核。
+
 ## 仍然有效但需要标注范围的文档
 
 - [`README.md`](../README.md) 是当前使用说明和数据流水线入口。
