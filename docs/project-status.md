@@ -40,7 +40,7 @@
 | `reports/` | 生成报告 | 用于审查缓存、映射和自检，不被网页直接读取 |
 | `omg-layout-2560x1440.json` | 有效源资源 | 当前唯一的默认布局基准 |
 | `scripts/*.ts` | 有效工具 | 数据同步、签名生成、缓存和校验；包括 `verify-runtime-assets.ts` |
-| `tests/fixtures/` | 暂缓 | 只保留黄金截图格式说明，实际 fixture 等待许可与标注 |
+| `tests/fixtures/` | 有效 | 4 张已批准的 2560x1440 PNG/JPG 截图、同名 60 槽标签 JSON 与离线模板识别回归测试 |
 | `dist/`、`node_modules/`、`src-tauri/target/`、`src-tauri/gen/` | 生成目录 | 不提交；需要时由构建、安装或 Tauri CLI 重新生成 |
 
 ## 数据刷新
@@ -120,4 +120,4 @@ npm run desktop:build
 - [`windows-build-test.md`](./windows-build-test.md) 是上传后在 Windows 上编译和测试的操作手册。
 - [`recommendation-metrics.md`](./recommendation-metrics.md) 描述推荐器的统计口径；它不代表 Windrun 官方的单一评分。
 - [`docs/cross-platform-refactor-plan.md`](./cross-platform-refactor-plan.md) 是迁移路线图；阶段 0/1 和 Tauri macOS 最小外壳已落地，Wails 与原生窗口能力暂缓。
-- [`tests/fixtures/README.md`](../tests/fixtures/README.md) 仅约定黄金截图的存放格式；当前仓库没有提交可再分发的截图 fixture。
+- [`tests/fixtures/README.md`](../tests/fixtures/README.md) 约定黄金截图和标签格式；当前仓库包含 4 份经模板识别验证的 fixture。

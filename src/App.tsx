@@ -8,6 +8,7 @@ import { demoSnapshot } from './data/demoSnapshot'
 import { clampRectToCanvas, cropCenter, DEFAULT_LAYOUT_DOCUMENT, MATCH_CROP_RATIO, parseLayoutDocument, scaleLayoutToCanvas, scaleRect, slotLabel, ULTIMATE_SLOT_ORDER, validateScreenshotDimensions, type FixedSlot, type LayoutDocument } from './core/layout'
 import { buildAbilityPairList, type AbilityPairEntry } from './core/pairs'
 import { BUILD_PICK_LIMITS, recommendBuilds, type BuildCandidatePools } from './core/recommendation'
+import { isSupportedScreenshotFile, SCREENSHOT_FILE_ACCEPT } from './core/screenshot-file'
 import { buildAbilityTierList, matchesTierCategory, TIER_CATEGORY_OPTIONS, TIER_ORDER, type AbilityTier, type TierCategory, type TierEntry } from './core/tiers'
 import { isHeroAbility } from './core/ability-category'
 import { detectRuntimeCapabilities, missingRuntimeCapabilities } from './platform/capabilities'
@@ -446,6 +447,10 @@ export default function App() {
   const ability = (id: number) => snapshot.abilities.find((item) => item.id === id)
 
   async function handleUpload(file: File) {
+    if (!isSupportedScreenshotFile(file)) {
+      setError('仅支持 PNG、JPG 或 JPEG 格式的截图。')
+      return
+    }
     const requestId = recognitionRequestRef.current + 1
     recognitionRequestRef.current = requestId
     recognitionWorkerRef.current?.terminate()
@@ -752,7 +757,7 @@ export default function App() {
             ref={inputRef}
             className="visually-hidden"
             type="file"
-            accept="image/png,image/jpeg"
+            accept={SCREENSHOT_FILE_ACCEPT}
             onChange={(event) => event.target.files?.[0] && handleUpload(event.target.files[0])}
           />
           {!screenshotUrl ? (

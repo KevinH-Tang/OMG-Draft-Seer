@@ -1,8 +1,14 @@
 # Golden screenshot fixtures
 
-Store approved `2560x1440` PNG screenshots and a matching JSON file here. Each JSON file should
-contain the expected `slotIndex -> abilityId` mapping for all 60 manually labelled candidate
-slots. The current test suite uses synthetic pixels and does not require a screenshot fixture.
-Fixtures are intentionally not bundled because game screenshots and their assets require review
-before redistribution. See [`docs/project-status.md`](../../docs/project-status.md) for the
-current fixture status.
+Store approved `2560x1440` PNG, JPG, or JPEG screenshots and a matching JSON file here. Original
+fixture files are not converted, renamed, or replaced. Each JSON file uses the same basename and
+contains the expected `slotIndex -> abilityId` mapping for all 60 candidate slots.
+
+Generate or refresh labels from the current layout, snapshot, and template signatures with:
+
+```sh
+npm run build:fixture-labels
+```
+
+The fixture regression test verifies dimensions, label coverage, and that template recognition
+matches every stored label. Only add screenshots whose redistribution has been approved.

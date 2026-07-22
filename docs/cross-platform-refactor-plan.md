@@ -42,7 +42,7 @@ scripts/              数据同步、缓存、签名和验证工具
 仍需补充：
 
 - Windows/macOS 桌面交互验收结果；macOS `npm run desktop:build` 和 Windows x64 `npm run desktop:build` 已通过，`.github/workflows/ci.yml` 已配置 Windows/macOS 矩阵但实际运行仍暂缓。操作步骤见 [`windows-build-test.md`](./windows-build-test.md)。
-- 可再分发的 2560x1440 黄金截图、布局 JSON 和 60 格识别结果；当前 fixture 目录只有格式说明。
+- 4 份可再分发的 2560x1440 黄金截图及 60 格标签 JSON 已加入 `tests/fixtures/`，并由离线模板识别回归测试验证；后续可按相同格式扩展覆盖面。
 - 至少一个目标 WebView 对模块 Worker、`OffscreenCanvas`、DPI 和布局重启持久化的实测；若能力不足，再实现主线程 Canvas 回退。
 - 至少一次 macOS 桌面窗口内的截图上传、Worker 识别和布局持久化交互验收；开发窗口启动和生产 bundle 构建已通过，Windrun favicon 已接入，来源许可仍需发布前复核。
 
@@ -53,7 +53,7 @@ scripts/              数据同步、缓存、签名和验证工具
 - 为 Node 固定受支持的版本，并在 `package.json` 增加 `engines`；多平台构建统一使用 `npm ci`。
 - 将 `package.json` 中的 `latest` 依赖改为明确版本，避免不同平台安装到不同依赖组合。
 - 建立 Windows、macOS 的 `npm test` 和 `npm run build` 基线。
-- 保留一组 2560x1440 黄金截图、布局 JSON 和识别结果，作为迁移前后的回归基准。
+- 保留并扩展 2560x1440 黄金截图、布局 JSON 和识别结果，作为迁移前后的回归基准；当前已有 4 份已标注 fixture。
 - 使用 POSIX shell 或平台无关的命令示例，路径示例改为相对路径或平台无关写法。
 
 ### 阶段 1：平台无关的 Web 重构

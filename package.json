@@ -20,6 +20,7 @@
     "build:icons": "tsx scripts/build-icon-signatures.ts",
     "build:hero-map": "tsx scripts/build-hero-selection-map.ts",
     "cache:icons": "tsx scripts/cache-ability-icons.ts",
+    "build:fixture-labels": "tsx scripts/generate-fixture-labels.ts",
     "verify:icons": "tsx scripts/verify-icon-signatures.ts",
     "verify:runtime": "tsx scripts/verify-runtime-assets.ts"
   },
@@ -28,6 +29,7 @@
     "@radix-ui/react-tooltip": "^1.2.13",
     "@tanstack/react-virtual": "^3.14.7",
     "@vitejs/plugin-react": "6.0.3",
+    "jpeg-js": "^0.4.4",
     "lucide-react": "1.25.0",
     "pngjs": "7.0.0",
     "react": "19.2.7",
