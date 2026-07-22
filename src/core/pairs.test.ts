@@ -4,12 +4,12 @@ import { demoSnapshot } from '../data/demoSnapshot'
 import type { Snapshot } from '../types'
 
 describe('buildAbilityPairList', () => {
-  it('calculates pair win rate and geometric-mean synergy', () => {
+  it('calculates pair win rate and arithmetic-mean synergy', () => {
     const rows = buildAbilityPairList(demoSnapshot)
     const row = rows.find((entry) => entry.key === '5048-8158')
 
     expect(row?.pairWinRate).toBeCloseTo(98 / 160)
-    expect(row?.synergy).toBeCloseTo(98 / 160 - Math.sqrt((506 / 940) * (488 / 910)))
+    expect(row?.synergy).toBeCloseTo(98 / 160 - ((506 / 940) + (488 / 910)) / 2)
   })
 
   it('removes same-owner pairs and keeps pairs with missing base stats', () => {

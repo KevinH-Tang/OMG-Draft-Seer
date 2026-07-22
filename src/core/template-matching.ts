@@ -1,4 +1,5 @@
 import type { Ability, IconCandidate, IconSignature, SlotCategory } from '../types'
+import { matchesSlotCategory } from './ability-category'
 import { MAX_MATCH_CANDIDATES } from './matching'
 
 export const TEMPLATE_SIZE = 16
@@ -92,11 +93,6 @@ export function templateScore(crop: CropSignature, template: { luma: Uint8Array;
   return structuralSimilarity(crop.luma, template.luma) * 0.76 + colorSimilarity(crop.meanRgb, template.meanRgb) * 0.24
 }
 
-function allowed(ability: Ability, category: SlotCategory): boolean {
-  if (category === 'hero') return Boolean(ability.isHero)
-  return !ability.isHero && (category === 'ultimate' ? ability.isUltimate : !ability.isUltimate)
-}
-
 export type DecodedTemplate = { luma: Uint8Array; meanRgb: [number, number, number] }
 
 export function decodeTemplateSignatures(signatures: IconSignature[]): Map<number, DecodedTemplate[]> {
@@ -118,7 +114,7 @@ export function rankByTemplate(
   templates: Map<number, DecodedTemplate[]>,
 ): IconCandidate[] {
   return abilities
-    .filter((ability) => allowed(ability, category) && templates.has(ability.id))
+    .filter((ability) => matchesSlotCategory(ability, category) && templates.has(ability.id))
     .map((ability) => ({ abilityId: ability.id, score: Math.max(...templates.get(ability.id)!.map((template) => templateScore(crop, template))) }))
     .sort((left, right) => right.score - left.score)
     .slice(0, MAX_MATCH_CANDIDATES)

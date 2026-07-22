@@ -1,6 +1,6 @@
 # 跨平台重构与桌面化迁移计划
 
-> 状态：阶段 0/1 的浏览器适配已完成，Tauri macOS 生产 bundle 已验证；Windows 构建和 Windows/macOS 桌面交互验收待补。Windows 的具体操作见 [`windows-build-test.md`](./windows-build-test.md)。
+> 状态：阶段 0/1 的浏览器适配已完成，Tauri macOS 生产 bundle 与 Windows x64 安装包均已构建验证；Windows/macOS 桌面交互验收待补。Windows 的具体操作见 [`windows-build-test.md`](./windows-build-test.md)。
 
 ## 1. 目标与范围
 
@@ -41,9 +41,9 @@ scripts/              数据同步、缓存、签名和验证工具
 
 仍需补充：
 
-- Windows 的首次实际构建/测试结果；macOS `npm run desktop:build` 已通过，`.github/workflows/ci.yml` 已配置 Windows/macOS 矩阵但实际运行仍暂缓。操作步骤见 [`windows-build-test.md`](./windows-build-test.md)。
+- Windows/macOS 桌面交互验收结果；macOS `npm run desktop:build` 和 Windows x64 `npm run desktop:build` 已通过，`.github/workflows/ci.yml` 已配置 Windows/macOS 矩阵但实际运行仍暂缓。操作步骤见 [`windows-build-test.md`](./windows-build-test.md)。
 - 可再分发的 2560x1440 黄金截图、布局 JSON 和 60 格识别结果；当前 fixture 目录只有格式说明。
-- 至少一个目标 WebView 对模块 Worker、`OffscreenCanvas`、DPI、布局重启持久化和断网启动的实测；若能力不足，再实现主线程 Canvas 回退。
+- 至少一个目标 WebView 对模块 Worker、`OffscreenCanvas`、DPI 和布局重启持久化的实测；若能力不足，再实现主线程 Canvas 回退。
 - 至少一次 macOS 桌面窗口内的截图上传、Worker 识别和布局持久化交互验收；开发窗口启动和生产 bundle 构建已通过，Windrun favicon 已接入，来源许可仍需发布前复核。
 
 ## 3. 分阶段计划
@@ -62,13 +62,12 @@ scripts/              数据同步、缓存、签名和验证工具
 - 将 `localStorage`、布局 JSON 读取/导出封装为接口，保留浏览器实现。
 - 检测 `createImageBitmap`、模块化 Worker 和 `OffscreenCanvas`；必要时增加主线程 Canvas 回退或明确的能力错误提示。
 - 保证浏览器版在 HTTP 服务和生产 `dist/` 服务下都能运行；不把 `file://` 直接打开作为支持方式。
-- 增加离线验证：快照、签名和本地图标可用时，断网仍可完成识别和推荐；CDN 仅作为缺失图标的可选回退。
 
 ### 阶段 2：Tauri 最小验证（默认路线）
 
 - 新增 Tauri 工程，复用现有 Vite 前端和 `dist/`，先不加入 Rust 业务逻辑。
 - 配置开发启动、生产构建、资源打包和应用标识；优先验证 Windows，再验证 macOS。
-- 逐项验证静态 JSON、PNG、模块化 Worker、`OffscreenCanvas`、文件上传、布局保存/加载、DPI 缩放和断网启动。
+- 逐项验证静态 JSON、PNG、模块化 Worker、`OffscreenCanvas`、文件上传、布局保存/加载和 DPI 缩放。
 - 只有浏览器能力不足时才增加 Tauri 对话框、文件系统或路径插件；所有原生权限使用最小化 capability 配置。
 
 ### 阶段 3：Wails 备选路线
@@ -94,7 +93,7 @@ scripts/              数据同步、缓存、签名和验证工具
 ## 5. 验收标准
 
 - 浏览器版行为和现有黄金结果一致，`npm test` 与 `npm run build` 在 Windows/macOS 通过。
-- 桌面版可在断网状态读取内置快照、签名和图标，上传 2560x1440 截图后得到 60 个候选格。
+- 桌面版可上传 2560x1440 截图并得到 60 个候选格。
 - 布局调整、导入、导出和重启后的持久化行为一致；应用升级不会无提示丢失用户布局。
 - 识别 Worker 失败时有可见错误或回退路径，不出现永久 loading。
 - 桌面端不暴露任意 shell 执行、任意文件读写或未限制的原生 API；第三方数据和图标的来源与许可在发布前复核。

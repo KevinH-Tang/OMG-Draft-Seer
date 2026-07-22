@@ -631,14 +631,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dota2-omg-pick-analyzer"
-version = "0.1.0"
-dependencies = [
- "tauri",
- "tauri-build",
-]
-
-[[package]]
 name = "dpi"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2010,6 +2002,14 @@ dependencies = [
  "objc2-app-kit",
  "objc2-core-foundation",
  "objc2-foundation",
+]
+
+[[package]]
+name = "omg-draft-seer"
+version = "0.1.0"
+dependencies = [
+ "tauri",
+ "tauri-build",
 ]
 
 [[package]]

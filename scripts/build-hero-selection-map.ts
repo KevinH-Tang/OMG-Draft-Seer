@@ -1,5 +1,6 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
+import { isHeroAbility } from '../src/core/ability-category.ts'
 import type { Snapshot } from '../src/types.ts'
 
 const snapshotPath = resolve('public/data/snapshots/latest.json')
@@ -8,7 +9,7 @@ const outputPath = resolve('reports/hero-selection-map.json')
 
 async function main() {
   const snapshot = JSON.parse(await readFile(snapshotPath, 'utf8')) as Snapshot
-  const heroes = snapshot.abilities.filter((ability) => ability.isHero)
+  const heroes = snapshot.abilities.filter(isHeroAbility)
   const entries = []
   for (const hero of heroes) {
     const fileName = `${hero.shortName}.png`

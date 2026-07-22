@@ -39,7 +39,7 @@
 建议使用 Windows 10/11 x64，并准备以下工具：
 
 1. Node.js `22.12.0`，npm `10` 或更高版本。
-2. Rust stable MSVC 工具链，Rust `1.85` 或更高版本；当前开发环境使用 Rust `1.90.0`。
+2. Rust stable MSVC 工具链，Rust `1.85` 或更高版本；2026-07-22 的 Windows 验收使用 Rust/Cargo `1.97.1`。
 3. Visual Studio Build Tools 2022，安装 `Desktop development with C++`，同时包含 MSVC 和 Windows SDK。
 4. Microsoft WebView2 Runtime。大多数 Windows 10/11 系统已经安装；缺失时需要单独安装 Evergreen Runtime。
 
@@ -113,7 +113,6 @@ src-tauri/target/release/bundle/msi/*.msi
 - 应用能正常启动，窗口尺寸和标题正确。
 - 上传截图、识别、人工确认和推荐流程正常。
 - 布局保存、加载和重启后恢复正常。
-- 断网启动后仍能读取内置快照、签名和本地图标；缺失图标的 CDN 回退不属于离线验收范围。
 
 ## Windows 验收记录
 
@@ -121,16 +120,23 @@ src-tauri/target/release/bundle/msi/*.msi
 
 | 项目 | 结果 | 备注 |
 | --- | --- | --- |
-| `node --version` / `npm --version` | 待填写 | 版本是否满足要求 |
-| `rustc --version` / `cargo --version` | 待填写 | 是否为 MSVC 工具链 |
-| `npm ci` | 待填写 | 是否有依赖安装错误 |
-| `npm test` | 待填写 | 测试数量和失败信息 |
-| `npm run build` | 待填写 | 是否生成 `dist/` |
-| `npm run verify:runtime` | 待填写 | 失败数量 |
-| `npm run desktop:build` | 待填写 | `.exe`/`.msi` 输出路径 |
-| 安装包启动 | 待填写 | 是否出现 WebView2 或 DLL 错误 |
+| `node --version` / `npm --version` | 通过 | Node `24.16.0`、npm `11.13.0`，高于最低要求 |
+| `rustc --version` / `cargo --version` | 通过 | Rust/Cargo `1.97.1`，`stable-x86_64-pc-windows-msvc` |
+| `npm ci` | 通过 | 安装 63 个锁定依赖；审计 0 个漏洞 |
+| `npm test` | 通过 | 10 个测试文件、37 个测试全部通过 |
+| `npm run build` | 通过 | TypeScript/Vite 生产构建生成 `dist/` |
+| `npm run verify:runtime` | 通过 | 636 个候选、636 个签名 ID、636 个缓存清单 ID，0 个失败 |
+| `npm run desktop:build` | 通过 | 已生成 x64 MSI 和 NSIS 安装包 |
+| 桌面可执行文件启动 | 待补充 | 重命名前的 release exe 已直接启动正常；重命名后已重新构建，待复测启动 |
+| 安装包启动 | 待补充 | 尚未完成 MSI/NSIS 安装后的启动验收 |
 | 截图识别和布局持久化 | 待填写 | 是否完成完整流程 |
-| 断网启动 | 待填写 | 内置资源是否可用 |
+
+本次生成的 Windows x64 安装包：
+
+```text
+src-tauri/target/release/bundle/msi/OMG-Draft-Seer_0.1.0_x64_en-US.msi
+src-tauri/target/release/bundle/nsis/OMG-Draft-Seer_0.1.0_x64-setup.exe
+```
 
 ## 常见问题
 

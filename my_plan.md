@@ -1,4 +1,4 @@
-# Dota 2 OMG Pick Analyzer 当前计划
+# OMG-Draft-Seer 当前计划
 
 ## 项目定位
 

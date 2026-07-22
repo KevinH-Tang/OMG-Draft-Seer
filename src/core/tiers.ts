@@ -1,4 +1,5 @@
 import type { Ability, AbilityStats, Snapshot } from '../types'
+import { isHeroAbility } from './ability-category'
 
 export const TIER_CATEGORY_OPTIONS = [
   { id: 'all', label: 'All' },
@@ -33,7 +34,7 @@ export interface TierEntry {
 
 function isInCategory(ability: Ability, category: TierCategory): boolean {
   if (category === 'all') return true
-  const isHero = Boolean(ability.isHero || ability.id < 0)
+  const isHero = isHeroAbility(ability)
   if (category === 'heroes') return isHero
   if (category === 'ultimates') return !isHero && ability.isUltimate
   return !isHero && !ability.isUltimate

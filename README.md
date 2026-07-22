@@ -12,12 +12,12 @@ I'm a beacon of synergy, blazing out across a black sea of OMG picks.
 - 候选池共 60 格：12 个英雄、36 个普通技能、12 个终极技能。
 - 仍不支持不同 UI 构成、皮肤或其他游戏画面；非等比例图片可能需要重新校正布局。
 - 布局不是自动检测的：需要先在网页中对齐方框，再进行裁剪和匹配。
-- `Skill Analysis` 用于截图识别、人工确认和四技能构筑推荐。
+- `Skill Analysis` 用于截图识别、人工确认和五 Pick 构筑推荐（1 英雄、3 普通技能、1 终极技能）。
 - `Tier List` 使用当前快照的单技能胜率、平均选取位置和 Ability Valuation 排序。
 - `Ability Pairs` 展示技能对胜率、协同以及可比较的三技能组合。
 - 桌面端只支持 Windows 和 macOS；浏览器版仍可通过 HTTP 服务运行。
 
-项目当前状态、上传清单和已废弃文件清单见 [`docs/project-status.md`](docs/project-status.md)。Windows 构建、安装和验收步骤见 [`docs/windows-build-test.md`](docs/windows-build-test.md)。桌面化迁移记录见 [`docs/cross-platform-refactor-plan.md`](docs/cross-platform-refactor-plan.md)。
+文档导航见 [`docs/README.md`](docs/README.md)。项目当前状态与交接清单见 [`docs/project-status.md`](docs/project-status.md)，Score 计算规则见 [`docs/recommendation-metrics.md`](docs/recommendation-metrics.md)，Windows 构建与验收步骤见 [`docs/windows-build-test.md`](docs/windows-build-test.md)。
 
 ## 目录结构
 
@@ -50,10 +50,14 @@ I'm a beacon of synergy, blazing out across a black sea of OMG picks.
 |   `-- tauri.conf.json
 |-- vite.config.ts
 |-- docs/
+|   |-- README.md
 |   |-- cross-platform-refactor-plan.md
 |   |-- project-status.md
 |   |-- windows-build-test.md
-|   `-- recommendation-metrics.md
+|   |-- recommendation-metrics.md
+|   |-- ui-library-adoption-plan.md
+|   |-- cc-switch-reference.md
+|   `-- ability-draft-plus-analysis.md
 |-- heroes/
 |   `-- selection/                    # 127 张英雄模板源图
 |-- public/
@@ -117,9 +121,9 @@ npm run dev
 
 构建后可用 `npm run preview` 验证生产 `dist/`。网页必须通过 Vite 或其他 HTTP 服务访问，不支持直接打开 `file://` 文件。
 
-桌面开发需要 Rust 1.85 或更高版本及 Tauri 系统依赖；当前推荐安装 Rust 1.90.0。Windows 环境准备、上传内容和验收命令见 [`docs/windows-build-test.md`](docs/windows-build-test.md)。安装完成后可运行 `npm run desktop:dev`，生产桌面构建运行 `npm run desktop:build`。桌面图标来源和生成方式见 [`src-tauri/icons/README.md`](src-tauri/icons/README.md)。
+桌面开发需要 Rust 1.85 或更高版本及 Tauri 系统依赖。Windows 环境准备、上传内容和验收命令见 [`docs/windows-build-test.md`](docs/windows-build-test.md)。安装完成后可运行 `npm run desktop:dev`，生产桌面构建运行 `npm run desktop:build`。桌面图标来源和生成方式见 [`src-tauri/icons/README.md`](src-tauri/icons/README.md)。
 
-当前已在 Apple Silicon macOS 上生成 `.app` 和 `.dmg`；Windows 构建及 Windows/macOS 桌面运行时交互仍需目标系统验证。
+当前已在 Apple Silicon macOS 上生成 `.app` 和 `.dmg`，并在 Windows 完成 Tauri x64 安装包构建。安装包安装、重命名后的 release 可执行文件启动，以及 Windows/macOS WebView 中的完整识别流程仍需在目标系统复验。
 
 运行时只读取仓库内的固定快照、模板签名和本地图标资源；需要主动更新数据时，按 [`docs/project-status.md`](docs/project-status.md) 中的顺序运行数据流水线。
 
@@ -166,7 +170,7 @@ npm run dev
 
 ## 推荐
 
-确认候选技能后，可选择已选技能。推荐器按平滑单技能胜率、技能对协同、样本量可信度和终极技能限制，输出最佳下一手和前 10 个方案。候选池较小时会完整枚举四技能构筑；候选池过大时会先按统计和已选技能协同筛选短名单，避免浏览器因组合数量过大卡顿。
+确认候选技能后，可按类别锁定 Pick。推荐器只生成 `1 英雄 + 3 普通技能 + 1 终极技能` 的完整五 Pick 构筑，按平均单技能 `Win Rate` 与不重叠、经置信度收缩的 Pair/Triple 协同计算 `Score`。Tier 只用于候选排序和短名单优先级，不直接计入 Score。完整口径见 [`docs/recommendation-metrics.md`](docs/recommendation-metrics.md)。
 
 统计快照不可用时，网页回退到内置演示数据；推荐结论应视为历史统计辅助，而不是胜率保证。
 
@@ -178,7 +182,7 @@ npm run build
 npm run verify:runtime
 ```
 
-当前测试覆盖固定布局分类与尺寸校验、中心裁剪、模板特征与评分、候选排序、组合合法性和推荐排序。
+当前测试覆盖固定布局分类与尺寸校验、中心裁剪、模板特征与评分、候选排序、五 Pick 组合合法性、独立 Pair/Triple 互动与推荐排序。
 
 ## 已知限制
 

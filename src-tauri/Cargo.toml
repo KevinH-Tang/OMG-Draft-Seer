@@ -1,13 +1,13 @@
 [package]
-name = "dota2-omg-pick-analyzer"
+name = "omg-draft-seer"
 version = "0.1.0"
-description = "Dota 2 OMG pick analyzer desktop shell"
-authors = ["Dota 2 OMG Pick Analyzer contributors"]
+description = "OMG-Draft-Seer desktop shell for Dota 2 OMG draft analysis"
+authors = ["OMG-Draft-Seer contributors"]
 edition = "2021"
 rust-version = "1.85"
 
 [lib]
-name = "dota2_omg_pick_analyzer_lib"
+name = "omg_draft_seer_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

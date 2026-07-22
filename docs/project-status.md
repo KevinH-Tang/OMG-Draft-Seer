@@ -1,10 +1,10 @@
 # 项目现状与交接清单
 
-> 审计基线：2026-07-21。本文记录当前工作区的有效入口、交接资源、已废弃文件和待验收事项。
+> 审计基线：2026-07-21；Windows 验证更新：2026-07-22。本文记录当前工作区的有效入口、交接资源、已废弃文件和待验收事项。
 
 ## 当前结论
 
-当前项目是一个浏览器端 React/Vite 应用，并通过 Tauri v2 提供 Windows/macOS 桌面外壳。主流程是：上传截图、人工校正 60 个布局格、模板匹配、人工确认候选、查看统计并生成四技能推荐。布局校正不是自动检测，项目也没有游戏窗口捕获或原生 API。`src/platform/` 已加入浏览器资源、存储、文件和能力检查适配层，`src-tauri/` 的 macOS 生产 bundle 已通过构建验证。
+当前项目是一个浏览器端 React/Vite 应用，并通过 Tauri v2 提供 Windows/macOS 桌面外壳。主流程是：上传截图、人工校正 60 个布局格、模板匹配、人工确认候选、查看 Tier/Pair 统计并生成五 Pick 推荐（1 英雄、3 普通技能、1 终极技能）。布局校正不是自动检测，项目也没有游戏窗口捕获或原生 API。`src/platform/` 已加入浏览器资源、存储、文件和能力检查适配层；macOS 和 Windows 的 Tauri 生产 bundle 均已通过构建验证。重命名前的 Windows release exe 已直接启动验证，`OMG-Draft-Seer` 重命名后的 release exe 待复测启动。
 
 当前运行时资源没有发现结构性断链：
 
@@ -21,7 +21,7 @@
 
 状态标签的含义：`有效` 表示当前代码或运行时入口；`派生` 表示由数据流水线生成、可以重建的发布输入；`生成目录` 表示本地构建产物，不提交；`已废弃/已删除` 表示不应恢复到当前链路；`暂缓` 表示保留决策记录，但没有实现或验收。
 
-最近验证（2026-07-21）：`npm test` 通过 37 个测试，`npm run verify:runtime` 检查 636 个运行候选、636 个签名和 636 个缓存清单 ID，0 个失败；清理安装/编译缓存后重新生成 macOS Apple Silicon `.app`/`.dmg`。`cargo metadata --locked` 确认最低 Rust 版本为 `1.85`，本机工具链为 Rust/Cargo `1.90.0`。CI、黄金截图和 Windows 实测按后续验收处理。
+最近验证：2026-07-21 完成 macOS Apple Silicon `.app`/`.dmg` 构建，`npm test` 通过 37 个测试，`npm run verify:runtime` 检查 636 个运行候选、636 个签名和 636 个缓存清单 ID，0 个失败。2026-07-22 在 Windows 使用 Node `24.16.0`、npm `11.13.0`、Rust/Cargo `1.97.1` MSVC 工具链完成 `npm ci`、`npm test`、`npm run build`、`npm run verify:runtime` 和 `npm run desktop:build`；重命名前的 release exe 已直接启动验证。`OMG-Draft-Seer` 重命名后已重新生成 x64 MSI、NSIS 安装包及 release exe，待复测启动。CI、黄金截图、安装包安装和截图全流程仍按后续验收处理。
 
 ## 文件职责
 
@@ -29,7 +29,7 @@
 | --- | --- | --- |
 | `src/` | 有效 | React 页面、Worker、布局、匹配、Tier List、技能对和推荐逻辑 |
 | `src/platform/` | 有效 | Vite base 资源 URL、浏览器存储、文件导入导出和运行时能力检查 |
-| `src-tauri/` | 有效；macOS bundle 已验证 | Tauri v2 窗口、相对资源构建和最小 capability；Windows 仍待构建 |
+| `src-tauri/` | 有效；macOS/Windows bundle 已验证 | Tauri v2 窗口、相对资源构建和最小 capability；重命名前的 Windows release exe 已直接启动，重命名后待复测 |
 | `src-tauri/icons/` | 派生；待许可复核 | Windrun favicon 派生的 Windows/macOS 桌面图标 |
 | `.github/workflows/ci.yml` | 已配置；暂缓执行 | macOS/Windows 的 Node 基线和运行时资源检查；按用户要求暂不触发 CI |
 | `docs/windows-build-test.md` | 有效 | 上传清单、Windows 环境准备、构建命令和验收记录模板 |
@@ -75,7 +75,7 @@ npm run build
 
 上传前应保留 `src-tauri/`、`src/platform/`、`public/data/`、`public/assets/`、`heroes/selection/`、`scripts/` 和 `package-lock.json`。`node_modules/`、`dist/`、`src-tauri/target/`、`src-tauri/gen/` 和 `.DS_Store` 是本地生成物，不需要上传。
 
-Windows 的完整环境要求、安装命令、桌面构建命令、安装包位置和验收记录见 [`windows-build-test.md`](windows-build-test.md)。当前待 Windows 环境补充的最小命令集为：
+Windows 的完整环境要求、安装命令、桌面构建命令、安装包位置和验收记录见 [`windows-build-test.md`](windows-build-test.md)。以下 Windows 基准命令已于 2026-07-22 通过；后续仅需补齐安装包、截图全流程和布局持久化验收：
 
 ```powershell
 npm ci
@@ -104,8 +104,8 @@ npm run desktop:build
 
 ## 暂缓但未废弃
 
-- Windows 构建，以及 Windows/macOS 目标 WebView 的上传识别、DPI、离线启动及布局重启验收，等待对应系统环境。
-- Windows 实际构建、桌面安装和目标 WebView 交互验收；具体步骤见 [`windows-build-test.md`](windows-build-test.md)。
+- Windows/macOS 目标 WebView 的上传识别、DPI 及布局重启验收，等待对应系统环境。
+- Windows 安装包安装和目标 WebView 交互验收；具体步骤见 [`windows-build-test.md`](windows-build-test.md)。
 - CI 实际运行和可再分发的黄金截图，按用户要求放到后续验收阶段。
 - Wails、Go 原生 UI、游戏窗口捕获、全局快捷键和叠加层，仅保留方案记录；当前没有实现依据，不应提前恢复。
 - Windrun favicon、DatDota CDN 和本地 VPK 资源的公开再分发，等待来源许可复核。
@@ -118,6 +118,6 @@ npm run desktop:build
 
 - [`README.md`](../README.md) 是当前使用说明和数据流水线入口。
 - [`windows-build-test.md`](./windows-build-test.md) 是上传后在 Windows 上编译和测试的操作手册。
-- [`docs/recommendation-metrics.md`](./recommendation-metrics.md) 描述推荐器的统计口径；它不代表 Windrun 官方的单一评分。
+- [`recommendation-metrics.md`](./recommendation-metrics.md) 描述推荐器的统计口径；它不代表 Windrun 官方的单一评分。
 - [`docs/cross-platform-refactor-plan.md`](./cross-platform-refactor-plan.md) 是迁移路线图；阶段 0/1 和 Tauri macOS 最小外壳已落地，Wails 与原生窗口能力暂缓。
 - [`tests/fixtures/README.md`](../tests/fixtures/README.md) 仅约定黄金截图的存放格式；当前仓库没有提交可再分发的截图 fixture。

@@ -1,6 +1,7 @@
 import { mkdir, readdir, rename, readFile, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { PNG } from 'pngjs'
+import { isHeroAbility } from '../src/core/ability-category.ts'
 import type { Snapshot } from '../src/types.ts'
 
 const snapshotPath = resolve('public/data/snapshots/latest.json')
@@ -9,22 +10,22 @@ const manifestPath = resolve('reports/ability-icon-cache.json')
 const concurrency = 16
 
 function iconUrl(ability: Snapshot['abilities'][number]): string {
-  return ability.isHero
+  return isHeroAbility(ability)
     ? `https://cdn.datdota.com/images/miniheroes/${encodeURIComponent(ability.shortName)}.png`
     : `https://cdn.datdota.com/images/ability/${encodeURIComponent(ability.shortName)}.png`
 }
 
 function relativeFileName(ability: Snapshot['abilities'][number]): string {
-  return `${ability.isHero ? 'hero-icons' : 'ability-icons'}/${ability.id}.png`
+  return `${isHeroAbility(ability) ? 'hero-icons' : 'ability-icons'}/${ability.id}.png`
 }
 
 function category(ability: Snapshot['abilities'][number]): 'hero' | 'ultimate' | 'ability' {
-  return ability.isHero ? 'hero' : ability.isUltimate ? 'ultimate' : 'ability'
+  return isHeroAbility(ability) ? 'hero' : ability.isUltimate ? 'ultimate' : 'ability'
 }
 
 function runtimeAbilities(snapshot: Snapshot): Snapshot['abilities'] {
   const statAbilityIds = new Set(snapshot.abilityStats.map((stat) => stat.abilityId))
-  return snapshot.abilities.filter((ability) => ability.isHero || statAbilityIds.has(ability.id))
+  return snapshot.abilities.filter((ability) => isHeroAbility(ability) || statAbilityIds.has(ability.id))
 }
 
 async function fileExists(path: string): Promise<boolean> {

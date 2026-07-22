@@ -1,4 +1,4 @@
-import type { Ability, PairStats, Snapshot, TripletStats } from '../types'
+import type { Ability, AbilityStats, PairStats, Snapshot, TripletStats } from '../types'
 
 export const MIN_ABILITY_PAIR_PICKS = 50
 
@@ -31,6 +31,10 @@ export function abilityPairKey(leftId: number, rightId: number): string {
   return leftId < rightId ? `${leftId}-${rightId}` : `${rightId}-${leftId}`
 }
 
+export function abilityTripletKey(firstId: number, secondId: number, thirdId: number): string {
+  return [firstId, secondId, thirdId].sort((left, right) => left - right).join('-')
+}
+
 function sameOwnerHero(left: Ability, right: Ability): boolean {
   return left.ownerHeroId !== undefined
     && right.ownerHeroId !== undefined
@@ -41,7 +45,7 @@ function winRate(picks: number, wins: number): number | undefined {
   return picks > 0 && Number.isFinite(picks) && Number.isFinite(wins) ? wins / picks : undefined
 }
 
-function buildPairMap(pairStats: PairStats[]): Map<string, PairStats> {
+export function buildPairStatsMap(pairStats: PairStats[]): Map<string, PairStats> {
   const pairs = new Map<string, PairStats>()
   for (const pair of pairStats) {
     const key = abilityPairKey(pair.abilityIdOne, pair.abilityIdTwo)
@@ -51,7 +55,29 @@ function buildPairMap(pairStats: PairStats[]): Map<string, PairStats> {
   return pairs
 }
 
-function buildHiddenTripleMap(
+export function buildTripletStatsMap(tripletStats: TripletStats[]): Map<string, TripletStats> {
+  const triplets = new Map<string, TripletStats>()
+  for (const triplet of tripletStats) {
+    const key = abilityTripletKey(triplet.abilityIdOne, triplet.abilityIdTwo, triplet.abilityIdThree)
+    const previous = triplets.get(key)
+    if (!previous || triplet.picks > previous.picks) triplets.set(key, triplet)
+  }
+  return triplets
+}
+
+export function calculatePairSynergy(
+  pair: PairStats,
+  leftStats: AbilityStats | undefined,
+  rightStats: AbilityStats | undefined,
+): number | undefined {
+  const pairWinRate = winRate(pair.picks, pair.wins)
+  const leftWinRate = leftStats ? winRate(leftStats.picks, leftStats.wins) : undefined
+  const rightWinRate = rightStats ? winRate(rightStats.picks, rightStats.wins) : undefined
+  if (pairWinRate === undefined || leftWinRate === undefined || rightWinRate === undefined || leftWinRate <= 0 || rightWinRate <= 0) return undefined
+  return pairWinRate - (leftWinRate + rightWinRate) / 2
+}
+
+export function buildHiddenTripleMap(
   tripletStats: TripletStats[],
   pairStats: Map<string, PairStats>,
   abilities: Map<number, Ability>,
@@ -106,7 +132,7 @@ export function buildAbilityPairList(snapshot: Snapshot, options: AbilityPairOpt
   const excludeSameHero = options.excludeSameHero ?? false
   const abilities = new Map(snapshot.abilities.map((ability) => [ability.id, ability]))
   const stats = new Map(snapshot.abilityStats.map((stat) => [stat.abilityId, stat]))
-  const pairs = buildPairMap(snapshot.pairStats)
+  const pairs = buildPairStatsMap(snapshot.pairStats)
   const hiddenTripleMap = buildHiddenTripleMap(snapshot.tripletStats ?? [], pairs, abilities, excludeSameHero)
 
   return [...pairs.entries()].flatMap(([key, pair]) => {
@@ -122,9 +148,7 @@ export function buildAbilityPairList(snapshot: Snapshot, options: AbilityPairOpt
     const winRateTwo = statsTwo ? winRate(statsTwo.picks, statsTwo.wins) : undefined
     const pairWinRate = winRate(pair.picks, pair.wins)
     if (pairWinRate === undefined) return []
-    const synergy = winRateOne !== undefined && winRateTwo !== undefined && winRateOne > 0 && winRateTwo > 0
-      ? pairWinRate - Math.sqrt(winRateOne * winRateTwo)
-      : undefined
+    const synergy = calculatePairSynergy(pair, statsOne, statsTwo)
 
     return [{
       key,

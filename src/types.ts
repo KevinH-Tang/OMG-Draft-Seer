@@ -81,13 +81,21 @@ export interface RecognizedSlot {
   matchMode?: 'template' | 'color-fallback'
 }
 
+export interface RecommendationInteraction {
+  type: 'pair' | 'triple'
+  abilityIds: number[]
+  synergy: number
+  rawSynergy: number
+  picks: number
+}
+
 export interface Recommendation {
   abilityIds: number[]
+  pickOrderIds: number[]
   score: number
   abilityWinRate: number
   synergy: number
+  effectiveInteractionCount: number
+  effectiveInteractions: RecommendationInteraction[]
   averagePickPosition: number
-  sampleConfidence: number
-  confidence: 'high' | 'medium' | 'low'
-  reasons: string[]
 }

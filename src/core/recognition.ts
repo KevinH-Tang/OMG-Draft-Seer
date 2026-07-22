@@ -1,4 +1,5 @@
 import type { Ability, IconCandidate, SlotCategory } from '../types'
+import { matchesSlotCategory } from './ability-category'
 import { MAX_MATCH_CANDIDATES } from './matching'
 
 export type Rgb = readonly [number, number, number]
@@ -19,9 +20,7 @@ export function similarityFromRgb(source: Rgb, target: Rgb): number {
 
 export function rankByColor(source: Rgb, abilities: Ability[], category: SlotCategory): IconCandidate[] {
   return abilities
-    .filter((ability) => ability.iconColor && (
-      category === 'hero' ? ability.isHero : !ability.isHero && (category === 'ultimate' ? ability.isUltimate : !ability.isUltimate)
-    ))
+    .filter((ability) => ability.iconColor && matchesSlotCategory(ability, category))
     .map((ability) => ({ abilityId: ability.id, score: similarityFromRgb(source, hexToRgb(ability.iconColor)) }))
     .sort((left, right) => right.score - left.score)
     .slice(0, MAX_MATCH_CANDIDATES)

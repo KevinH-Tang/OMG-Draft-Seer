@@ -1,91 +1,188 @@
 import { describe, expect, it } from 'vitest'
-import { demoSnapshot } from '../data/demoSnapshot'
-import { MAX_COMBINATION_EVALUATIONS, MAX_SHORTLIST_SIZE, recommendBuilds } from './recommendation'
-import type { Snapshot } from '../types'
+import { MAX_COMBINATION_EVALUATIONS, recommendBuilds, type BuildCandidatePools } from './recommendation'
+import type { Ability, Snapshot } from '../types'
+
+function ability(id: number, name: string, options: Pick<Ability, 'isHero' | 'isUltimate'>): Ability {
+  return { id, name, shortName: name.toLowerCase().replaceAll(' ', '_'), iconColor: '#888888', ...options }
+}
+
+const candidatePools: BuildCandidatePools = {
+  heroIds: [-1, -2],
+  normalIds: [1, 2, 3, 4],
+  ultimateIds: [10, 11],
+}
+
+const snapshot: Snapshot = {
+  version: 'test',
+  patch: 'test',
+  generatedAt: '2026-07-22T00:00:00.000Z',
+  source: 'test fixture',
+  heroes: [],
+  abilities: [
+    ability(-1, 'Top Hero', { isHero: true, isUltimate: false }),
+    ability(-2, 'Lower Hero', { isHero: true, isUltimate: false }),
+    ability(1, 'Top Normal', { isHero: false, isUltimate: false }),
+    ability(2, 'Second Normal', { isHero: false, isUltimate: false }),
+    ability(3, 'Third Normal', { isHero: false, isUltimate: false }),
+    ability(4, 'Lower Normal', { isHero: false, isUltimate: false }),
+    ability(10, 'Top Ultimate', { isHero: false, isUltimate: true }),
+    ability(11, 'Lower Ultimate', { isHero: false, isUltimate: true }),
+  ],
+  abilityStats: [
+    [-1, 60], [-2, 50], [1, 65], [2, 60], [3, 55], [4, 50], [10, 62], [11, 50],
+  ].map(([abilityId, wins], index) => ({ abilityId, picks: 100, wins, avgPickPosition: index + 1 })),
+  pairStats: [],
+}
 
 describe('build recommendations', () => {
-  const candidateIds = [5048, 5050, 5101, 5121, 5150, 5153, 8158]
+  it('builds exactly one hero, three normal skills, and one ultimate', () => {
+    const [result] = recommendBuilds(candidatePools, [], snapshot)
 
-  it('builds four-skill plans that retain selected skills', () => {
-    const results = recommendBuilds(candidateIds, [5150], demoSnapshot)
-    expect(results.length).toBeGreaterThan(0)
-    expect(results[0].abilityIds).toHaveLength(4)
-    expect(results[0].abilityIds).toContain(5150)
-    expect(results[0].abilityWinRate).toBeGreaterThan(0)
-    expect(results[0].averagePickPosition).toBeGreaterThanOrEqual(1)
-    expect(results[0].averagePickPosition).toBeLessThanOrEqual(50)
-    expect(results[0].sampleConfidence).toBeGreaterThan(0)
+    expect(result.abilityIds).toHaveLength(5)
+    expect(result.abilityIds[0]).toBe(-1)
+    expect(result.abilityIds.slice(1, 4)).toEqual([1, 2, 3])
+    expect(result.abilityIds[4]).toBe(10)
+    expect(result.abilityWinRate).toBeGreaterThan(0)
   })
 
-  it('does not emit recommendations when the pool cannot fill four slots', () => {
-    expect(recommendBuilds([5048, 5050], [], demoSnapshot)).toEqual([])
+  it('retains locked picks within their required categories', () => {
+    const [result] = recommendBuilds(candidatePools, [-2, 4, 10], snapshot)
+
+    expect(result.abilityIds).toHaveLength(5)
+    expect(result.abilityIds[0]).toBe(-2)
+    expect(result.abilityIds.slice(1, 4)).toContain(4)
+    expect(result.abilityIds[4]).toBe(10)
+    expect(result.pickOrderIds).toEqual([-2, 1, 2, 4, 10])
   })
 
-  it('keeps the result deterministically sorted', () => {
-    const results = recommendBuilds(candidateIds, [], demoSnapshot)
-    expect(results).toEqual([...results].sort((left, right) => right.score - left.score))
-    expect(results[0].reasons.join(' ')).toContain('样本')
+  it('keeps the arithmetic-mean pair lift while shrinking its score contribution by confidence', () => {
+    const pairSnapshot: Snapshot = {
+      ...snapshot,
+      pairStats: [{ abilityIdOne: -1, abilityIdTwo: 1, picks: 100, wins: 80 }],
+    }
+    const fixedPools: BuildCandidatePools = {
+      heroIds: [-1],
+      normalIds: [1, 2, 3],
+      ultimateIds: [10],
+    }
+    const [result] = recommendBuilds(fixedPools, [], pairSnapshot)
+    const expectedSynergy = 0.8 - (0.6 + 0.65) / 2
+
+    expect(result.synergy).toBeGreaterThan(0)
+    expect(result.synergy).toBeLessThan(expectedSynergy)
+    expect(result.effectiveInteractionCount).toBe(1)
+    expect(result.effectiveInteractions).toEqual([expect.objectContaining({ type: 'pair', abilityIds: [-1, 1], rawSynergy: expectedSynergy, picks: 100 })])
   })
 
-  it('ignores unknown selected IDs instead of emitting incomplete builds', () => {
-    const results = recommendBuilds([...candidateIds, 999999], [999999], demoSnapshot)
-    expect(results.length).toBeGreaterThan(0)
-    expect(results.every((result) => result.abilityIds.every((id) => id !== 999999))).toBe(true)
-    expect(results.every((result) => result.abilityIds.length === 4)).toBe(true)
+  it('uses only non-overlapping interactions in the score', () => {
+    const pairSnapshot: Snapshot = {
+      ...snapshot,
+      pairStats: [
+        { abilityIdOne: -1, abilityIdTwo: 1, picks: 500, wins: 400 },
+        { abilityIdOne: -1, abilityIdTwo: 2, picks: 500, wins: 425 },
+        { abilityIdOne: 2, abilityIdTwo: 3, picks: 500, wins: 375 },
+      ],
+    }
+    const fixedPools: BuildCandidatePools = {
+      heroIds: [-1],
+      normalIds: [1, 2, 3],
+      ultimateIds: [10],
+    }
+    const [result] = recommendBuilds(fixedPools, [], pairSnapshot)
+    const selectedAbilityIds = result.effectiveInteractions.flatMap((interaction) => interaction.abilityIds)
+
+    expect(result.score).toBeCloseTo((result.abilityWinRate + result.synergy) * 100)
+    expect(result.effectiveInteractionCount).toBe(2)
+    expect(new Set(selectedAbilityIds).size).toBe(selectedAbilityIds.length)
+    expect(result.effectiveInteractions.map((interaction) => interaction.abilityIds)).toEqual([[-1, 1], [2, 3]])
   })
 
-  it('shortlists a large pool before evaluating combinations', () => {
-    const snapshot: Snapshot = {
-      ...demoSnapshot,
-      abilities: Array.from({ length: 60 }, (_, index) => ({
-        id: index + 1,
-        name: `Ability ${index + 1}`,
-        shortName: `ability_${index + 1}`,
-        isUltimate: false,
-        iconColor: '#888888',
-      })),
-      abilityStats: Array.from({ length: 60 }, (_, index) => ({
-        abilityId: index + 1,
-        picks: 100,
-        avgPickPosition: index + 1,
-        wins: index < MAX_SHORTLIST_SIZE ? 75 : 50,
-      })),
+  it('selects a strong Triple as one interaction instead of its nested pairs', () => {
+    const interactionSnapshot: Snapshot = {
+      ...snapshot,
+      pairStats: [
+        { abilityIdOne: -1, abilityIdTwo: 1, picks: 500, wins: 400 },
+        { abilityIdOne: -1, abilityIdTwo: 2, picks: 500, wins: 390 },
+      ],
+      tripletStats: [{ abilityIdOne: -1, abilityIdTwo: 1, abilityIdThree: 2, picks: 500, wins: 470 }],
+    }
+    const fixedPools: BuildCandidatePools = {
+      heroIds: [-1],
+      normalIds: [1, 2, 3],
+      ultimateIds: [10],
+    }
+    const [result] = recommendBuilds(fixedPools, [], interactionSnapshot)
+
+    expect(result.effectiveInteractionCount).toBe(1)
+    expect(result.effectiveInteractions).toEqual([expect.objectContaining({ type: 'triple', abilityIds: [-1, 1, 2], picks: 500 })])
+  })
+
+  it('does not score an uncertain low-sample Pair lift', () => {
+    const pairSnapshot: Snapshot = {
+      ...snapshot,
+      pairStats: [{ abilityIdOne: -1, abilityIdTwo: 1, picks: 50, wins: 35 }],
+    }
+    const fixedPools: BuildCandidatePools = {
+      heroIds: [-1],
+      normalIds: [1, 2, 3],
+      ultimateIds: [10],
+    }
+    const [result] = recommendBuilds(fixedPools, [], pairSnapshot)
+
+    expect(result.synergy).toBe(0)
+    expect(result.effectiveInteractionCount).toBe(0)
+    expect(result.effectiveInteractions).toEqual([])
+  })
+
+  it('allows strong comparable pair data to affect the tier-based ranking', () => {
+    const pairDrivenSnapshot: Snapshot = {
+      ...snapshot,
+      pairStats: [{ abilityIdOne: -2, abilityIdTwo: 1, picks: 100, wins: 100 }],
+    }
+    const [result] = recommendBuilds(candidatePools, [], pairDrivenSnapshot)
+
+    expect(result.abilityIds[0]).toBe(-2)
+  })
+
+  it('does not emit plans when any required pick category is unavailable', () => {
+    expect(recommendBuilds({ ...candidatePools, ultimateIds: [] }, [], snapshot)).toEqual([])
+  })
+
+  it('ignores unknown or category-invalid locked IDs', () => {
+    const [result] = recommendBuilds(candidatePools, [999999, 1, 10], snapshot)
+
+    expect(result.abilityIds).toHaveLength(5)
+    expect(result.abilityIds).not.toContain(999999)
+    expect(result.abilityIds[0]).toBe(-1)
+  })
+
+  it('shortlists large category pools before evaluating builds', () => {
+    const largeSnapshot: Snapshot = {
+      ...snapshot,
+      abilities: [
+        ...Array.from({ length: 12 }, (_, index) => ability(-index - 1, `Hero ${index + 1}`, { isHero: true, isUltimate: false })),
+        ...Array.from({ length: 60 }, (_, index) => ability(index + 1, `Normal ${index + 1}`, { isHero: false, isUltimate: false })),
+        ...Array.from({ length: 12 }, (_, index) => ability(index + 101, `Ultimate ${index + 1}`, { isHero: false, isUltimate: true })),
+      ],
+      abilityStats: [
+        ...Array.from({ length: 12 }, (_, index) => ({ abilityId: -index - 1, picks: 100, wins: 60 - index, avgPickPosition: index + 1 })),
+        ...Array.from({ length: 60 }, (_, index) => ({ abilityId: index + 1, picks: 100, wins: 80 - index, avgPickPosition: index + 1 })),
+        ...Array.from({ length: 12 }, (_, index) => ({ abilityId: index + 101, picks: 100, wins: 60 - index, avgPickPosition: index + 1 })),
+      ],
       pairStats: [],
     }
-    const results = recommendBuilds(Array.from({ length: 60 }, (_, index) => index + 1), [], snapshot)
+    const results = recommendBuilds({
+      heroIds: Array.from({ length: 12 }, (_, index) => -index - 1),
+      normalIds: Array.from({ length: 60 }, (_, index) => index + 1),
+      ultimateIds: Array.from({ length: 12 }, (_, index) => index + 101),
+    }, [], largeSnapshot)
 
     expect(MAX_COMBINATION_EVALUATIONS).toBe(50_000)
     expect(results).toHaveLength(10)
-    expect(results.every((result) => result.abilityIds.every((id) => id <= MAX_SHORTLIST_SIZE))).toBe(true)
+    expect(results.every((result) => result.abilityIds.length === 5)).toBe(true)
   })
 
   it('returns no results for a non-positive result limit', () => {
-    expect(recommendBuilds(candidateIds, [], demoSnapshot, 0)).toEqual([])
-  })
-
-  it('uses weighted ability rates, logarithmic pair weights, and average pick positions', () => {
-    const snapshot: Snapshot = {
-      ...demoSnapshot,
-      abilities: [1, 2, 3, 4].map((id) => ({ id, name: `Ability ${id}`, shortName: `ability_${id}`, isUltimate: false, iconColor: '#888888' })),
-      abilityStats: [
-        { abilityId: 1, picks: 100, wins: 50, avgPickPosition: 10 },
-        { abilityId: 2, picks: 1000, wins: 600, avgPickPosition: 20 },
-        { abilityId: 3, picks: 10000, wins: 6000, avgPickPosition: 30 },
-        { abilityId: 4, picks: 1000, wins: 500, avgPickPosition: 40 },
-      ],
-      pairStats: [{ abilityIdOne: 1, abilityIdTwo: 2, picks: 100, wins: 60 }],
-    }
-    const [result] = recommendBuilds([1, 2, 3, 4], [], snapshot)
-    const metrics = snapshot.abilityStats.map((stat) => ({
-      rate: (stat.wins + 25) / (stat.picks + 50),
-      weight: stat.picks / (stat.picks + 50),
-    }))
-    const totalWeight = metrics.reduce((sum, item) => sum + item.weight, 0)
-    const expectedAbilityWinRate = metrics.reduce((sum, item) => sum + item.rate * item.weight, 0) / totalWeight
-    const pairSynergy = 60 / 100 - (metrics[0].rate + metrics[1].rate) / 2
-
-    expect(result.abilityWinRate).toBeCloseTo(expectedAbilityWinRate)
-    expect(result.synergy).toBeCloseTo(pairSynergy)
-    expect(result.averagePickPosition).toBe(25)
+    expect(recommendBuilds(candidatePools, [], snapshot, 0)).toEqual([])
   })
 })

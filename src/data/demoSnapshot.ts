@@ -1,6 +1,6 @@
 import type { Snapshot } from '../types'
 
-const ability = (id: number, name: string, shortName: string, isUltimate: boolean, iconColor: string): Snapshot['abilities'][number] => ({ id, name, shortName, isUltimate, iconColor })
+const ability = (id: number, name: string, shortName: string, isUltimate: boolean, iconColor: string, isHero = false): Snapshot['abilities'][number] => ({ id, name, shortName, isUltimate, isHero, iconColor })
 
 export const demoSnapshot: Snapshot = {
   version: 'demo-1',
@@ -14,6 +14,7 @@ export const demoSnapshot: Snapshot = {
     { id: 29, name: 'Tidehunter', primaryAttribute: 'str' },
   ],
   abilities: [
+    ability(-1, 'Anti-Mage', 'antimage', false, '#7586c7', true),
     ability(5048, 'Sacred Arrow', 'mirana_arrow', false, '#3ab0d2'),
     ability(5050, 'Leap', 'mirana_leap', false, '#8c75d4'),
     ability(5101, 'Ball Lightning', 'storm_spirit_ball_lightning', true, '#2b9ee8'),
@@ -28,6 +29,7 @@ export const demoSnapshot: Snapshot = {
     ability(9501, 'Scurry', 'hoodwink_scurry', false, '#53a772'),
   ],
   abilityStats: [
+    [-1, 980, 525],
     [5048, 940, 506], [5050, 870, 462], [5101, 620, 345], [5121, 1210, 664],
     [5142, 730, 378], [5150, 1050, 550], [5153, 510, 296], [5173, 860, 446],
     [5323, 670, 360], [5356, 590, 319], [8158, 910, 488], [9501, 690, 365],

@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { PNG } from 'pngjs'
+import { isHeroAbility } from '../src/core/ability-category.ts'
 import type { IconSignature, Snapshot } from '../src/types.ts'
 
 const snapshotPath = resolve('public/data/snapshots/latest.json')
@@ -25,11 +26,11 @@ interface IconCacheManifest {
 
 function runtimeAbilities(snapshot: Snapshot): Snapshot['abilities'] {
   const statAbilityIds = new Set(snapshot.abilityStats.map((stat) => stat.abilityId))
-  return snapshot.abilities.filter((ability) => ability.isHero || statAbilityIds.has(ability.id))
+  return snapshot.abilities.filter((ability) => isHeroAbility(ability) || statAbilityIds.has(ability.id))
 }
 
 function iconPath(ability: Snapshot['abilities'][number]): string {
-  return resolve(assetRoot, ability.isHero ? 'hero-icons' : 'ability-icons', `${ability.id}.png`)
+  return resolve(assetRoot, isHeroAbility(ability) ? 'hero-icons' : 'ability-icons', `${ability.id}.png`)
 }
 
 async function verifyPng(path: string): Promise<string | undefined> {
@@ -94,7 +95,7 @@ async function main() {
 
   for (const entry of manifestEntries) {
     const ability = abilityById.get(entry.abilityId)
-    const expectedFileName = ability ? `${ability.isHero ? 'hero-icons' : 'ability-icons'}/${ability.id}.png` : undefined
+    const expectedFileName = ability ? `${isHeroAbility(ability) ? 'hero-icons' : 'ability-icons'}/${ability.id}.png` : undefined
     if (!candidateIds.has(entry.abilityId)) failures.push(`${entry.abilityId}: icon manifest entry is not in the runtime snapshot`)
     if (expectedFileName && entry.fileName !== expectedFileName) failures.push(`${entry.abilityId}: icon manifest path mismatch`)
     if (entry.status === 'missing') failures.push(`${entry.abilityId}: icon manifest marks the runtime icon as missing`)

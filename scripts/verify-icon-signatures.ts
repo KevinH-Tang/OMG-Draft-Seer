@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { PNG } from 'pngjs'
+import { isHeroAbility } from '../src/core/ability-category.ts'
 import { decodeTemplateSignatures, rankByTemplate, signatureFromRgba, TEMPLATE_TRANSFORMS } from '../src/core/template-matching.ts'
 import type { Ability, IconSignature, Snapshot, SlotCategory } from '../src/types.ts'
 
@@ -15,7 +16,7 @@ function abilityIconUrl(ability: Ability): string {
 }
 
 function categoryFor(ability: Ability): SlotCategory {
-  if (ability.isHero) return 'hero'
+  if (isHeroAbility(ability)) return 'hero'
   return ability.isUltimate ? 'ultimate' : 'normal'
 }
 
@@ -40,7 +41,7 @@ async function main() {
   }
 
   const verify = async (ability: Ability) => {
-    if (ability.isHero) {
+    if (isHeroAbility(ability)) {
       try {
         const png = PNG.sync.read(await readFile(resolve(heroSelectionDir, `${ability.shortName}.png`)))
         for (const transform of transforms) check(ability, transform.name, signatureFromRgba(png.data, png.width, png.height, transform))

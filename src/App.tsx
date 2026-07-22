@@ -1,20 +1,25 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import * as AlertDialog from '@radix-ui/react-alert-dialog'
+import * as Tooltip from '@radix-ui/react-tooltip'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDownUp, Bug, Check, ChevronDown, ChevronUp, CircleAlert, Download, FileImage, Filter, FolderOpen, GitFork, Layers, LayoutPanelTop, RefreshCw, RotateCcw, ScanSearch, Search, Settings2, Sparkles, Upload } from 'lucide-react'
+import { Toaster, toast } from 'sonner'
 import { demoSnapshot } from './data/demoSnapshot'
 import { clampRectToCanvas, cropCenter, DEFAULT_LAYOUT_DOCUMENT, MATCH_CROP_RATIO, parseLayoutDocument, scaleLayoutToCanvas, scaleRect, slotLabel, ULTIMATE_SLOT_ORDER, validateScreenshotDimensions, type FixedSlot, type LayoutDocument } from './core/layout'
 import { buildAbilityPairList, type AbilityPairEntry } from './core/pairs'
-import { recommendBuilds } from './core/recommendation'
+import { BUILD_PICK_LIMITS, recommendBuilds, type BuildCandidatePools } from './core/recommendation'
 import { buildAbilityTierList, matchesTierCategory, TIER_CATEGORY_OPTIONS, TIER_ORDER, type AbilityTier, type TierCategory, type TierEntry } from './core/tiers'
+import { isHeroAbility } from './core/ability-category'
 import { detectRuntimeCapabilities, missingRuntimeCapabilities } from './platform/capabilities'
 import { getBrowserFileAdapter } from './platform/files'
 import { appResourceUrl, localAbilityIconUrl, remoteAbilityIconUrl } from './platform/resources'
 import { getBrowserStorage, readStoredJson, writeStoredJson } from './platform/storage'
-import type { IconSignature, RecognizedSlot, Rect, Snapshot } from './types'
+import type { Ability, IconSignature, RecommendationInteraction, RecognizedSlot, Rect, Snapshot } from './types'
 
 const categoryLabel = { hero: '英雄', normal: '普通', ultimate: '终极' } as const
 const goldenLabels: Record<number, number> = { 6: -41, 50: 5342 }
 type AppPage = 'analysis' | 'layout' | 'database' | 'pairs'
-type PairSortKey = 'abilityOne' | 'winRateOne' | 'abilityTwo' | 'winRateTwo' | 'pairWinRate' | 'synergy' | 'picks'
+type PairSortKey = 'abilityOne' | 'winRateOne' | 'abilityTwo' | 'winRateTwo' | 'pairWinRate' | 'synergy'
 type SortDirection = 'asc' | 'desc'
 
 const appPages: Array<{ id: AppPage; label: string; icon: typeof ScanSearch }> = [
@@ -30,9 +35,12 @@ const DEBUG_BORDER_WIDTH = 2
 const DEBUG_MATCH_CANDIDATES = 5
 const RECOGNITION_TIMEOUT_MS = 30_000
 const PAIR_ROW_HEIGHT = 52
-const PAIR_HEADER_HEIGHT = 38
-const PAIR_OVERSCAN = 12
 const MAX_VISIBLE_HIDDEN_TRIPLES = 6
+const BUILD_PICK_GROUPS: Array<{ key: keyof BuildCandidatePools; label: string; limit: number }> = [
+  { key: 'heroIds', label: '英雄', limit: BUILD_PICK_LIMITS.hero },
+  { key: 'normalIds', label: '普通技能', limit: BUILD_PICK_LIMITS.normal },
+  { key: 'ultimateIds', label: '终极技能', limit: BUILD_PICK_LIMITS.ultimate },
+]
 
 type ImageSize = Pick<LayoutDocument, 'width' | 'height'>
 
@@ -50,8 +58,9 @@ function buildScaledLayout(document: LayoutDocument, overrides: Record<number, R
 }
 
 function SkillIcon({ abilityId, shortName, name, isHero, compact = false, catalog = false }: { abilityId?: number; shortName?: string; name?: string; isHero?: boolean; compact?: boolean; catalog?: boolean }) {
-  const localUrl = shortName ? localAbilityIconUrl(abilityId, shortName, isHero) : undefined
-  const fallbackUrl = shortName ? remoteAbilityIconUrl(shortName, isHero) : undefined
+  const resolvedIsHero = abilityId === undefined ? Boolean(isHero) : isHeroAbility({ id: abilityId, isHero })
+  const localUrl = shortName ? localAbilityIconUrl(abilityId, shortName, resolvedIsHero) : undefined
+  const fallbackUrl = shortName ? remoteAbilityIconUrl(shortName, resolvedIsHero) : undefined
   const fallbackLabel = Array.from(name ?? shortName ?? '?').slice(0, 2).join('').toUpperCase()
   return (
     <span className={`skill-icon ${compact ? 'compact' : ''} ${catalog ? 'catalog' : ''}`} style={{ background: 'transparent' }}>
@@ -109,8 +118,14 @@ function pairAriaSort(sort: { key: PairSortKey; direction: SortDirection }, key:
 function PairAbilityCell({ ability }: { ability: AbilityPairEntry['abilityOne'] }) {
   return <div className="pair-ability-cell">
     <SkillIcon abilityId={ability.id} shortName={ability.shortName} name={ability.name} isHero={ability.isHero} />
-    <span className="pair-ability-name"><strong>{ability.name}</strong><small>{ability.shortName}</small></span>
+    <span className="pair-ability-name"><strong>{ability.name}</strong></span>
   </div>
+}
+
+function pickRoleLabel(ability: Ability | undefined): string {
+  if (!ability) return '技能'
+  if (isHeroAbility(ability)) return '英雄'
+  return ability.isUltimate ? '终极' : '普通'
 }
 
 function HiddenTriplesCell({ entries }: { entries: AbilityPairEntry['hiddenTriples'] }) {
@@ -140,6 +155,52 @@ function PairSortButton({ label, sortKey, sort, onSort }: { label: string; sortK
   return <button className={`pair-sort-button ${selected ? 'selected' : ''}`} type="button" onClick={() => onSort(sortKey)}>
     <span>{label}</span><Icon size={13} aria-hidden="true" />
   </button>
+}
+
+function TierAbilityCard({ entry }: { entry: TierEntry }) {
+  const isHero = isHeroAbility(entry.ability)
+  const type = isHero ? 'Hero' : entry.ability.isUltimate ? 'Ultimate' : 'Ability'
+  const winRate = `${(entry.winRate * 100).toFixed(1)}%`
+  const averagePick = formatAveragePickPosition(entry.stats.avgPickPosition)
+  const value = formatAbilityValue(entry.value)
+
+  return <Tooltip.Root>
+    <Tooltip.Trigger asChild>
+      <button
+        className="tier-card"
+        type="button"
+        aria-label={`${entry.ability.name}, ${type}, Win Rate ${winRate}, Avg Pick # ${averagePick}, Value ${value}`}
+      >
+        <SkillIcon abilityId={entry.ability.id} shortName={entry.ability.shortName} name={entry.ability.name} isHero={isHero} />
+      </button>
+    </Tooltip.Trigger>
+    <Tooltip.Portal>
+      <Tooltip.Content className="tier-card-tooltip" side="bottom" sideOffset={8} collisionPadding={10}>
+        <strong className="tier-card-popover-title">{entry.ability.name}</strong>
+        <span className={`tier-card-popover-type ${type.toLowerCase()}`}>{type} · Rank #{entry.rank}</span>
+        <span className="tier-card-popover-stat"><span>Win Rate</span><strong>{winRate}</strong></span>
+        <span className="tier-card-popover-stat"><span>Avg Pick #</span><strong>{averagePick}</strong></span>
+        <span className="tier-card-popover-stat"><span>Value</span><strong className={entry.value === undefined ? '' : entry.value >= 0 ? 'positive-value' : 'negative-value'}>{value}</strong></span>
+        <Tooltip.Arrow className="tier-card-tooltip-arrow" width={12} height={6} />
+      </Tooltip.Content>
+    </Tooltip.Portal>
+  </Tooltip.Root>
+}
+
+function EffectiveInteractionsPopover({ interactions, abilities }: { interactions: RecommendationInteraction[]; abilities: Map<number, Ability> }) {
+  if (interactions.length === 0) return <div className="build-pairs-popover">当前构筑没有可信的独立互动。</div>
+
+  return <div className="build-pairs-popover">
+    {interactions.map((interaction) => {
+      return <div className="build-effective-interaction" key={`${interaction.type}-${interaction.abilityIds.join('-')}`} title={`${interaction.type === 'pair' ? 'Pair' : 'Triple'} · 原始 ${formatPairPercent(interaction.rawSynergy, true)} · ${interaction.picks.toLocaleString()} 场`}>
+        <span className="build-interaction-icons">{interaction.abilityIds.map((id, index) => {
+          const ability = abilities.get(id)
+          return <span className="build-interaction-icon" key={id}>{index > 0 && <span className="build-pair-plus">+</span>}<SkillIcon compact abilityId={ability?.id} shortName={ability?.shortName} name={ability?.name} isHero={ability?.isHero} /></span>
+        })}</span>
+        <strong className={interaction.synergy >= 0 ? 'positive' : 'negative'}>{formatPairPercent(interaction.synergy, true)}</strong>
+      </div>
+    })}
+  </div>
 }
 
 function DebugCropPreview({ imageUrl, crop }: { imageUrl: string; crop: Rect }) {
@@ -218,8 +279,6 @@ export default function App() {
   const [pairQuery, setPairQuery] = useState('')
   const [excludeSameHero, setExcludeSameHero] = useState(false)
   const [pairSort, setPairSort] = useState<{ key: PairSortKey; direction: SortDirection }>({ key: 'synergy', direction: 'desc' })
-  const [pairScrollTop, setPairScrollTop] = useState(0)
-  const [pairViewportHeight, setPairViewportHeight] = useState(640)
   const [activePage, setActivePage] = useState<AppPage>('analysis')
   const [debugSlotIndex, setDebugSlotIndex] = useState<number>()
   const [manualSlotIndex, setManualSlotIndex] = useState<number>()
@@ -278,33 +337,58 @@ export default function App() {
     }
   }, [manualSlotIndex])
 
-  useEffect(() => {
-    if (activePage !== 'pairs') return
-    const element = pairTableRef.current
-    if (!element) return
-    const measure = () => setPairViewportHeight(element.clientHeight)
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [activePage])
-
-  useEffect(() => {
-    setPairScrollTop(0)
-    pairTableRef.current?.scrollTo({ top: 0 })
-  }, [pairQuery, excludeSameHero, pairSort])
-
+  const candidateTierInfo = useMemo(() => {
+    const tiers = new Map<number, { rank: number; tier: AbilityTier }>()
+    for (const category of ['heroes', 'abilities', 'ultimates'] as const) {
+      for (const entry of buildAbilityTierList(snapshot, category)) {
+        tiers.set(entry.ability.id, { rank: entry.rank, tier: entry.tier })
+      }
+    }
+    return tiers
+  }, [snapshot])
+  const candidatePools = useMemo<BuildCandidatePools>(() => {
+    const pools = { heroIds: [] as number[], normalIds: [] as number[], ultimateIds: [] as number[] }
+    for (const slot of slots) {
+      if (slot.selectedAbilityId === undefined) continue
+      if (slot.category === 'hero') pools.heroIds.push(slot.selectedAbilityId)
+      else if (slot.category === 'normal') pools.normalIds.push(slot.selectedAbilityId)
+      else pools.ultimateIds.push(slot.selectedAbilityId)
+    }
+    const sortByTier = (ids: number[]) => [...new Set(ids)].sort((left, right) => {
+      const rankDifference = (candidateTierInfo.get(left)?.rank ?? Number.POSITIVE_INFINITY) - (candidateTierInfo.get(right)?.rank ?? Number.POSITIVE_INFINITY)
+      if (rankDifference !== 0) return rankDifference
+      return (snapshot.abilities.find((ability) => ability.id === left)?.name ?? '').localeCompare(snapshot.abilities.find((ability) => ability.id === right)?.name ?? '')
+    })
+    return {
+      heroIds: sortByTier(pools.heroIds),
+      normalIds: sortByTier(pools.normalIds),
+      ultimateIds: sortByTier(pools.ultimateIds),
+    }
+  }, [candidateTierInfo, slots, snapshot])
   const candidateIds = useMemo(
-    () => slots.flatMap((slot) => slot.selectedAbilityId ? [slot.selectedAbilityId] : []),
-    [slots],
+    () => [...new Set([...candidatePools.heroIds, ...candidatePools.normalIds, ...candidatePools.ultimateIds])],
+    [candidatePools],
   )
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const selectedCounts: Record<keyof BuildCandidatePools, number> = { heroIds: 0, normalIds: 0, ultimateIds: 0 }
+      const next = current.filter((id) => {
+        const group = BUILD_PICK_GROUPS.find((item) => candidatePools[item.key].includes(id))
+        if (!group || selectedCounts[group.key] >= group.limit) return false
+        selectedCounts[group.key] += 1
+        return true
+      })
+      return next.length === current.length ? current : next
+    })
+  }, [candidatePools])
   const layout = useMemo(
     () => buildScaledLayout(importedLayout ?? DEFAULT_LAYOUT_DOCUMENT, layoutOverrides, imageSize),
     [importedLayout, layoutOverrides, imageSize],
   )
+  const abilitiesById = useMemo(() => new Map(snapshot.abilities.map((ability) => [ability.id, ability])), [snapshot])
   const recommendations = useMemo(
-    () => recommendBuilds(candidateIds, selectedIds, snapshot),
-    [candidateIds, selectedIds, snapshot],
+    () => recommendBuilds(candidatePools, selectedIds, snapshot),
+    [candidatePools, selectedIds, snapshot],
   )
   const tierEntries = useMemo(() => buildAbilityTierList(snapshot, tierCategory), [snapshot, tierCategory])
   const tierCategoryCounts = useMemo<Record<TierCategory, number>>(() => {
@@ -343,23 +427,22 @@ export default function App() {
       return left.key.localeCompare(right.key)
     })
   }, [pairEntries, pairQuery, pairSort])
-  const pairVirtualWindow = useMemo(() => {
-    const total = filteredPairEntries.length
-    if (total === 0) return { start: 0, end: 0, topSpacer: 0, bottomSpacer: 0 }
-    const totalHeight = PAIR_HEADER_HEIGHT + total * PAIR_ROW_HEIGHT
-    const maxScrollTop = Math.max(0, totalHeight - pairViewportHeight)
-    const scrollTop = Math.min(pairScrollTop, maxScrollTop)
-    const bodyScrollTop = Math.max(0, scrollTop - PAIR_HEADER_HEIGHT)
-    const start = Math.max(0, Math.floor(bodyScrollTop / PAIR_ROW_HEIGHT) - PAIR_OVERSCAN)
-    const end = Math.min(total, Math.ceil((bodyScrollTop + pairViewportHeight) / PAIR_ROW_HEIGHT) + PAIR_OVERSCAN)
-    return {
-      start,
-      end,
-      topSpacer: start * PAIR_ROW_HEIGHT,
-      bottomSpacer: Math.max(0, (total - end) * PAIR_ROW_HEIGHT),
-    }
-  }, [filteredPairEntries.length, pairScrollTop, pairViewportHeight])
-  const visiblePairEntries = filteredPairEntries.slice(pairVirtualWindow.start, pairVirtualWindow.end)
+  const pairVirtualizer = useVirtualizer({
+    count: filteredPairEntries.length,
+    getScrollElement: () => pairTableRef.current,
+    estimateSize: () => PAIR_ROW_HEIGHT,
+    overscan: 8,
+  })
+  const virtualPairRows = pairVirtualizer.getVirtualItems()
+  const pairTopSpacer = virtualPairRows[0]?.start ?? 0
+  const pairBottomSpacer = virtualPairRows.length === 0
+    ? 0
+    : Math.max(0, pairVirtualizer.getTotalSize() - (virtualPairRows[virtualPairRows.length - 1]?.end ?? 0))
+
+  useEffect(() => {
+    pairVirtualizer.scrollToOffset(0)
+  }, [excludeSameHero, pairQuery, pairSort])
+
   const ability = (id: number) => snapshot.abilities.find((item) => item.id === id)
 
   async function handleUpload(file: File) {
@@ -459,11 +542,13 @@ export default function App() {
     setLayoutOverrides({})
     layoutOverridesRef.current = {}
     setImportedLayout(undefined)
+    toast.success('已恢复默认布局')
   }
 
   function saveLayout() {
     const payload = { version: 1, width: imageSize.width, height: imageSize.height, slots: layout }
     fileAdapter.downloadText(`omg-layout-${imageSize.width}x${imageSize.height}.json`, JSON.stringify(payload, null, 2), 'application/json')
+    toast.success('布局 JSON 已开始导出')
   }
 
   async function loadLayout(file: File) {
@@ -476,8 +561,10 @@ export default function App() {
       writeStoredJson(storage, 'omg-layout-file-v1', parsed)
       storage.removeItem('omg-layout-overrides-v1')
       setError(undefined)
+      toast.success('布局文件已载入')
     } catch {
       setError('布局文件无效：需要正数尺寸、60 格且包含 hero / normal / ultimate 类别。')
+      toast.error('布局文件无效')
     }
   }
 
@@ -577,9 +664,13 @@ export default function App() {
   }
 
   function toggleSelected(id: number) {
-    setSelectedIds((current) => current.includes(id)
-      ? current.filter((item) => item !== id)
-      : current.length < 3 ? [...current, id] : current)
+    const group = BUILD_PICK_GROUPS.find((item) => candidatePools[item.key].includes(id))
+    if (!group) return
+    setSelectedIds((current) => {
+      if (current.includes(id)) return current.filter((item) => item !== id)
+      const selectedInGroup = current.filter((item) => candidatePools[group.key].includes(item))
+      return selectedInGroup.length < group.limit ? [...current, id] : current
+    })
   }
 
   function sortPairEntries(key: PairSortKey) {
@@ -621,11 +712,12 @@ export default function App() {
   }, [slots])
 
   return (
+    <Tooltip.Provider delayDuration={250} skipDelayDuration={150}>
     <main className="shell">
       <header className="app-header">
         <div>
           <p className="eyebrow">DOTA 2 / OMG</p>
-          <h1>Pick 分析台</h1>
+          <h1>OMG-Draft-Seer</h1>
         </div>
         <nav className="page-tabs" aria-label="Main pages">
           {appPages.map((page) => {
@@ -696,7 +788,12 @@ export default function App() {
           {activePage === 'layout' && screenshotUrl && <section className="calibration-panel">
             <div className="calibration-heading">
               <span><Settings2 size={16} /> Layout calibration</span>
-              <button className="icon-command" title="toggle layout calibration" onClick={() => setCalibrationOpen((current) => !current)}><Settings2 size={16} /></button>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button className="icon-command" title="toggle layout calibration" aria-label="切换布局校准" onClick={() => setCalibrationOpen((current) => !current)}><Settings2 size={16} /></button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal><Tooltip.Content className="app-tooltip" side="bottom" sideOffset={7}>切换布局校准<Tooltip.Arrow className="app-tooltip-arrow" width={12} height={6} /></Tooltip.Content></Tooltip.Portal>
+              </Tooltip.Root>
             </div>
             {calibrationOpen && <>
               <p>Drag any frame to move it. Drag its bottom-right dot to resize it. Re-slice when all frames align. The versioned JSON layout is scaled to the uploaded image dimensions.</p>
@@ -704,7 +801,20 @@ export default function App() {
               <div className="calibration-actions">
                 <button onClick={() => layoutFileRef.current?.click()}><FolderOpen size={15} /> Load layout</button>
                 <button onClick={saveLayout}><Download size={15} /> Save layout</button>
-                <button onClick={resetLayout}><RotateCcw size={15} /> Reset</button>
+                <AlertDialog.Root>
+                  <AlertDialog.Trigger asChild><button type="button"><RotateCcw size={15} /> Reset</button></AlertDialog.Trigger>
+                  <AlertDialog.Portal>
+                    <AlertDialog.Overlay className="layout-reset-overlay" />
+                    <AlertDialog.Content className="layout-reset-dialog">
+                      <AlertDialog.Title>恢复默认布局？</AlertDialog.Title>
+                      <AlertDialog.Description>这会清除已导入的布局文件和手动校准的位置，且无法撤销。</AlertDialog.Description>
+                      <div className="layout-reset-actions">
+                        <AlertDialog.Cancel asChild><button type="button">取消</button></AlertDialog.Cancel>
+                        <AlertDialog.Action asChild><button className="layout-reset-confirm" type="button" onClick={resetLayout}>恢复默认</button></AlertDialog.Action>
+                      </div>
+                    </AlertDialog.Content>
+                  </AlertDialog.Portal>
+                </AlertDialog.Root>
                 <button className="primary-action" disabled={!uploadedFile || loading} onClick={() => uploadedFile && handleUpload(uploadedFile)}><RefreshCw size={15} /> Re-slice</button>
               </div>
             </>}
@@ -809,14 +919,25 @@ export default function App() {
           </div>
 
           <fieldset className="control-group">
-            <legend>已选技能 <span>{selectedIds.length}/3</span></legend>
-            <div className="choice-list">
-              {[...new Set(candidateIds)].map((id) => {
-                const item = ability(id)
-                if (!item) return null
-                return <button key={id} className={selectedIds.includes(id) ? 'active-choice' : ''} onClick={() => toggleSelected(id)}><SkillIcon compact abilityId={id} shortName={item.shortName} name={item.name} isHero={item.isHero} />{item.name}</button>
+            <legend>锁定 Pick <span>{selectedIds.length}/5</span></legend>
+            <div className="pick-choice-groups">
+              {BUILD_PICK_GROUPS.map((group) => {
+                const ids = candidatePools[group.key]
+                const selectedCount = selectedIds.filter((id) => ids.includes(id)).length
+                return <section className={`pick-choice-group ${group.key}`} key={group.key}>
+                  <header><span>{group.label}</span><small>{selectedCount}/{group.limit}</small></header>
+                  <div className="choice-list">
+                    {ids.map((id) => {
+                      const item = ability(id)
+                      if (!item) return null
+                      const tier = candidateTierInfo.get(id)?.tier
+                      return <button key={id} className={selectedIds.includes(id) ? 'active-choice' : ''} onClick={() => toggleSelected(id)}><SkillIcon compact abilityId={id} shortName={item.shortName} name={item.name} isHero={item.isHero} /><span>{item.name}</span>{tier && <small className={`pick-tier tier-${tier.toLowerCase()}`}>{tier}</small>}</button>
+                    })}
+                    {ids.length === 0 && <p className="muted">暂无已确认候选</p>}
+                  </div>
+                </section>
               })}
-              {candidateIds.length === 0 && <p className="muted">确认候选技能后在此选择已选项。</p>}
+              {candidateIds.length === 0 && <p className="muted">确认截图候选后生成完整五 Pick 构筑。</p>}
             </div>
           </fieldset>
 
@@ -824,28 +945,30 @@ export default function App() {
             <div className="recommendations">
               <div className="next-pick">
                 <span>建议下一手</span>
-                <strong>{ability(recommendations[0].abilityIds.find((id) => !selectedIds.includes(id)) ?? recommendations[0].abilityIds[0])?.name}</strong>
+                <strong>{ability(recommendations[0].pickOrderIds.find((id) => !selectedIds.includes(id)) ?? recommendations[0].pickOrderIds[0])?.name}</strong>
               </div>
               {recommendations.map((recommendation, index) => (
                 <article className="build-card" key={recommendation.abilityIds.join('-')}>
                   <div className="build-main">
                     <div className="build-detail">
                       <div className="build-header"><span>方案 {index + 1}</span></div>
-                      <div className="build-abilities">{recommendation.abilityIds.map((id) => <span key={id} title={ability(id)?.name}><SkillIcon compact abilityId={id} shortName={ability(id)?.shortName} name={ability(id)?.name} isHero={ability(id)?.isHero} />{ability(id)?.name}</span>)}</div>
+                      <div className="build-abilities">{recommendation.pickOrderIds.map((id, pickIndex) => {
+                        const item = ability(id)
+                        return <span key={id} title={item?.name}><small>Pick {pickIndex + 1} · {pickRoleLabel(item)}</small><SkillIcon compact abilityId={id} shortName={item?.shortName} name={item?.name} isHero={item?.isHero} /><b>{item?.name}</b></span>
+                      })}</div>
                     </div>
                     <dl className="build-stats">
-                      <div><dt>Score</dt><dd>{recommendation.score.toFixed(1)}</dd></div>
-                      <div><dt>Ability WR</dt><dd>{(recommendation.abilityWinRate * 100).toFixed(1)}%</dd></div>
-                      <div><dt>Synergy</dt><dd>{recommendation.synergy > 0 ? '+' : ''}{(recommendation.synergy * 100).toFixed(1)}%</dd></div>
+                      <div><dt>Score</dt><dd>{recommendation.score.toFixed(1)}%</dd></div>
+                      <div><dt>Win Rate</dt><dd>{(recommendation.abilityWinRate * 100).toFixed(1)}%</dd></div>
+                      <div className="build-pairs-stat" tabIndex={0} aria-label={`Synergy ${recommendation.synergy >= 0 ? '+' : ''}${(recommendation.synergy * 100).toFixed(1)} percent, ${recommendation.effectiveInteractionCount} independent interactions`}><dt>Synergy</dt><dd>{recommendation.synergy > 0 ? '+' : ''}{(recommendation.synergy * 100).toFixed(1)}%<small>有效 {recommendation.effectiveInteractionCount} 组</small></dd><EffectiveInteractionsPopover interactions={recommendation.effectiveInteractions} abilities={abilitiesById} /></div>
                       <div><dt>Avg Pick #</dt><dd>{recommendation.averagePickPosition.toFixed(1)}</dd></div>
                     </dl>
                   </div>
-                  {recommendation.reasons.length > 3 && <p className="build-note">{recommendation.reasons.slice(3).join(' · ')}</p>}
                 </article>
               ))}
             </div>
           ) : (
-            <div className="empty-results"><FileImage size={24} /><p>确认至少 4 个候选技能后生成构筑。</p></div>
+            <div className="empty-results"><FileImage size={24} /><p>确认至少 1 个英雄、3 个普通技能和 1 个终极技能后生成构筑。</p></div>
           )}
         </aside>}
       </section>}
@@ -895,28 +1018,7 @@ export default function App() {
             <section className={`tier-row tier-row-${tier.toLowerCase()}`} key={tier} aria-label={`${tier} tier`}>
               <div className="tier-label"><strong>{tier}</strong><span className="tier-count">{tierGroups[tier].length}</span></div>
               <div className="tier-items">
-                {tierGroups[tier].map((entry) => {
-                  const isHero = Boolean(entry.ability.isHero || entry.ability.id < 0)
-                  const type = isHero ? 'Hero' : entry.ability.isUltimate ? 'Ultimate' : 'Ability'
-                  const winRate = `${(entry.winRate * 100).toFixed(1)}%`
-                  const averagePick = formatAveragePickPosition(entry.stats.avgPickPosition)
-                  const value = formatAbilityValue(entry.value)
-                  return <button
-                    className="tier-card"
-                    key={entry.ability.id}
-                    type="button"
-                    aria-label={`${entry.ability.name}, ${type}, Win Rate ${winRate}, Avg Pick # ${averagePick}, Value ${value}`}
-                  >
-                    <SkillIcon abilityId={entry.ability.id} shortName={entry.ability.shortName} name={entry.ability.name} isHero={isHero} />
-                    <span className="tier-card-popover">
-                      <strong className="tier-card-popover-title">{entry.ability.name}</strong>
-                      <span className={`tier-card-popover-type ${type.toLowerCase()}`}>{type} · Rank #{entry.rank}</span>
-                      <span className="tier-card-popover-stat"><span>Win Rate</span><strong>{winRate}</strong></span>
-                      <span className="tier-card-popover-stat"><span>Avg Pick #</span><strong>{averagePick}</strong></span>
-                      <span className="tier-card-popover-stat"><span>Value</span><strong className={entry.value === undefined ? '' : entry.value >= 0 ? 'positive-value' : 'negative-value'}>{value}</strong></span>
-                    </span>
-                  </button>
-                })}
+                {tierGroups[tier].map((entry) => <TierAbilityCard key={entry.ability.id} entry={entry} />)}
                 {tierGroups[tier].length === 0 && filteredTierEntries.length > 0 && <span className="tier-empty">No ranked entries</span>}
               </div>
             </section>
@@ -952,7 +1054,6 @@ export default function App() {
         <div
           ref={pairTableRef}
           className="pairs-table-scroll"
-          onScroll={(event) => setPairScrollTop(event.currentTarget.scrollTop)}
         >
           <table className="pairs-table">
             <thead>
@@ -964,13 +1065,14 @@ export default function App() {
                 <th aria-sort={pairAriaSort(pairSort, 'pairWinRate')}><PairSortButton label="Pair WR" sortKey="pairWinRate" sort={pairSort} onSort={sortPairEntries} /></th>
                 <th aria-sort={pairAriaSort(pairSort, 'synergy')}><PairSortButton label="Synergy" sortKey="synergy" sort={pairSort} onSort={sortPairEntries} /></th>
                 <th><span className="pair-header-label">Hidden Triples <span className="pair-help" title="Third abilities from comparable triplet data. These can explain inflated pair synergy.">?</span></span></th>
-                <th aria-sort={pairAriaSort(pairSort, 'picks')}><PairSortButton label="Picks" sortKey="picks" sort={pairSort} onSort={sortPairEntries} /></th>
               </tr>
             </thead>
             <tbody>
-              {pairVirtualWindow.topSpacer > 0 && <tr className="pair-virtual-spacer" aria-hidden="true"><td colSpan={8} style={{ height: pairVirtualWindow.topSpacer }} /></tr>}
-              {visiblePairEntries.map((entry) => (
-                <tr key={entry.key}>
+              {pairTopSpacer > 0 && <tr className="pair-virtual-spacer" aria-hidden="true"><td colSpan={7} style={{ height: pairTopSpacer }} /></tr>}
+              {virtualPairRows.map((virtualRow) => {
+                const entry = filteredPairEntries[virtualRow.index]
+                if (!entry) return null
+                return <tr key={entry.key}>
                   <td><PairAbilityCell ability={entry.abilityOne} /></td>
                   <td className="pair-stat-cell">{formatPairPercent(entry.winRateOne)}</td>
                   <td><PairAbilityCell ability={entry.abilityTwo} /></td>
@@ -978,15 +1080,16 @@ export default function App() {
                   <td className="pair-stat-cell pair-pair-rate">{formatPairPercent(entry.pairWinRate)}</td>
                   <td className={`pair-stat-cell ${entry.synergy === undefined ? 'pair-muted' : entry.synergy >= 0 ? 'pair-positive' : 'pair-negative'}`}>{formatPairPercent(entry.synergy, true)}</td>
                   <td><HiddenTriplesCell entries={entry.hiddenTriples} /></td>
-                  <td className="pair-stat-cell pair-picks">{entry.picks.toLocaleString()}</td>
                 </tr>
-              ))}
-              {pairVirtualWindow.bottomSpacer > 0 && <tr className="pair-virtual-spacer" aria-hidden="true"><td colSpan={8} style={{ height: pairVirtualWindow.bottomSpacer }} /></tr>}
-              {filteredPairEntries.length === 0 && <tr><td className="pairs-empty" colSpan={8}><Search size={22} /><p>{pairQuery.trim() ? 'No ability pairs match your search.' : 'No ability pairs found.'}</p></td></tr>}
+              })}
+              {pairBottomSpacer > 0 && <tr className="pair-virtual-spacer" aria-hidden="true"><td colSpan={7} style={{ height: pairBottomSpacer }} /></tr>}
+              {filteredPairEntries.length === 0 && <tr><td className="pairs-empty" colSpan={7}><Search size={22} /><p>{pairQuery.trim() ? 'No ability pairs match your search.' : 'No ability pairs found.'}</p></td></tr>}
             </tbody>
           </table>
         </div>
       </section>}
     </main>
+    <Toaster position="bottom-right" theme="dark" visibleToasts={3} toastOptions={{ className: 'omg-toast', duration: 3500 }} />
+    </Tooltip.Provider>
   )
 }
