@@ -2,7 +2,7 @@
 
 > 当前状态：`@tanstack/react-virtual`、Radix Tooltip/Alert Dialog 与 Sonner 已在 `App.tsx` 落地。本文保留为采用决策和后续拆分记录，不是待执行清单；`AbilityPairsTable` 组件抽取尚未实施。
 
-> 状态：第 2 至 4 页的首批改造已完成；第 1 页手动候选选择和条件性的 `cmdk` 仍等待单独执行。
+> 状态：第 1 至 4 页的首批改造已完成；第 1 页手动候选选择已迁移到 Radix Popover，条件性的 `cmdk` 仍等待单独执行。
 
 ## 1. 目标与边界
 
@@ -69,7 +69,7 @@
 
 **修改方案：**
 
-1. 新建 `src/components/ManualCandidatePicker.tsx`，每个技能格持有一个受控 `Popover.Root`；触发器保留原有图标、名称和“已确认”视觉。
+1. 每个技能格持有一个受控 `Popover.Root`；触发器保留原有图标、名称和“已确认”视觉。
 2. 以当前选择的技能名或首选识别结果作为触发器文本，候选项仍只显示该格已有的 OCR 候选及排名。
 3. `Popover.Content` 使用 `side="bottom"`、碰撞避让和视口边距；内容以 portal 渲染，复用 `.manual-candidates` 与 `.manual-candidate` 的配色，不保留 `position: fixed` 坐标计算。
 4. 选择候选后调用现有 `updateSlot`，随后关闭 Popover；点击外部、Esc、滚动和窗口尺寸改变由 Radix 处理。

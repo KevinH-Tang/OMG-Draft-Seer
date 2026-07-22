@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import * as AlertDialog from '@radix-ui/react-alert-dialog'
+import * as Popover from '@radix-ui/react-popover'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDownUp, Bug, Check, ChevronDown, ChevronUp, CircleAlert, Download, FileImage, Filter, FolderOpen, GitFork, Layers, LayoutPanelTop, RefreshCw, RotateCcw, ScanSearch, Search, Settings2, Sparkles, Upload } from 'lucide-react'
@@ -283,7 +284,6 @@ export default function App() {
   const [activePage, setActivePage] = useState<AppPage>('analysis')
   const [debugSlotIndex, setDebugSlotIndex] = useState<number>()
   const [manualSlotIndex, setManualSlotIndex] = useState<number>()
-  const [manualPickerPosition, setManualPickerPosition] = useState<{ top: number; left: number; width: number }>()
   const [uploadedFile, setUploadedFile] = useState<File>()
   const [imageSize, setImageSize] = useState<ImageSize>(DEFAULT_IMAGE_SIZE)
   const [calibrationOpen, setCalibrationOpen] = useState(false)
@@ -326,17 +326,6 @@ export default function App() {
     recognitionWorkerRef.current?.terminate()
     if (screenshotUrlRef.current) URL.revokeObjectURL(screenshotUrlRef.current)
   }, [])
-
-  useEffect(() => {
-    if (manualSlotIndex === undefined) return
-    const close = () => closeManualPicker()
-    window.addEventListener('scroll', close, true)
-    window.addEventListener('resize', close)
-    return () => {
-      window.removeEventListener('scroll', close, true)
-      window.removeEventListener('resize', close)
-    }
-  }, [manualSlotIndex])
 
   const candidateTierInfo = useMemo(() => {
     const tiers = new Map<number, { rank: number; tier: AbilityTier }>()
@@ -460,7 +449,6 @@ export default function App() {
     setSlots([])
     setSelectedIds([])
     setManualSlotIndex(undefined)
-    setManualPickerPosition(undefined)
     setCalibrationOpen(true)
     setLoading(true)
     const missingCapabilities = missingRuntimeCapabilities(runtimeCapabilities)
@@ -631,39 +619,6 @@ export default function App() {
     setSlots((current) => current.map((slot) => slot.index === index ? { ...slot, selectedAbilityId } : slot))
   }
 
-  function closeManualPicker() {
-    setManualSlotIndex(undefined)
-    setManualPickerPosition(undefined)
-  }
-
-  function scheduleManualPickerClose(index: number) {
-    window.setTimeout(() => {
-      setManualSlotIndex((current) => {
-        if (current !== index) return current
-        setManualPickerPosition(undefined)
-        return undefined
-      })
-    }, 0)
-  }
-
-  function openManualPicker(input: HTMLInputElement, index: number) {
-    const bounds = input.getBoundingClientRect()
-    const width = Math.min(420, Math.max(bounds.width, 300))
-    setManualSlotIndex(index)
-    setManualPickerPosition({
-      top: Math.max(8, Math.min(bounds.bottom + 4, window.innerHeight - 388)),
-      left: Math.max(8, Math.min(bounds.left, window.innerWidth - width - 8)),
-      width,
-    })
-  }
-
-  function openManualPickerFromLabel(event: ReactMouseEvent<HTMLLabelElement>, index: number) {
-    const input = event.currentTarget.querySelector('input')
-    if (!input) return
-    input.focus()
-    openManualPicker(input, index)
-  }
-
   function acceptSuggestions() {
     setSlots((current) => current.map((slot) => ({ ...slot, selectedAbilityId: slot.candidates[0]?.abilityId })))
   }
@@ -693,10 +648,6 @@ export default function App() {
     if (!recognized || !currentLayout) return undefined
     return { ...recognized, rect: currentLayout.rect, crop: cropCenter(currentLayout.rect) }
   }, [debugSlotIndex, layout, slots])
-  const manualSlot = useMemo(
-    () => manualSlotIndex === undefined ? undefined : slots.find((slot) => slot.index === manualSlotIndex),
-    [manualSlotIndex, slots],
-  )
   const expectedAbilityId = debugSlot ? goldenLabels[debugSlot.index] : undefined
   const expectedAbility = expectedAbilityId === undefined ? undefined : ability(expectedAbilityId)
   const expectedRank = debugSlot && expectedAbilityId !== undefined ? debugSlot.candidates.findIndex((candidate) => candidate.abilityId === expectedAbilityId) : -1
@@ -844,47 +795,44 @@ export default function App() {
                 const displayedAbility = selectedAbility ?? bestAbility
                 return (
                   <div className="skill-slot-group" key={slot.index}>
-                    <label className={`skill-slot ${slot.selectedAbilityId !== undefined ? 'confirmed' : ''}`} onClick={(event) => openManualPickerFromLabel(event, slot.index)}>
-                      <span className="slot-index">{slotLabel(slot.index)}</span>
-                      <SkillIcon abilityId={displayedAbility?.id} shortName={displayedAbility?.shortName} name={displayedAbility?.name} isHero={displayedAbility?.isHero} />
-                      <input
-                        readOnly
-                        value={selectedAbility?.name ?? ''}
-                        placeholder={bestAbility?.name ?? '未知'}
-                        onFocus={(event) => openManualPicker(event.currentTarget, slot.index)}
-                        onClick={(event) => openManualPicker(event.currentTarget, slot.index)}
-                        onBlur={() => scheduleManualPickerClose(slot.index)}
-                      />
-                    </label>
+                    <Popover.Root open={manualSlotIndex === slot.index} onOpenChange={(open) => setManualSlotIndex(open ? slot.index : undefined)}>
+                      <Popover.Trigger asChild>
+                        <button type="button" className={`skill-slot ${slot.selectedAbilityId !== undefined ? 'confirmed' : ''}`} aria-label={`${slotLabel(slot.index)}，${displayedAbility?.name ?? '未知'}，选择候选技能`}>
+                          <span className="slot-index">{slotLabel(slot.index)}</span>
+                          <SkillIcon abilityId={displayedAbility?.id} shortName={displayedAbility?.shortName} name={displayedAbility?.name} isHero={displayedAbility?.isHero} />
+                          <span className={`skill-slot-name ${displayedAbility ? '' : 'placeholder'}`}>{selectedAbility?.name ?? bestAbility?.name ?? '未知'}</span>
+                        </button>
+                      </Popover.Trigger>
+                      <Popover.Portal>
+                        <Popover.Content className="manual-candidates manual-candidates-popover" side="bottom" align="start" sideOffset={5} collisionPadding={8}>
+                          {slot.candidates.map((candidate, index) => {
+                            const item = ability(candidate.abilityId)
+                            if (!item) return null
+                            return <button
+                              type="button"
+                              className="manual-candidate"
+                              key={candidate.abilityId}
+                              onClick={() => {
+                                updateSlot(slot.index, String(candidate.abilityId))
+                                setManualSlotIndex(undefined)
+                              }}
+                            >
+                              <span className="candidate-rank">{index + 1}</span>
+                              <SkillIcon abilityId={item.id} shortName={item.shortName} name={item.name} isHero={item.isHero} />
+                              <span className="candidate-name">{item.name}</span>
+                            </button>
+                          })}
+                          {slot.candidates.length === 0 && <span className="manual-candidates-empty">没有可用候选技能</span>}
+                          <Popover.Arrow className="manual-candidates-arrow" width={12} height={6} />
+                        </Popover.Content>
+                      </Popover.Portal>
+                    </Popover.Root>
                   </div>
                 )
               })}
               </div>
             </div>
           )}
-          {manualSlot && manualPickerPosition && <div
-            className="manual-candidates manual-candidates-floating"
-            style={{ top: manualPickerPosition.top, left: manualPickerPosition.left, width: manualPickerPosition.width }}
-          >
-            {manualSlot.candidates.map((candidate, index) => {
-              const item = ability(candidate.abilityId)
-              if (!item) return null
-              return <button
-                type="button"
-                className="manual-candidate"
-                key={candidate.abilityId}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  updateSlot(manualSlot.index, String(candidate.abilityId))
-                  closeManualPicker()
-                }}
-              >
-                <span className="candidate-rank">{index + 1}</span>
-                <SkillIcon abilityId={item.id} shortName={item.shortName} name={item.name} isHero={item.isHero} />
-                <span className="candidate-name">{item.name}</span>
-              </button>
-            })}
-          </div>}
         </div>
 
         {activePage === 'layout' && debugSlot && (
