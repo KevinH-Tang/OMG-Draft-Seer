@@ -82,6 +82,9 @@ Perform this smoke check in the desktop window:
 - Close and reopen the window and confirm that saved calibration remains available.
 - Switch between recognition, candidate confirmation, `Tier List`, `Ability Pairs`, and
   recommendations.
+- Confirm the main window opens at approximately 720px wide. From page one, open the Tier and
+  recommendation overlays independently; verify that each stays above other windows and that
+  cursor movement over the overlay reaches the window behind it.
 
 ## Production Build
 
@@ -98,7 +101,8 @@ src-tauri/target/release/bundle/msi/*.msi
 ```
 
 Install one generated package and repeat the desktop smoke check. Verify the application title,
-window size, screenshot workflow, layout persistence, and recommendation pages.
+720px default window size, screenshot workflow, layout persistence, independent overlays, and
+recommendation pages.
 
 ## Recorded Windows Run
 

@@ -10,13 +10,14 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
         "title": "OMG-Draft-Seer",
-        "width": 1440,
-        "height": 900,
-        "minWidth": 1024,
+        "width": 720,
+        "height": 920,
+        "minWidth": 640,
         "minHeight": 720,
         "resizable": true
       }

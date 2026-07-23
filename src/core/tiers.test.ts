@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { demoSnapshot } from '../data/demoSnapshot'
-import { buildAbilityTierList, getTierCategoryCounts, matchesTierCategory, tierForRank } from './tiers'
+import { buildAbilityTierList, filterTierEntries, getTierCategoryCounts, matchesTierCategory, tierForRank } from './tiers'
 import type { Snapshot } from '../types'
 
 describe('ability tier list', () => {
@@ -63,5 +63,13 @@ describe('ability tier list', () => {
     expect(entries.map((entry) => entry.ability.name)).toEqual(['Higher', 'Lower'])
     expect(entries[0]).toMatchObject({ rank: 1, tier: 'C' })
     expect(entries[1]).toMatchObject({ rank: 2, tier: 'F' })
+  })
+
+  it('filters ranked entries by full and short ability name', () => {
+    const entries = buildAbilityTierList(demoSnapshot)
+
+    expect(filterTierEntries(entries, 'ball lightning').map((entry) => entry.ability.id)).toEqual([5101])
+    expect(filterTierEntries(entries, 'tidehunter_ravage').map((entry) => entry.ability.id)).toEqual([5121])
+    expect(filterTierEntries(entries, '  ').map((entry) => entry.ability.id)).toEqual(entries.map((entry) => entry.ability.id))
   })
 })

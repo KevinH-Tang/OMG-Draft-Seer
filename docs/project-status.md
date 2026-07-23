@@ -17,10 +17,14 @@ strategy to every player position, records up to 20 legal candidates at each glo
 consumes Top1 for the deterministic path. The implementation boundary and assumptions are recorded
 in [Draft strategy tree](draft-strategy-tree.md).
 
-Layout detection is manual. The project does not capture a game window, expose a native overlay, or
-provide global shortcuts. `src/platform/` contains the browser adapters for resource URLs, layout
-storage, file import/export, and runtime capability checks. Tauri bundles have been built for both
-macOS Apple Silicon and Windows x64.
+Layout detection is manual. The project does not capture a game window or provide global shortcuts.
+The Tauri shell now exposes independent Tier and recommendation overlay windows with always-on-top
+and cursor-pass-through behavior; the browser build uses fixed mouse-transparent panels.
+The macOS transparent-overlay implementation uses Tauri's macOS private API, so macOS releases
+must be direct-distribution builds rather than Mac App Store submissions.
+`src/platform/` contains the browser adapters for resource URLs, layout storage, file import/export,
+overlay state, and runtime capability checks. Tauri bundles have been built for both macOS Apple
+Silicon and Windows x64.
 
 ## Runtime Inventory
 
@@ -140,9 +144,9 @@ endpoints; whether a fuller private export exists is not documented in this repo
   relation database. Track a full-export, pagination, or match-level-data path with the upstream
   project.
 
-Wails, Go-native UI, game-window capture, global shortcuts, and overlay support are outside the
-current implementation. They should not be reintroduced through old migration plans without a new
-product requirement and validation scope.
+Wails, Go-native UI, game-window capture, and global shortcuts remain outside the current
+implementation. The native overlay scope is limited to the independent information windows added
+for Tier and recommendation views.
 
 ## Intentional Cleanup
 

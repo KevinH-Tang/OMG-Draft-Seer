@@ -3,7 +3,7 @@ import * as AlertDialog from '@radix-ui/react-alert-dialog'
 import * as Popover from '@radix-ui/react-popover'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ArrowDownUp, Bug, Check, ChevronDown, ChevronUp, CircleAlert, Download, FileImage, Filter, FolderOpen, GitFork, Layers, LayoutPanelTop, Pause, Play, RefreshCw, RotateCcw, ScanSearch, Search, Settings2, SkipBack, SkipForward, Sparkles, Timer, Upload, Users } from 'lucide-react'
+import { ArrowDownUp, Bug, Check, ChevronDown, ChevronUp, CircleAlert, Download, FileImage, Filter, FolderOpen, GitFork, Layers, LayoutPanelTop, MousePointer2Off, PanelTop, Pause, Pin, PinOff, Play, RefreshCw, RotateCcw, ScanSearch, Search, Settings2, SkipBack, SkipForward, Sparkles, Timer, Upload, Users } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import { demoSnapshot } from './data/demoSnapshot'
 import { clampRectToCanvas, cropCenter, DEFAULT_LAYOUT_DOCUMENT, MATCH_CROP_RATIO, parseLayoutDocument, scaleLayoutToCanvas, scaleRect, slotLabel, ULTIMATE_SLOT_ORDER, validateScreenshotDimensions, type FixedSlot, type LayoutDocument } from './core/layout'
@@ -14,10 +14,11 @@ import { createDraftStrategyMap, simulateDraft, type DraftReplayFrame, type Draf
 import { positionsForPlayer, turnAt } from './core/draft-turns'
 import type { RankedDraftCandidate } from './core/draft-strategy'
 import { isSupportedScreenshotFile, SCREENSHOT_FILE_ACCEPT } from './core/screenshot-file'
-import { buildAbilityTierList, getTierCategoryCounts, TIER_CATEGORY_OPTIONS, TIER_ORDER, type AbilityTier, type TierCategory, type TierEntry } from './core/tiers'
+import { buildAbilityTierList, filterTierEntries, getTierCategoryCounts, TIER_CATEGORY_OPTIONS, TIER_ORDER, type AbilityTier, type TierCategory, type TierEntry } from './core/tiers'
 import { isHeroAbility } from './core/ability-category'
 import { detectRuntimeCapabilities, missingRuntimeCapabilities } from './platform/capabilities'
 import { getBrowserFileAdapter } from './platform/files'
+import { closeNativeOverlay, createOverlayChannel, isDesktopRuntime, openNativeOverlay, overlayKindFromLocation, readOverlayState, writeOverlayState, type OverlayKind, type OverlayMessage, type OverlayState } from './platform/overlays'
 import { appResourceUrl, localAbilityIconUrl, remoteAbilityIconUrl } from './platform/resources'
 import { getBrowserStorage, readStoredJson, writeStoredJson } from './platform/storage'
 import type { Ability, IconSignature, PartialRecommendationInteraction, Recommendation, RecommendationInteraction, RecognizedSlot, Rect, SlotCategory, Snapshot } from './types'
@@ -54,6 +55,14 @@ type ImageSize = Pick<LayoutDocument, 'width' | 'height'>
 const DEFAULT_IMAGE_SIZE: ImageSize = {
   width: DEFAULT_LAYOUT_DOCUMENT.width,
   height: DEFAULT_LAYOUT_DOCUMENT.height,
+}
+
+const EMPTY_OVERLAY_STATE: OverlayState = {
+  candidatePools: { heroIds: [], abilityIds: [], ultimateIds: [] },
+  recommendations: [],
+  selectedIds: [],
+  tierCategory: 'all',
+  tierQuery: '',
 }
 
 function buildScaledLayout(document: LayoutDocument, overrides: Record<number, Rect>, imageSize: ImageSize): FixedSlot[] {
@@ -293,6 +302,135 @@ function TierAbilityCard({ entry }: { entry: TierEntry }) {
       </Tooltip.Content>
     </Tooltip.Portal>
   </Tooltip.Root>
+}
+
+function OverlayToggleButton({ kind, open, onToggle }: { kind: OverlayKind; open: boolean; onToggle: (kind: OverlayKind) => void }) {
+  const isTier = kind === 'tier'
+  const label = isTier ? 'Tier' : '推荐'
+  const Icon = open ? PinOff : Pin
+  return <button
+    className={`overlay-toggle ${open ? 'active' : ''}`}
+    type="button"
+    aria-pressed={open}
+    aria-label={`${open ? '关闭' : '打开'}${label}置顶浮层`}
+    title={`${open ? '关闭' : '打开'}${label}置顶浮层`}
+    onClick={() => onToggle(kind)}
+  >
+    <Icon size={15} aria-hidden="true" />
+  </button>
+}
+
+function OverlayTierCard({ entry }: { entry: TierEntry }) {
+  const isHero = isHeroAbility(entry.ability)
+  return <span className="overlay-tier-card" title={`${entry.ability.name} · ${entry.tier} · ${(entry.winRate * 100).toFixed(1)}% WR`}>
+    <SkillIcon abilityId={entry.ability.id} shortName={entry.ability.shortName} name={entry.ability.name} isHero={isHero} />
+  </span>
+}
+
+function OverlayTierContent({ state, snapshot }: { state: OverlayState; snapshot: Snapshot }) {
+  const entries = useMemo(() => filterTierEntries(buildAbilityTierList(snapshot, state.tierCategory), state.tierQuery), [snapshot, state.tierCategory, state.tierQuery])
+  const entriesById = useMemo(() => new Map(entries.map((entry) => [entry.ability.id, entry])), [entries])
+  const candidateIds = useMemo(() => [...new Set([
+    ...state.candidatePools.heroIds,
+    ...state.candidatePools.abilityIds,
+    ...state.candidatePools.ultimateIds,
+  ])], [state.candidatePools])
+  const visibleEntries = useMemo(() => {
+    const candidates = candidateIds.map((id) => entriesById.get(id)).filter((entry): entry is TierEntry => entry !== undefined)
+    return candidates.length > 0 ? candidates : entries.slice(0, 36)
+  }, [candidateIds, entries, entriesById])
+  const groups = useMemo(() => {
+    const grouped: Record<AbilityTier, TierEntry[]> = { S: [], A: [], B: [], C: [], D: [], E: [], F: [] }
+    for (const entry of visibleEntries) grouped[entry.tier].push(entry)
+    return grouped
+  }, [visibleEntries])
+  const sourceLabel = candidateIds.some((id) => entriesById.has(id)) ? '当前截图候选' : '全局 Top 36'
+
+  return <>
+    <div className="overlay-summary"><span>{sourceLabel}</span><strong>{visibleEntries.length} 项</strong><span>Patch {snapshot.patch}</span></div>
+    <div className="overlay-tier-list">
+      {TIER_ORDER.map((tier) => groups[tier].length > 0 && <section className={`overlay-tier-row overlay-tier-row-${tier.toLowerCase()}`} key={tier}>
+        <span className="overlay-tier-label">{tier}</span>
+        <div className="overlay-tier-items">{groups[tier].map((entry) => <OverlayTierCard key={entry.ability.id} entry={entry} />)}</div>
+      </section>)}
+    </div>
+  </>
+}
+
+function OverlayRecommendationContent({ state, abilities }: { state: OverlayState; abilities: ReadonlyMap<number, Ability> }) {
+  const firstRecommendation = state.recommendations[0]
+  const nextPickId = firstRecommendation?.pickOrderIds.find((id) => !state.selectedIds.includes(id)) ?? firstRecommendation?.pickOrderIds[0]
+  const nextPick = nextPickId === undefined ? undefined : abilities.get(nextPickId)
+
+  return <>
+    <div className="overlay-next-pick">
+      <span>建议下一手</span>
+      <strong>{nextPick?.name ?? '确认 1 / 3 / 1 候选后生成'}</strong>
+      <small>{state.selectedIds.length}/5 locked · {state.recommendations.length} builds ranked</small>
+    </div>
+    {state.recommendations.slice(0, 3).map((recommendation, index) => <article className="overlay-build" key={recommendation.abilityIds.join('-')}>
+      <header><span>方案 {index + 1}</span><strong>{recommendation.score.toFixed(1)}%</strong></header>
+      <div className="overlay-build-picks">
+        {recommendation.pickOrderIds.map((id, pickIndex) => {
+          const item = abilities.get(id)
+          return <span key={id} title={item?.name}>
+            <small>{pickIndex + 1}</small>
+            <SkillIcon compact abilityId={item?.id} shortName={item?.shortName} name={item?.name} isHero={item?.isHero} />
+          </span>
+        })}
+      </div>
+      <div className="overlay-build-stats"><span>Base WR <b>{(recommendation.abilityWinRate * 100).toFixed(1)}%</b></span><span>Synergy <b className={recommendation.synergy >= 0 ? 'positive' : 'negative'}>{formatPairPercent(recommendation.synergy, true)}</b></span><span>Avg Pick <b>{recommendation.averagePickPosition.toFixed(1)}</b></span></div>
+    </article>)}
+    {state.recommendations.length === 0 && <div className="overlay-empty"><Sparkles size={22} /><span>锁定至少 1 个英雄、3 个技能和 1 个终极</span></div>}
+  </>
+}
+
+function FloatingOverlay({ kind, state, snapshot, abilities }: { kind: OverlayKind; state: OverlayState; snapshot: Snapshot; abilities: ReadonlyMap<number, Ability> }) {
+  const isTier = kind === 'tier'
+  return <aside className={`floating-overlay floating-overlay-${kind}`} aria-label={isTier ? 'Tier 置顶浮层' : '技能推荐置顶浮层'}>
+    <div className="floating-overlay-panel">
+      <header className="floating-overlay-header">
+        <div><p className="eyebrow"><PanelTop size={13} aria-hidden="true" /> PINNED {isTier ? 'TIERS' : 'RECOMMENDATION'}</p><h2>{isTier ? 'Tier 参考' : '技能推荐'}</h2></div>
+        <span className="overlay-pass-through"><MousePointer2Off size={13} aria-hidden="true" />鼠标穿透</span>
+      </header>
+      {isTier ? <OverlayTierContent state={state} snapshot={snapshot} /> : <OverlayRecommendationContent state={state} abilities={abilities} />}
+    </div>
+  </aside>
+}
+
+function OverlayApp({ kind }: { kind: OverlayKind }) {
+  const [snapshot, setSnapshot] = useState<Snapshot>(demoSnapshot)
+  const [state, setState] = useState<OverlayState>(() => readOverlayState(kind) ?? EMPTY_OVERLAY_STATE)
+
+  useEffect(() => {
+    document.documentElement.classList.add('overlay-document')
+    return () => document.documentElement.classList.remove('overlay-document')
+  }, [])
+
+  useEffect(() => {
+    fetch(appResourceUrl('/data/snapshots/latest.json'))
+      .then((response) => response.ok ? response.json() as Promise<Snapshot> : Promise.reject(new Error('no local snapshot')))
+      .then(setSnapshot)
+      .catch(() => undefined)
+  }, [])
+
+  useEffect(() => {
+    const channel = createOverlayChannel()
+    if (!channel) return
+    channel.onmessage = (event: MessageEvent<OverlayMessage>) => {
+      const message = event.data
+      if (message?.type === 'overlay-state' && message.kind === kind) setState(message.state)
+    }
+    channel.postMessage({ type: 'overlay-ready', kind } satisfies OverlayMessage)
+    return () => channel.close()
+  }, [kind])
+
+  const abilitiesById = useMemo(() => new Map(snapshot.abilities.map((ability) => [ability.id, ability])), [snapshot])
+  return <Tooltip.Provider delayDuration={250} skipDelayDuration={150}>
+    <main className={`overlay-root overlay-root-${kind}`}>
+      <FloatingOverlay kind={kind} state={state} snapshot={snapshot} abilities={abilitiesById} />
+    </main>
+  </Tooltip.Provider>
 }
 
 function EffectiveInteractionsPopover({ interactions, partialInteractions, abilities }: { interactions: RecommendationInteraction[]; partialInteractions: PartialRecommendationInteraction[]; abilities: Map<number, Ability> }) {
@@ -615,7 +753,7 @@ function DraftReplayPage({ simulation, snapshot, abilities, pool, poolSource, po
   </section>
 }
 
-export default function App() {
+function MainApp() {
   const storage = useMemo(getBrowserStorage, [])
   const fileAdapter = useMemo(getBrowserFileAdapter, [])
   const runtimeCapabilities = useMemo(detectRuntimeCapabilities, [])
@@ -633,6 +771,7 @@ export default function App() {
   const [excludeSameHero, setExcludeSameHero] = useState(false)
   const [pairSort, setPairSort] = useState<{ key: PairSortKey; direction: SortDirection }>({ key: 'synergy', direction: 'desc' })
   const [activePage, setActivePage] = useState<AppPage>('analysis')
+  const [overlayVisibility, setOverlayVisibility] = useState<Record<OverlayKind, boolean>>({ recommendation: false, tier: false })
   const [draftStrategy, setDraftStrategy] = useState<DraftStrategyId>('tier-first')
   const [replayStep, setReplayStep] = useState(0)
   const [replayPlaying, setReplayPlaying] = useState(false)
@@ -729,9 +868,33 @@ export default function App() {
     [importedLayout, layoutOverrides, imageSize],
   )
   const recommendations = useMemo(
-    () => activePage === 'analysis' ? recommendBuilds(deferredCandidatePools, deferredSelectedIds, snapshot) : [],
-    [activePage, deferredCandidatePools, deferredSelectedIds, snapshot],
+    () => recommendBuilds(deferredCandidatePools, deferredSelectedIds, snapshot),
+    [deferredCandidatePools, deferredSelectedIds, snapshot],
   )
+  const overlayState = useMemo<OverlayState>(() => ({
+    candidatePools,
+    recommendations,
+    selectedIds,
+    tierCategory,
+    tierQuery,
+  }), [candidatePools, recommendations, selectedIds, tierCategory, tierQuery])
+
+  useEffect(() => {
+    const channel = createOverlayChannel()
+    if (!channel) return
+    const publish = (kind: OverlayKind) => {
+      if (!overlayVisibility[kind]) return
+      writeOverlayState(kind, overlayState)
+      channel.postMessage({ type: 'overlay-state', kind, state: overlayState } satisfies OverlayMessage)
+    }
+    channel.onmessage = (event: MessageEvent<OverlayMessage>) => {
+      const message = event.data
+      if (message?.type === 'overlay-ready') publish(message.kind)
+    }
+    publish('recommendation')
+    publish('tier')
+    return () => channel.close()
+  }, [overlayState, overlayVisibility])
   const rankedDraftPoolInfo = useMemo(() => {
     const pool = buildRankedDraftPool(snapshot)
     const errors = validateInitialDraftPool(pool, snapshot.abilities)
@@ -778,9 +941,7 @@ export default function App() {
     return activePage === 'database' ? getTierCategoryCounts(snapshot) : { all: 0, ultimate: 0, hero: 0, ability: 0 }
   }, [activePage, snapshot])
   const filteredTierEntries = useMemo(() => {
-    const query = tierQuery.trim().toLowerCase()
-    if (!query) return tierEntries
-    return tierEntries.filter((entry) => `${entry.ability.name} ${entry.ability.shortName}`.toLowerCase().includes(query))
+    return filterTierEntries(tierEntries, tierQuery)
   }, [tierEntries, tierQuery])
   const tierGroups = useMemo(() => {
     const groups: Record<AbilityTier, TierEntry[]> = { S: [], A: [], B: [], C: [], D: [], E: [], F: [] }
@@ -1095,6 +1256,20 @@ export default function App() {
     if (nextStep >= maxStep) setReplayPlaying(false)
   }
 
+  async function toggleOverlay(kind: OverlayKind) {
+    const isOpen = overlayVisibility[kind]
+    try {
+      if (isDesktopRuntime()) {
+        if (isOpen) await closeNativeOverlay(kind)
+        else await openNativeOverlay(kind)
+      }
+      setOverlayVisibility((current) => ({ ...current, [kind]: !isOpen }))
+    } catch (overlayError) {
+      const message = overlayError instanceof Error ? overlayError.message : '无法打开置顶浮层'
+      toast.error(message)
+    }
+  }
+
   return (
     <Tooltip.Provider delayDuration={250} skipDelayDuration={150}>
     <main className="shell">
@@ -1247,6 +1422,8 @@ export default function App() {
             </div>
             <div className="section-heading-actions">
               {slots.length > 0 && <button className="icon-command" title="采用当前第一候选" onClick={acceptSuggestions}><Check size={17} /></button>}
+              <OverlayToggleButton kind="recommendation" open={overlayVisibility.recommendation} onToggle={toggleOverlay} />
+              <OverlayToggleButton kind="tier" open={overlayVisibility.tier} onToggle={toggleOverlay} />
               <Sparkles size={19} className="accent" />
             </div>
           </div>
@@ -1337,7 +1514,7 @@ export default function App() {
             <h2 id="tier-page-title">Ability Tier List</h2>
             <p className="tier-page-subtitle">Patch {snapshot.patch} · {tierCategoryCounts[tierCategory]} ranked entries</p>
           </div>
-          <div className="tier-page-mark"><Layers size={21} aria-hidden="true" /><span>WIN RATE PERCENTILE</span></div>
+          <div className="tier-page-mark"><Layers size={21} aria-hidden="true" /><span>WIN RATE PERCENTILE</span><OverlayToggleButton kind="tier" open={overlayVisibility.tier} onToggle={toggleOverlay} /></div>
         </div>
 
         <div className="tier-toolbar">
@@ -1447,8 +1624,16 @@ export default function App() {
           </table>
         </div>
       </section>}
+
+      {!isDesktopRuntime() && overlayVisibility.recommendation && <FloatingOverlay kind="recommendation" state={overlayState} snapshot={snapshot} abilities={abilitiesById} />}
+      {!isDesktopRuntime() && overlayVisibility.tier && <FloatingOverlay kind="tier" state={overlayState} snapshot={snapshot} abilities={abilitiesById} />}
     </main>
     <Toaster position="bottom-right" theme="dark" visibleToasts={3} toastOptions={{ className: 'omg-toast', duration: 3500 }} />
     </Tooltip.Provider>
   )
+}
+
+export default function App() {
+  const overlayKind = overlayKindFromLocation()
+  return overlayKind ? <OverlayApp kind={overlayKind} /> : <MainApp />
 }

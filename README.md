@@ -16,7 +16,9 @@ statistics, and generate a data-backed recommendation.
   manually in the UI.
 - Local runtime data: a bundled Windrun snapshot, icon signatures, hero templates, and cached icons.
 - The browser build must be served over HTTP. Direct `file://` usage is not supported.
-- This is not a game overlay, window capture tool, global hotkey service, or in-game assistant.
+- The Tauri desktop build can open independent Tier and recommendation overlays. They stay above
+  other windows and ignore cursor events; the browser build uses fixed, mouse-transparent panels.
+- The app does not capture the game window or provide global hotkeys.
 
 ## Quick Start
 
@@ -56,6 +58,8 @@ npm run desktop:build
 
 The desktop bundle reuses the same Vite frontend and bundled runtime resources. Desktop icon
 sources and generated files are documented in [src-tauri/icons/README.md](src-tauri/icons/README.md).
+macOS transparent overlays use Tauri's macOS private API, so macOS releases must be distributed
+directly (for example, a Developer ID-signed and notarized DMG), not through the Mac App Store.
 
 ## Workflow
 
@@ -68,6 +72,8 @@ sources and generated files are documented in [src-tauri/icons/README.md](src-ta
 5. Use `Tier List` and `Ability Pairs` to inspect the current snapshot.
 6. Lock confirmed picks and review recommendations for one hero, three abilities, and one
    ultimate.
+7. From page one, use `置顶推荐` or `置顶Tier` to keep either view visible while the game is open.
+   Desktop overlays are independent native windows; browser overlays remain inside the browser window.
 
 ## Recognition
 
@@ -179,7 +185,8 @@ are intentionally excluded from version control.
 - Screenshot recognition still needs broader, independently labelled accuracy evaluation.
 - Draft Replay uses a deterministic 50-position strategy simulation with an up-to-20 candidate
   ranking at each position; it does not claim to predict the actual choices of the other players.
-- There is no game-window capture, overlay, tray integration, or global shortcut support.
+- There is no game-window capture, tray integration, or global shortcut support. Overlays are
+  information-only and do not interact with the game window.
 - Windrun data, DatDota icons, the local VPK-derived hero images, and the desktop favicon require
   source and redistribution licence review before release.
 - Tauri bundles build on the validated platforms, but full installer, target-WebView, DPI, and

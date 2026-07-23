@@ -81,6 +81,12 @@ export function buildAbilityTierList(snapshot: Snapshot, category: TierCategory 
   })
 }
 
+export function filterTierEntries(entries: readonly TierEntry[], query: string): TierEntry[] {
+  const normalizedQuery = query.trim().toLowerCase()
+  if (!normalizedQuery) return [...entries]
+  return entries.filter((entry) => `${entry.ability.name} ${entry.ability.shortName}`.toLowerCase().includes(normalizedQuery))
+}
+
 export function matchesTierCategory(ability: Ability, category: TierCategory): boolean {
   return isInCategory(ability, category)
 }
