@@ -56,7 +56,7 @@ export interface Rect {
   height: number
 }
 
-export type SlotCategory = 'hero' | 'normal' | 'ultimate'
+export type SlotCategory = 'hero' | 'ability' | 'ultimate'
 
 export interface IconCandidate {
   abilityId: number
@@ -86,7 +86,18 @@ export interface RecommendationInteraction {
   abilityIds: number[]
   synergy: number
   rawSynergy: number
+  logitSynergy: number
+  rawLogitSynergy: number
   picks: number
+}
+
+export interface PartialRecommendationInteraction {
+  type: 'triple'
+  abilityIds: number[]
+  rawLogitSynergy: number
+  picks: number
+  pairCoverage: number
+  missingPairIds: number[][]
 }
 
 export interface Recommendation {
@@ -95,7 +106,9 @@ export interface Recommendation {
   score: number
   abilityWinRate: number
   synergy: number
+  logitSynergy: number
   effectiveInteractionCount: number
   effectiveInteractions: RecommendationInteraction[]
+  partialInteractions: PartialRecommendationInteraction[]
   averagePickPosition: number
 }

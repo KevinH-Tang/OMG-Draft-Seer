@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rankByTemplate, signatureFromRgba, structuralSimilarity, TEMPLATE_TRANSFORMS, templateScore } from './template-matching'
+import { decodeTemplateSignatures, rankByTemplate, signatureFromRgba, structuralSimilarity, TEMPLATE_TRANSFORMS, templateScore } from './template-matching'
 import type { Ability, SlotCategory } from '../types'
 
 function rgba(pixels: Array<[number, number, number]>): Uint8ClampedArray {
@@ -53,12 +53,20 @@ describe('template matching', () => {
     expect(templateScore(crop, { luma: left, meanRgb: [90, 100, 110] })).toBeGreaterThan(templateScore(crop, { luma: right, meanRgb: [240, 20, 30] }))
   })
 
+  it('decodes persisted signatures into per-ability template variants', () => {
+    const luma = new Uint8Array(256).fill(42)
+    const encoded = btoa(String.fromCharCode(...luma))
+    const templates = decodeTemplateSignatures([{ abilityId: 7, variant: 'base', luma: encoded, meanRgb: [1, 2, 3] }])
+
+    expect(templates.get(7)).toEqual([{ luma, meanRgb: [1, 2, 3] }])
+  })
+
   it('returns the correct top-1 candidate for every required perturbation', () => {
     const abilities: Ability[] = [
       { id: 1, name: 'Target', shortName: 'target', isHero: false, isUltimate: false, iconColor: '#000000' },
       { id: 2, name: 'Distractor', shortName: 'distractor', isHero: false, isUltimate: false, iconColor: '#ffffff' },
     ]
-    const category: SlotCategory = 'normal'
+    const category: SlotCategory = 'ability'
     const template = (value: number) => ({ luma: new Uint8Array(256).fill(value), meanRgb: [value, value, value] as [number, number, number] })
     const templates = new Map([
       [1, TEMPLATE_TRANSFORMS.map((_, index) => template(20 + index * 10))],

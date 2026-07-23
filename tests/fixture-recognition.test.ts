@@ -3,6 +3,7 @@ import { basename, extname, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { decode } from 'jpeg-js'
 import { PNG } from 'pngjs'
+import { matchesSlotCategory } from '../src/core/ability-category'
 import { clampRectToCanvas, cropCenter, parseLayoutDocument } from '../src/core/layout'
 import { decodeTemplateSignatures, rankByTemplate, signatureFromRgba } from '../src/core/template-matching'
 import type { IconSignature, Snapshot } from '../src/types'
@@ -47,15 +48,20 @@ async function loadFixtureContext() {
 
 describe('golden screenshot fixtures', () => {
   it('keeps every approved fixture at 2560x1440 with 60 labels', async () => {
-    const { layout, fixtureNames } = await loadFixtureContext()
+    const { layout, snapshot, fixtureNames } = await loadFixtureContext()
     expect(fixtureNames.length).toBeGreaterThan(0)
 
     for (const fixtureName of fixtureNames) {
       const image = decodeFixtureImage(fixtureName, await readFile(resolve(fixtureDirectory, fixtureName)))
       const labels = JSON.parse(await readFile(resolve(fixtureDirectory, `${basename(fixtureName, extname(fixtureName))}.json`), 'utf8')) as Record<string, number>
       expect([image.width, image.height]).toEqual([layout.width, layout.height])
-      expect(Object.keys(labels)).toHaveLength(60)
-      expect(Object.values(labels).every((abilityId) => Number.isInteger(abilityId))).toBe(true)
+      expect(Object.keys(labels).map(Number).sort((left, right) => left - right)).toEqual(Array.from({ length: 60 }, (_, index) => index))
+      for (const [slotIndex, abilityId] of Object.entries(labels)) {
+        const ability = snapshot.abilities.find((item) => item.id === abilityId)
+        expect(Number.isInteger(abilityId), `${fixtureName}:${slotIndex}`).toBe(true)
+        expect(ability, `${fixtureName}:${slotIndex}`).toBeDefined()
+        expect(matchesSlotCategory(ability!, layout.slots[Number(slotIndex)].category), `${fixtureName}:${slotIndex}`).toBe(true)
+      }
     }
   })
 

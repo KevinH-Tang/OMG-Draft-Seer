@@ -1,11 +1,12 @@
 import type { Ability, AbilityStats, Snapshot } from '../types'
-import { isHeroAbility } from './ability-category'
+import { isHeroAbility, isSpecialBonusAbility } from './ability-category'
+import { memoizeByKey } from './cache'
 
 export const TIER_CATEGORY_OPTIONS = [
   { id: 'all', label: 'All' },
-  { id: 'ultimates', label: 'Ultimates' },
-  { id: 'heroes', label: 'Heroes' },
-  { id: 'abilities', label: 'Abilities' },
+  { id: 'ultimate', label: 'Ultimate' },
+  { id: 'hero', label: 'Hero' },
+  { id: 'ability', label: 'Ability' },
 ] as const
 
 export const TIER_DEFINITIONS = [
@@ -32,11 +33,13 @@ export interface TierEntry {
   value?: number
 }
 
+const TIER_LIST_CACHE = new WeakMap<Snapshot, Map<TierCategory, TierEntry[]>>()
+
 function isInCategory(ability: Ability, category: TierCategory): boolean {
   if (category === 'all') return true
   const isHero = isHeroAbility(ability)
-  if (category === 'heroes') return isHero
-  if (category === 'ultimates') return !isHero && ability.isUltimate
+  if (category === 'hero') return isHero
+  if (category === 'ultimate') return !isHero && ability.isUltimate
   return !isHero && !ability.isUltimate
 }
 
@@ -53,29 +56,39 @@ function compareEntries(left: TierEntry, right: TierEntry): number {
 }
 
 export function buildAbilityTierList(snapshot: Snapshot, category: TierCategory = 'all'): TierEntry[] {
-  const statsByAbilityId = new Map(snapshot.abilityStats.map((stats) => [stats.abilityId, stats]))
-  const entries = snapshot.abilities.flatMap((ability) => {
-    const stats = statsByAbilityId.get(ability.id)
-    if (!stats || stats.picks <= 0 || ability.shortName.startsWith('special_bonus') || !isInCategory(ability, category)) return []
-    return [{
-      ability,
-      stats,
-      winRate: stats.wins / stats.picks,
-      value: snapshot.abilityValuations?.[String(ability.id)],
-      rank: 0,
-      tier: 'F' as AbilityTier,
-    }]
-  })
+  return memoizeByKey(TIER_LIST_CACHE, snapshot, category, () => {
+    const statsByAbilityId = new Map(snapshot.abilityStats.map((stats) => [stats.abilityId, stats]))
+    const entries = snapshot.abilities.flatMap((ability) => {
+      const stats = statsByAbilityId.get(ability.id)
+      if (!stats || stats.picks <= 0 || isSpecialBonusAbility(ability) || !isInCategory(ability, category)) return []
+      return [{
+        ability,
+        stats,
+        winRate: stats.wins / stats.picks,
+        value: snapshot.abilityValuations?.[String(ability.id)],
+        rank: 0,
+        tier: 'F' as AbilityTier,
+      }]
+    })
 
-  return entries
-    .sort(compareEntries)
-    .map((entry, index, sorted) => ({
-      ...entry,
-      rank: index + 1,
-      tier: tierForRank(index, sorted.length),
-    }))
+    return entries
+      .sort(compareEntries)
+      .map((entry, index, sorted) => ({
+        ...entry,
+        rank: index + 1,
+        tier: tierForRank(index, sorted.length),
+      }))
+  })
 }
 
 export function matchesTierCategory(ability: Ability, category: TierCategory): boolean {
   return isInCategory(ability, category)
+}
+
+export function getTierCategoryCounts(snapshot: Snapshot): Record<TierCategory, number> {
+  const counts: Record<TierCategory, number> = { all: 0, ultimate: 0, hero: 0, ability: 0 }
+  for (const category of TIER_CATEGORY_OPTIONS) {
+    counts[category.id] = buildAbilityTierList(snapshot, category.id).length
+  }
+  return counts
 }

@@ -3,7 +3,7 @@ import { confidenceLabel, hexToRgb, rankByColor, similarityFromRgb } from './rec
 import { MAX_MATCH_CANDIDATES } from './matching'
 import { demoSnapshot } from '../data/demoSnapshot'
 
-describe('reference signature ranking', () => {
+describe('color fallback recognition', () => {
   it('converts colors and gives an exact signature full confidence', () => {
     expect(hexToRgb('#3ab0d2')).toEqual([58, 176, 210])
     expect(similarityFromRgb([58, 176, 210], [58, 176, 210])).toBe(1)
@@ -13,7 +13,7 @@ describe('reference signature ranking', () => {
   })
 
   it('puts the nearest reference first and returns up to ten options', () => {
-    const ranked = rankByColor([58, 176, 210], demoSnapshot.abilities, 'normal')
+    const ranked = rankByColor([58, 176, 210], demoSnapshot.abilities, 'ability')
     expect(ranked).toHaveLength(Math.min(MAX_MATCH_CANDIDATES, 7))
     expect(ranked[0]).toMatchObject({ abilityId: 5048, score: 1 })
   })

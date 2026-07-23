@@ -112,7 +112,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 957,
         "y": 449,
@@ -121,7 +121,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1062,
         "y": 449,
@@ -130,7 +130,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1166,
         "y": 449,
@@ -139,7 +139,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1300,
         "y": 449,
@@ -148,7 +148,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1405,
         "y": 449,
@@ -157,7 +157,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1508,
         "y": 449,
@@ -166,7 +166,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 948,
         "y": 536,
@@ -175,7 +175,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1057,
         "y": 534,
@@ -184,7 +184,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1164,
         "y": 534,
@@ -193,7 +193,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1304,
         "y": 534,
@@ -202,7 +202,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1411,
         "y": 534,
@@ -211,7 +211,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1513,
         "y": 534,
@@ -220,7 +220,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 938,
         "y": 628,
@@ -229,7 +229,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1050,
         "y": 627,
@@ -238,7 +238,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1159,
         "y": 625,
@@ -247,7 +247,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1307,
         "y": 627,
@@ -256,7 +256,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1412,
         "y": 627,
@@ -265,7 +265,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1522,
         "y": 626,
@@ -274,7 +274,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 920,
         "y": 779,
@@ -283,7 +283,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1038,
         "y": 779,
@@ -292,7 +292,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1155,
         "y": 779,
@@ -301,7 +301,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1306,
         "y": 780,
@@ -310,7 +310,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1421,
         "y": 779,
@@ -319,7 +319,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1532,
         "y": 779,
@@ -328,7 +328,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 910,
         "y": 884,
@@ -337,7 +337,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1032,
         "y": 885,
@@ -346,7 +346,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1150,
         "y": 885,
@@ -355,7 +355,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1308,
         "y": 889,
@@ -364,7 +364,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1423,
         "y": 885,
@@ -373,7 +373,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1540,
         "y": 885,
@@ -382,7 +382,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 900,
         "y": 996,
@@ -391,7 +391,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1020,
         "y": 995,
@@ -400,7 +400,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1145,
         "y": 995,
@@ -409,7 +409,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1308,
         "y": 996,
@@ -418,7 +418,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1429,
         "y": 995,
@@ -427,7 +427,7 @@
       }
     },
     {
-      "category": "normal",
+      "category": "ability",
       "rect": {
         "x": 1548,
         "y": 995,

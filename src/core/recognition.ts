@@ -4,13 +4,19 @@ import { MAX_MATCH_CANDIDATES } from './matching'
 
 export type Rgb = readonly [number, number, number]
 
+const RGB_CACHE = new Map<string, Rgb>()
+
 export function hexToRgb(color: string): Rgb {
   const normalized = color.replace('#', '')
-  return [
+  const cached = RGB_CACHE.get(normalized)
+  if (cached) return cached
+  const rgb: Rgb = [
     Number.parseInt(normalized.slice(0, 2), 16),
     Number.parseInt(normalized.slice(2, 4), 16),
     Number.parseInt(normalized.slice(4, 6), 16),
   ]
+  RGB_CACHE.set(normalized, rgb)
+  return rgb
 }
 
 export function similarityFromRgb(source: Rgb, target: Rgb): number {

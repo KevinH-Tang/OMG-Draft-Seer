@@ -1,51 +1,86 @@
-# 项目现状与交接清单
+# Project Status
 
-> 审计基线：2026-07-21；Windows 验证更新：2026-07-22。本文记录当前工作区的有效入口、交接资源、已废弃文件和待验收事项。
+> Audit baseline: 2026-07-22. Windows validation update: 2026-07-22. macOS Apple Silicon bundle update: 2026-07-22.
 
-## 当前结论
+This document records the current implementation boundary, validated repository inputs, and open
+handoff items. It is a status record, not a product roadmap.
 
-当前项目是一个浏览器端 React/Vite 应用，并通过 Tauri v2 提供 Windows/macOS 桌面外壳。主流程是：上传截图、人工校正 60 个布局格、模板匹配、人工确认候选、查看 Tier/Pair 统计并生成五 Pick 推荐（1 英雄、3 普通技能、1 终极技能）。布局校正不是自动检测，项目也没有游戏窗口捕获或原生 API。`src/platform/` 已加入浏览器资源、存储、文件和能力检查适配层；macOS 和 Windows 的 Tauri 生产 bundle 均已通过构建验证。重命名前的 Windows release exe 已直接启动验证，`OMG-Draft-Seer` 重命名后的 release exe 待复测启动。
+## Current State
 
-当前运行时资源没有发现结构性断链：
+OMG-Draft-Seer is a React/Vite browser application with a Tauri v2 desktop shell for Windows and
+macOS. The main flow is screenshot upload, manual alignment of 60 slot rectangles, template
+matching, candidate confirmation, tier and pair browsing, and five-pick recommendation.
 
-| 资源 | 当前检查结果 | 来源或用途 |
+The recommendation flow still scores an individual five-pick build, while Draft Replay now models
+the shared 10-player serpentine pool. It applies a configurable `tier-first` or `pair-first`
+strategy to every player position, records up to 20 legal candidates at each global pick, and
+consumes Top1 for the deterministic path. The implementation boundary and assumptions are recorded
+in [Draft strategy tree](draft-strategy-tree.md).
+
+Layout detection is manual. The project does not capture a game window, expose a native overlay, or
+provide global shortcuts. `src/platform/` contains the browser adapters for resource URLs, layout
+storage, file import/export, and runtime capability checks. Tauri bundles have been built for both
+macOS Apple Silicon and Windows x64.
+
+## Runtime Inventory
+
+| Resource | Current state | Role |
 | --- | ---: | --- |
-| `omg-layout-2560x1440.json` | 60 格 | 版本化默认布局 |
-| `heroes/selection/` | 127 张 | 英雄模板源图 |
-| `public/data/snapshots/latest.json` | 3,122 条能力、636 条统计记录 | Windrun 固定快照 |
-| `public/data/icon-signatures.json` | 636 个候选、4,452 个签名 | Worker 模板匹配 |
-| `public/assets/hero-icons/` | 127 张 | 英雄展示图标 |
-| `public/assets/ability-icons/` | 509 张 | 有统计记录的普通/终极技能展示图标 |
+| `omg-layout-2560x1440.json` | 60 slots | Versioned default layout |
+| `heroes/selection/` | 127 images | Local hero template sources |
+| `public/data/snapshots/latest.json` | 3,122 abilities, 636 statistical candidates | Bundled Windrun snapshot |
+| `public/data/icon-signatures.json` | 636 candidates, 4,452 signatures | Worker template matching |
+| `public/assets/hero-icons/` | 127 images | Hero display icons |
+| `public/assets/ability-icons/` | 509 images | Statistical ability display icons |
+| `tests/fixtures/` | 4 fixtures | Labelled recognition regression inputs |
 
-快照生成时间为 2026-07-21；签名、缓存和自检报告主要生成于 2026-07-20。当前 ID、shortName、文件数量和图标路径仍然一致，但这些报告是派生结果，不应替代重新生成流程。
+The snapshot was generated on 2026-07-22. Signatures, caches, and self-check reports were regenerated
+on 2026-07-22. These are derived inputs and reports; regenerate them instead of editing counts by
+hand.
 
-状态标签的含义：`有效` 表示当前代码或运行时入口；`派生` 表示由数据流水线生成、可以重建的发布输入；`生成目录` 表示本地构建产物，不提交；`已废弃/已删除` 表示不应恢复到当前链路；`暂缓` 表示保留决策记录，但没有实现或验收。
+## Latest Validation
 
-最近验证：2026-07-21 完成 macOS Apple Silicon `.app`/`.dmg` 构建，`npm test` 通过 37 个测试，`npm run verify:runtime` 检查 636 个运行候选、636 个签名和 636 个缓存清单 ID，0 个失败。2026-07-22 在 Windows 使用 Node `24.16.0`、npm `11.13.0`、Rust/Cargo `1.97.1` MSVC 工具链完成 `npm ci`、`npm test`、`npm run build`、`npm run verify:runtime` 和 `npm run desktop:build`；重命名前的 release exe 已直接启动验证。`OMG-Draft-Seer` 重命名后已重新生成 x64 MSI、NSIS 安装包及 release exe，待复测启动。CI、黄金截图、安装包安装和截图全流程仍按后续验收处理。
+On 2026-07-22, macOS 26.5.1 Apple Silicon validation completed:
 
-## 文件职责
+- `npm test`: 17 test files and 75 tests passed.
+- `npm run build` passed.
+- `npm run build:fixture-labels` generated labels for 4 fixtures with 60 slots each.
+- `npm run verify:runtime` passed for 636 runtime candidates, 636 signature IDs, and 636 icon
+  manifest IDs with zero failures.
+- `npm run desktop:build` generated and `hdiutil imageinfo` inspected the `.app` and
+  `OMG-Draft-Seer_0.1.0_aarch64.dmg` bundle.
+- The app uses a local ad-hoc/linker signature. Developer signing and notarization are not
+  configured.
+- The 4 fixtures passed offline top-1 template recognition for all 240 slots. This is a regression
+  check, not an independent accuracy evaluation.
 
-| 路径 | 状态 | 说明 |
+On 2026-07-22, Windows validation used Node `24.16.0`, npm `11.13.0`, and Rust/Cargo `1.97.1`
+with the stable MSVC toolchain. `npm ci`, `npm test`, `npm run build`, `npm run verify:runtime`,
+and `npm run desktop:build` passed. The pre-rename release executable started successfully. The
+renamed `OMG-Draft-Seer` executable and newly generated x64 MSI, NSIS installer, and release
+executable still need startup and installation checks.
+
+## Repository Responsibilities
+
+| Path | State | Responsibility |
 | --- | --- | --- |
-| `src/` | 有效 | React 页面、Worker、布局、匹配、Tier List、技能对和推荐逻辑 |
-| `src/platform/` | 有效 | Vite base 资源 URL、浏览器存储、文件导入导出和运行时能力检查 |
-| `src-tauri/` | 有效；macOS/Windows bundle 已验证 | Tauri v2 窗口、相对资源构建和最小 capability；重命名前的 Windows release exe 已直接启动，重命名后待复测 |
-| `src-tauri/icons/` | 派生；待许可复核 | Windrun favicon 派生的 Windows/macOS 桌面图标 |
-| `.github/workflows/ci.yml` | 已配置；暂缓执行 | macOS/Windows 的 Node 基线和运行时资源检查；按用户要求暂不触发 CI |
-| `docs/windows-build-test.md` | 有效 | 上传清单、Windows 环境准备、构建命令和验收记录模板 |
-| `public/data/snapshots/latest.json` | 有效派生资源 | `sync:data` 的运行时数据输入 |
-| `public/data/icon-signatures.json` | 有效派生资源 | `build:icons` 生成的模板签名 |
-| `public/assets/` | 有效派生资源 | `cache:icons` 生成的本地图标缓存 |
-| `heroes/selection/` | 有效源资源 | 本地 Dota 2 VPK 导出的英雄选择图 |
-| `reports/` | 生成报告 | 用于审查缓存、映射和自检，不被网页直接读取 |
-| `omg-layout-2560x1440.json` | 有效源资源 | 当前唯一的默认布局基准 |
-| `scripts/*.ts` | 有效工具 | 数据同步、签名生成、缓存和校验；包括 `verify-runtime-assets.ts` |
-| `tests/fixtures/` | 有效 | 4 张已批准的 2560x1440 PNG/JPG 截图、同名 60 槽标签 JSON 与离线模板识别回归测试 |
-| `dist/`、`node_modules/`、`src-tauri/target/`、`src-tauri/gen/` | 生成目录 | 不提交；需要时由构建、安装或 Tauri CLI 重新生成 |
+| `src/` | Maintained | React UI, recognition worker, layout, matching, tiers, pairs, and recommendations |
+| `src/platform/` | Maintained | Resource, storage, file, and runtime capability adapters |
+| `src-tauri/` | Maintained; bundles built | Tauri v2 shell, window configuration, relative asset packaging, and minimal capability |
+| `src-tauri/icons/` | Derived; licence review pending | Windrun favicon-derived Windows/macOS bundle icons |
+| `.github/workflows/ci.yml` | Configured; execution pending | macOS/Windows Node test, build, and runtime asset checks |
+| `public/data/` | Derived runtime input | Snapshot and template signatures used by the application |
+| `public/assets/` | Derived runtime input | Cached display icons |
+| `heroes/selection/` | Maintained source input | Local Dota 2 VPK-derived hero selection images |
+| `scripts/` | Maintained tools | Data sync, mapping, signature generation, caching, and verification |
+| `reports/` | Generated reports | Cache, mapping, and self-check output; not read directly by the web app |
+| `tests/fixtures/` | Maintained test input | Approved screenshots and matching 60-slot label maps |
+| `dist/`, `node_modules/`, `src-tauri/target/`, `src-tauri/gen/` | Generated directories | Recreated by install and build commands; do not commit |
 
-## 数据刷新
+## Data Refresh
 
-从仓库根目录按以下顺序执行：
+Run these commands from the repository root when the bundled snapshot or icon inputs need to be
+refreshed:
 
 ```sh
 npm run sync:data
@@ -58,66 +93,75 @@ npm test
 npm run build
 ```
 
-每个脚本的输入和输出如下：
-
-| 命令 | 输入 | 输出 |
+| Command | Input | Output |
 | --- | --- | --- |
-| `npm run sync:data` | Windrun `/api/v2` 公共接口 | `public/data/snapshots/latest.json` |
-| `npm run build:hero-map` | 快照、`heroes/selection/` | `reports/hero-selection-map.json` |
-| `npm run build:icons` | 快照、本地英雄图、DatDota 能力图 | `public/data/icon-signatures.json` |
-| `npm run cache:icons` | 快照、DatDota CDN | `public/assets/`、`reports/ability-icon-cache.json` |
-| `npm run verify:icons` | 快照、签名、本地英雄图和远端能力图 | `reports/icon-self-check.json` |
-| `npm run verify:runtime` | 快照、签名、本地图标 | 终端校验，无公网访问 |
+| `npm run sync:data` | Windrun `/api/v2` public API | `public/data/snapshots/latest.json` |
+| `npm run build:hero-map` | Snapshot and `heroes/selection/` | `reports/hero-selection-map.json` |
+| `npm run build:icons` | Snapshot, local hero images, and DatDota ability images | `public/data/icon-signatures.json` |
+| `npm run cache:icons` | Snapshot and DatDota CDN | `public/assets/`, `reports/ability-icon-cache.json` |
+| `npm run verify:icons` | Snapshot, signatures, and icon sources | `reports/icon-self-check.json` |
+| `npm run verify:runtime` | Snapshot, signatures, and local icons | Offline terminal check |
 
-`sync:data`、`build:icons`、`cache:icons` 和 `verify:icons` 可能访问公网。网页运行时优先读取已提交的本地快照、签名和图标；缺失展示图标时才回退到 CDN。发布或再分发前需要复核 Windrun、DatDota 和本地 VPK 资源的许可。
+`sync:data`, `build:icons`, `cache:icons`, and `verify:icons` may access the network. The runtime
+prefers committed local data and icons; missing display icons may fall back to the CDN. Review
+Windrun, DatDota, local VPK, and favicon source terms before redistribution.
 
-## 上传与 Windows 验收
+## Upstream Data Coverage
 
-上传前应保留 `src-tauri/`、`src/platform/`、`public/data/`、`public/assets/`、`heroes/selection/`、`scripts/` 和 `package-lock.json`。`node_modules/`、`dist/`、`src-tauri/target/`、`src-tauri/gen/` 和 `.DS_Store` 是本地生成物，不需要上传。
+The current public Windrun endpoints return a bounded relation set rather than a complete Pair/Triple
+database: 7,500 Pair rows and 10,000 Triple rows. [Windrun Issue #5](https://github.com/Noxville/windrun/issues/5)
+documents the same backend Top-N behavior historically as "only top 5k pairs". Direct checks on
+2026-07-22 returned HTTP 200 without authentication; common `limit`, `offset`, `page`, and `take`
+parameters were ignored, and the responses provided no pagination metadata.
 
-Windows 的完整环境要求、安装命令、桌面构建命令、安装包位置和验收记录见 [`windows-build-test.md`](windows-build-test.md)。以下 Windows 基准命令已于 2026-07-22 通过；后续仅需补齐安装包、截图全流程和布局持久化验收：
+This is an open data-pipeline limitation, not a local filtering failure. The current snapshot has
+2,472 complete Triples and 7,528 partial Triples; all partial cases are caused by missing Pair rows,
+not by Pair records below the 50-pick threshold. The recommender scores only complete Triples and
+keeps partial Triples as diagnostics.
 
-```powershell
-npm ci
-npm test
-npm run build
-npm run verify:runtime
-npm run desktop:build
-```
+Local analysis can audit and rank the observed Top-N sample, but it cannot recover omitted relations.
+Recovery requires a complete upstream export, a documented pagination/cursor endpoint, or match-level
+draft data that can legally be aggregated locally. Authorization is not needed for the current public
+endpoints; whether a fuller private export exists is not documented in this repository.
 
-## 已废弃文件清单
+## Open Validation Items
 
-以下路径已经退出当前实现，并已从工作区删除或清理；不要为了恢复旧流程重新添加它们：
+- Validate the all-player Top20 ranking and deterministic mask assumptions against more real draft
+  pools. The replay is implemented, but it remains a heuristic simulation rather than a calibrated
+  model of actual player choices.
+- Re-test startup after the renamed Windows executable was rebuilt.
+- Install the generated Windows MSI and NSIS packages and verify startup.
+- Exercise screenshot upload, Worker recognition, DPI behavior, layout import/export, and restart
+  persistence inside the target WebViews on Windows and macOS.
+- Run the configured CI matrix and add more independently labelled screenshots for top-1/top-10
+  accuracy evaluation.
+- Complete source and redistribution licence review for third-party data and image assets.
+- Resolve the bounded Windrun Pair/Triple API coverage before treating the snapshot as a complete
+  relation database. Track a full-export, pagination, or match-level-data path with the upstream
+  project.
 
-| 路径或内容 | 状态 | 废弃原因 |
-| --- | --- | --- |
-| `docs/layout-candidate-summary.md` | 已废弃/已删除 | 描述 Python 自动布局候选、Canny/Lab/bright-dark 比较；当前应用只使用人工校正后的固定布局 |
-| `scripts/detect-layout.py` | 已废弃/已删除 | 依赖 OpenCV/NumPy 的离线布局探测器，不在 `package.json` 脚本或运行时链路中 |
-| `scripts/detect-layout.md` | 已废弃/已删除 | 只服务于已删除的 `detect-layout.py` |
-| `requirements-layout.txt` | 已废弃/已删除 | 只包含已退出布局探测链的 Python 依赖 |
-| `scripts/split-hero-grid.py` | 已废弃/已删除 | 面向旧英雄属性网格截图的 Pillow 切图器；当前使用 `heroes/selection/` 和 `build:hero-map` |
-| 旧版 `my_plan.md` 内容 | 已替换 | 原文写的是 50 个候选、机器相关截图路径和未落地的初步计划；当前文件只保留 60 格、固定布局和 TypeScript 数据流水线 |
-| `C:\Users\61797\Pictures\...` 截图路径 | 已废弃/已删除 | 仅属于旧机器的个人文件路径，不能作为项目输入或可复现步骤 |
-| `hero_crops/`、`test_data/`、`__pycache__/` | 已清理 | 旧 Python/临时产物目录，不是当前运行时或测试资源 |
+Wails, Go-native UI, game-window capture, global shortcuts, and overlay support are outside the
+current implementation. They should not be reintroduced through old migration plans without a new
+product requirement and validation scope.
 
-`dist/`、`node_modules/`、`src-tauri/target/` 和 `src-tauri/gen/` 不是废弃源码，而是忽略的生成目录；内容不一致时直接重新生成即可。`.DS_Store` 也是本地文件系统元数据，不属于项目内容。
+## Intentional Cleanup
 
-## 暂缓但未废弃
+The current chain no longer uses the old Python/OpenCV automatic layout detector, its Python
+requirements, the Pillow hero-grid splitter, machine-local screenshot paths, or their temporary
+directories. The fixed layout and TypeScript data pipeline are the supported replacements. Do not
+restore those paths to document or run the current workflow.
 
-- Windows/macOS 目标 WebView 的上传识别、DPI 及布局重启验收，等待对应系统环境。
-- Windows 安装包安装和目标 WebView 交互验收；具体步骤见 [`windows-build-test.md`](windows-build-test.md)。
-- CI 实际运行和可再分发的黄金截图，按用户要求放到后续验收阶段。
-- Wails、Go 原生 UI、游戏窗口捕获、全局快捷键和叠加层，仅保留方案记录；当前没有实现依据，不应提前恢复。
-- Windrun favicon、DatDota CDN 和本地 VPK 资源的公开再分发，等待来源许可复核。
+## Maintained References
 
-## 上游致谢
+- [Root README](../README.md) is the user-facing setup and usage guide.
+- [Windows build and validation](windows-build-test.md) is the platform handoff procedure.
+- [Recommendation metrics](recommendation-metrics.md) defines the project-owned scoring model.
+- [Draft strategy tree](draft-strategy-tree.md) defines the multi-player draft state, all-player
+  strategy simulation, and Top20 ranking.
+- [Golden screenshot fixtures](../tests/fixtures/README.md) defines fixture and label conventions.
 
-感谢 [Noxville/windrun](https://github.com/Noxville/windrun) 项目及其贡献者。本项目通过 Windrun 公开 API 生成版本化统计快照；推荐指标和排序逻辑由本项目自行定义，不代表 Windrun 官方评分。数据和资源的许可与再分发范围仍需按上游说明复核。
+## Attribution
 
-## 仍然有效但需要标注范围的文档
-
-- [`README.md`](../README.md) 是当前使用说明和数据流水线入口。
-- [`windows-build-test.md`](./windows-build-test.md) 是上传后在 Windows 上编译和测试的操作手册。
-- [`recommendation-metrics.md`](./recommendation-metrics.md) 描述推荐器的统计口径；它不代表 Windrun 官方的单一评分。
-- [`docs/cross-platform-refactor-plan.md`](./cross-platform-refactor-plan.md) 是迁移路线图；阶段 0/1 和 Tauri macOS 最小外壳已落地，Wails 与原生窗口能力暂缓。
-- [`tests/fixtures/README.md`](../tests/fixtures/README.md) 约定黄金截图和标签格式；当前仓库包含 4 份经模板识别验证的 fixture。
+The bundled statistics snapshot is generated from the [Noxville/windrun](https://github.com/Noxville/windrun)
+public API. Recommendation metrics and ranking behavior are defined by this project and are not an
+official Windrun score.

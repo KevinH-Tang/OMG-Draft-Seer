@@ -1,180 +1,147 @@
 # OMG-Draft-Seer
 
-I'm a beacon of synergy, blazing out across a black sea of OMG picks.
+> A local Dota 2 Ability Draft screenshot analyzer for reviewing picks and building five-pick drafts.
 
-许可证：AGPL-3.0-only，完整文本见 [`LICENSE`](LICENSE)。
+**License:** [AGPL-3.0-only](LICENSE)
 
-本地网页工具，用于分析 Dota 2 OMG 选技截图。当前版本聚焦“布局校正 -> 图标模板匹配 -> 人工确认 -> 构筑推荐”闭环。
+OMG-Draft-Seer turns an Ability Draft selection screenshot into a reviewable draft. Align the
+fixed layout, match icons against local templates, confirm candidates, inspect tier and pair
+statistics, and generate a data-backed recommendation.
 
-## 当前实现
+## Scope
 
-- 默认布局基准为 `2560x1440`，上传其他分辨率时会按宽高比例缩放布局坐标。
-- 候选池共 60 格：12 个英雄、36 个普通技能、12 个终极技能。
-- 仍不支持不同 UI 构成、皮肤或其他游戏画面；非等比例图片可能需要重新校正布局。
-- 布局不是自动检测的：需要先在网页中对齐方框，再进行裁剪和匹配。
-- `Skill Analysis` 用于截图识别、人工确认和五 Pick 构筑推荐（1 英雄、3 普通技能、1 终极技能）。
-- `Tier List` 使用当前快照的单技能胜率、平均选取位置和 Ability Valuation 排序。
-- `Ability Pairs` 展示技能对胜率、协同以及可比较的三技能组合。
-- 桌面端只支持 Windows 和 macOS；浏览器版仍可通过 HTTP 服务运行。
+- React/Vite browser application with an optional Tauri v2 desktop shell for Windows and macOS.
+- A fixed 60-slot draft layout: 12 heroes, 36 abilities, and 12 ultimate abilities.
+- A `2560x1440` baseline layout. Other image sizes are scaled proportionally and can be corrected
+  manually in the UI.
+- Local runtime data: a bundled Windrun snapshot, icon signatures, hero templates, and cached icons.
+- The browser build must be served over HTTP. Direct `file://` usage is not supported.
+- This is not a game overlay, window capture tool, global hotkey service, or in-game assistant.
 
-文档导航见 [`docs/README.md`](docs/README.md)。项目当前状态与交接清单见 [`docs/project-status.md`](docs/project-status.md)，Score 计算规则见 [`docs/recommendation-metrics.md`](docs/recommendation-metrics.md)，Windows 构建与验收步骤见 [`docs/windows-build-test.md`](docs/windows-build-test.md)。
+## Quick Start
 
-## 目录结构
+### Browser
 
-```text
-.
-|-- .gitignore
-|-- LICENSE
-|-- .github/
-|   `-- workflows/ci.yml             # Windows/macOS 矩阵，实际运行待后续验收
-|-- AGENTS.md
-|-- README.md
-|-- index.html
-|-- my_plan.md
-|-- omg-layout-2560x1440.json
-|-- .nvmrc
-|-- package.json
-|-- package-lock.json
-|-- tsconfig.json
-|-- tsconfig.app.json
-|-- tsconfig.node.json
-|-- src-tauri/
-|   |-- capabilities/default.json
-|   |-- Cargo.toml
-|   |-- Cargo.lock
-|   |-- build.rs
-|   |-- icons/                       # Windrun favicon-derived desktop icons
-|   |-- src/
-|   |   |-- lib.rs
-|   |   `-- main.rs
-|   `-- tauri.conf.json
-|-- vite.config.ts
-|-- docs/
-|   |-- README.md
-|   |-- cross-platform-refactor-plan.md
-|   |-- project-status.md
-|   |-- windows-build-test.md
-|   |-- recommendation-metrics.md
-|   |-- ui-library-adoption-plan.md
-|   |-- cc-switch-reference.md
-|   `-- ability-draft-plus-analysis.md
-|-- heroes/
-|   `-- selection/                    # 127 张英雄模板源图
-|-- public/
-|   |-- assets/
-|   |   |-- ability-icons/             # 509 张本地图标
-|   |   `-- hero-icons/                # 127 张本地图标
-|   `-- data/
-|       |-- icon-signatures.json
-|       `-- snapshots/
-|           `-- latest.json
-|-- reports/
-|   |-- ability-icon-cache.json
-|   |-- hero-selection-map.json
-|   `-- icon-self-check.json
-|-- scripts/
-|   |-- build-hero-selection-map.ts
-|   |-- build-icon-signatures.ts
-|   |-- cache-ability-icons.ts
-|   |-- sync-windrun.ts
-|   |-- verify-icon-signatures.ts
-|   `-- verify-runtime-assets.ts
-|-- src/
-|   |-- App.tsx
-|   |-- core/
-|   |   |-- icon-path.ts / icon-path.test.ts
-|   |   |-- layout.ts / layout.test.ts
-|   |   |-- matching.ts
-|   |   |-- pairs.ts / pairs.test.ts
-|   |   |-- recognition.ts / recognition.test.ts
-|   |   |-- recommendation.ts / recommendation.test.ts
-|   |   |-- template-matching.ts / template-matching.test.ts
-|   |   `-- tiers.ts / tiers.test.ts
-|   |-- data/
-|   |   `-- demoSnapshot.ts
-|   |-- platform/
-|   |   |-- capabilities.ts
-|   |   |-- files.ts
-|   |   |-- resources.ts
-|   |   `-- storage.ts
-|   |-- workers/
-|   |   `-- recognizer.worker.ts
-|   |-- main.tsx
-|   |-- styles.css
-|   |-- types.ts
-|   `-- vite-env.d.ts
-`-- tests/
-    `-- fixtures/
-        `-- README.md
-```
+Requirements:
 
-`dist/`、`node_modules/`、`src-tauri/target/` 和 `src-tauri/gen/` 都是被忽略的生成目录，不属于版本化源代码；已废弃的旧脚本和文档清单见 [`docs/project-status.md`](docs/project-status.md)。
+- Node.js `22.12.0` or newer
+- npm `10` or newer
 
-## 运行
+Install dependencies and start the development server:
 
 ```sh
 npm ci
 npm run dev
 ```
 
-打开 `http://127.0.0.1:5173`。
+Open <http://127.0.0.1:5173> in a browser.
 
-构建后可用 `npm run preview` 验证生产 `dist/`。网页必须通过 Vite 或其他 HTTP 服务访问，不支持直接打开 `file://` 文件。
+To preview the production bundle:
 
-桌面开发需要 Rust 1.85 或更高版本及 Tauri 系统依赖。Windows 环境准备、上传内容和验收命令见 [`docs/windows-build-test.md`](docs/windows-build-test.md)。安装完成后可运行 `npm run desktop:dev`，生产桌面构建运行 `npm run desktop:build`。桌面图标来源和生成方式见 [`src-tauri/icons/README.md`](src-tauri/icons/README.md)。
+```sh
+npm run build
+npm run preview
+```
 
-当前已在 Apple Silicon macOS 上生成 `.app` 和 `.dmg`，并在 Windows 完成 Tauri x64 安装包构建。安装包安装、重命名后的 release 可执行文件启动，以及 Windows/macOS WebView 中的完整识别流程仍需在目标系统复验。
+### Desktop
 
-运行时只读取仓库内的固定快照、模板签名和本地图标资源；需要主动更新数据时，按 [`docs/project-status.md`](docs/project-status.md) 中的顺序运行数据流水线。
+The desktop shell requires Rust `1.85` or newer and the platform dependencies required by Tauri.
+Windows also needs the MSVC toolchain, Visual Studio C++ build tools, and WebView2. See the
+[Windows build and validation guide](docs/windows-build-test.md) for the complete setup.
 
-## 截图布局校正
+```sh
+npm run desktop:dev
+npm run desktop:build
+```
 
-上传截图后会显示 60 个分类方框：英雄为蓝色、普通技能为绿色、终极技能为金色。
+The desktop bundle reuses the same Vite frontend and bundled runtime resources. Desktop icon
+sources and generated files are documented in [src-tauri/icons/README.md](src-tauri/icons/README.md).
 
-- 拖动方框可移动该格。
-- 拖动右下角圆点可调整该格尺寸。
-- 点击 `Re-slice` 后，裁剪像素和匹配结果会按当前布局重新计算。
-- 默认布局来自根目录的 `omg-layout-2560x1440.json`；`Save layout` 会按当前图片分辨率下载完整布局，`Load layout` 会根据当前图片再次缩放。
-- 校正中的覆盖坐标通过 `src/platform/storage.ts` 的浏览器适配器保存在 `localStorage`。
+## Workflow
 
-布局文件包含 60 个最终方框坐标，不依赖推导参数，因此应作为截图布局的版本化基准。默认文件的尺寸是坐标源尺寸，运行时会将 `x/width` 按图片宽度、`y/height` 按图片高度分别缩放。
+1. Upload a screenshot that uses the supported OMG ability-draft layout.
+2. Align the 60 slot rectangles. The default layout is loaded from
+   `omg-layout-2560x1440.json`.
+3. Click `Re-slice` to crop the current slot regions and run recognition.
+4. Review the top candidates and confirm the ability for each slot. `Save layout` and `Load layout`
+   store the complete layout document; browser calibration data is kept in `localStorage`.
+5. Use `Tier List` and `Ability Pairs` to inspect the current snapshot.
+6. Lock confirmed picks and review recommendations for one hero, three abilities, and one
+   ultimate.
 
-## 数据与图标
+## Recognition
 
-`npm run sync:data` 从 Windrun 公开 API 生成固定的 `public/data/snapshots/latest.json`。当前快照包含：
+Each slot is cropped from the current layout. The matcher derives a `16x16` grayscale structure
+signature and color features, then ranks candidates within the slot category in a Web Worker.
+The UI shows the crop, coordinates, match mode, and top candidates for manual review.
 
-- 3,122 个能力条目：127 个英雄、2,829 个普通技能、166 个终极技能。
-- 636 个有统计记录的运行时候选：127 个英雄、387 个普通技能、122 个终极技能。
+The standard runtime uses the committed template signature file and local icon assets. A color-only
+fallback is shown when the signature file cannot be loaded; fallback results should not be treated
+as recognition conclusions.
 
-`npm run build:hero-map` 校验本地英雄选择图，并写入 `reports/hero-selection-map.json`。`npm run build:icons` 为所有英雄和具有 OMG 统计记录的技能候选生成图像签名，并写入 `public/data/icon-signatures.json`。当前包含 636 个候选能力、4,452 个变换签名；缺失的远端资源不会参与自动匹配。
+## Recommendations
 
-`npm run cache:icons` 把运行时候选的 DatDota CDN 图标缓存到 `public/assets/hero-icons` 和 `public/assets/ability-icons`，并清理旧资源。网页优先读取本地缓存，缺失资源再回退 CDN。缓存清单写入 `reports/ability-icon-cache.json`。
+The recommender evaluates complete builds with this shape:
 
-- 普通和终极技能图标来自 DatDota 的能力图标资源。
-- 英雄模板使用本地 Dota 2 VPK 导出的 `heroes/selection/{shortName}.png` 资源，生成特征时从非正方形图片中心裁剪最大正方形；ID、shortName 和文件路径映射写入 `reports/hero-selection-map.json`。
-- 英雄匹配模板使用本地 `heroes/selection/{shortName}.png` 资源；英雄展示图标缓存到 `public/assets/hero-icons/{abilityId}.png`，普通和终极技能展示图标缓存到 `public/assets/ability-icons/{abilityId}.png`。缓存源是 Windrun 使用的 DatDota CDN，缺失资源才回退 CDN。
-- 运行时不需要逐张下载图标：网页 Worker 只读取本地 `public/data/icon-signatures.json`。
+```text
+1 hero + 3 abilities + 1 ultimate
+```
 
-## 匹配方式
+`Score` combines a five-pick logit base with Pair effects and complete Triple residuals. Every Pair
+or Triple with at least 50 picks contributes its signed logit effect when the Triple has all three
+eligible component Pairs. Incomplete Triples are diagnostics only. Tier rank and average pick position
+affect candidate ordering and display, but do not enter the final `Score` formula.
 
-每个截图格会裁剪中心区域并缩放为 `16x16` 灰度结构指纹，同时计算颜色特征；Worker 仅在对应类别的候选库中进行结构与颜色相似度排序，返回 top-10。
+See [Recommendation metrics](docs/recommendation-metrics.md) for the formulas, thresholds, and
+test coverage.
 
-调试面板显示：
+The Draft Replay page also simulates the shared 10-player serpentine pool. It applies either
+`tier-first` or `pair-first` to every player position, calculates up to 20 legal candidates at
+each of the 50 global picks, and consumes the top candidate to produce a deterministic replay.
+The model is an explicit strategy simulation, not a prediction of actual opponent behavior. See
+[Draft strategy tree](docs/draft-strategy-tree.md) for the state and ranking rules.
 
-- 原始裁剪像素图
-- 布局和裁剪坐标
-- 当前匹配模式
-- top-10 候选及评分
+## Data Pipeline
 
-“模板匹配”表示正在使用真实图像签名；“颜色回退”表示本地签名文件未加载，结果不能作为识别结论。
+The application reads committed runtime data. Refreshing the data is an explicit development or
+release operation and may contact public services:
 
-## 推荐
+```sh
+npm run sync:data
+npm run build:hero-map
+npm run build:icons
+npm run cache:icons
+npm run verify:icons
+npm run verify:runtime
+```
 
-确认候选技能后，可按类别锁定 Pick。推荐器只生成 `1 英雄 + 3 普通技能 + 1 终极技能` 的完整五 Pick 构筑，按平均单技能 `Win Rate` 与不重叠、经置信度收缩的 Pair/Triple 协同计算 `Score`。Tier 只用于候选排序和短名单优先级，不直接计入 Score。完整口径见 [`docs/recommendation-metrics.md`](docs/recommendation-metrics.md)。
+Run tests and the production build after refreshing data:
 
-统计快照不可用时，网页回退到内置演示数据；推荐结论应视为历史统计辅助，而不是胜率保证。
+```sh
+npm test
+npm run build
+```
 
-## 验证
+| Command | Purpose | Main output |
+| --- | --- | --- |
+| `sync:data` | Fetch the Windrun `/api/v2` snapshot | `public/data/snapshots/latest.json` |
+| `build:hero-map` | Validate local hero selection templates | `reports/hero-selection-map.json` |
+| `build:icons` | Generate template signatures | `public/data/icon-signatures.json` |
+| `cache:icons` | Cache display icons from DatDota | `public/assets/`, `reports/ability-icon-cache.json` |
+| `verify:icons` | Check remote/local icon inputs and signatures | `reports/icon-self-check.json` |
+| `verify:runtime` | Check the offline runtime asset graph | Terminal output |
+
+The current snapshot contains 3,122 ability records and 636 statistical runtime candidates. These
+counts change when the snapshot is refreshed. The runtime prefers local assets and only falls back
+to the DatDota CDN for missing display icons.
+
+If the local snapshot cannot be loaded, the UI uses a bundled demo snapshot so the interface can
+still be inspected. Recommendations from that fallback are illustrative historical data, not a
+current-data result.
+
+## Validation
+
+The standard local checks are:
 
 ```sh
 npm test
@@ -182,15 +149,55 @@ npm run build
 npm run verify:runtime
 ```
 
-当前测试覆盖固定布局分类与尺寸校验、中心裁剪、模板特征与评分、候选排序、五 Pick 组合合法性、独立 Pair/Triple 互动与推荐排序。
+Fixture labels can be regenerated with `npm run build:fixture-labels`; see
+[tests/fixtures/README.md](tests/fixtures/README.md) before adding or redistributing screenshots.
+The repository also defines a Windows/macOS GitHub Actions workflow for the Node test, build, and
+runtime-asset checks.
 
-## 已知限制
+## Repository Layout
 
-- 图标模板仍需要用更多人工标注截图验证 top-1/top-10 准确率。
-- 当前布局只适配同一 OMG UI 构成；不同游戏 UI 或截图比例需要独立布局文件和新的黄金截图集。
-- 当前已有浏览器适配层和已在 macOS Apple Silicon 上构建验证的 Tauri 最小外壳；没有 Wails 或原生窗口捕获实现。
-- 数据和图标资源来自第三方或公开 CDN；发布或再分发前应确认对应许可与使用条款。
+```text
+src/                    React UI, core logic, platform adapters, and recognition worker
+public/data/             Bundled snapshot and template signatures
+public/assets/           Cached hero and ability icons
+heroes/selection/        Local hero selection templates
+scripts/                 Data sync, mapping, caching, signature, and verification tools
+tests/fixtures/          Approved screenshot fixtures and slot labels
+src-tauri/               Tauri v2 desktop shell and bundle assets
+docs/                    Maintained project documentation
+omg-layout-2560x1440.json
+                        Versioned default layout for the 60 draft slots
+reports/                 Generated mapping, cache, and self-check reports
+```
 
-## 致谢
+`node_modules/`, `dist/`, `src-tauri/target/`, and `src-tauri/gen/` are generated directories and
+are intentionally excluded from version control.
 
-感谢 [Noxville/windrun](https://github.com/Noxville/windrun) 项目及其贡献者。本项目使用 Windrun 公开 API 生成统计快照，并引用其公开数据字段；本项目的推荐指标和排序逻辑由本项目自行定义，不代表 Windrun 官方评分。相关数据和资源的许可与再分发范围仍需按上游说明复核。
+## Limitations
+
+- Layout detection is manual and the current layout targets one OMG UI composition.
+- Screenshot recognition still needs broader, independently labelled accuracy evaluation.
+- Draft Replay uses a deterministic 50-position strategy simulation with an up-to-20 candidate
+  ranking at each position; it does not claim to predict the actual choices of the other players.
+- There is no game-window capture, overlay, tray integration, or global shortcut support.
+- Windrun data, DatDota icons, the local VPK-derived hero images, and the desktop favicon require
+  source and redistribution licence review before release.
+- Tauri bundles build on the validated platforms, but full installer, target-WebView, DPI, and
+  end-to-end screenshot validation remains tracked in [project status](docs/project-status.md).
+
+## Documentation
+
+- [Documentation index](docs/README.md)
+- [Project status and handoff notes](docs/project-status.md)
+- [Recommendation metrics](docs/recommendation-metrics.md)
+- [Draft strategy tree](docs/draft-strategy-tree.md)
+- [Windows build and validation](docs/windows-build-test.md)
+- [Golden screenshot fixtures](tests/fixtures/README.md)
+- [Desktop icon source](src-tauri/icons/README.md)
+
+## Attribution
+
+Thanks to the [Noxville/windrun](https://github.com/Noxville/windrun) project and its
+contributors. This project uses the Windrun public API to create a versioned statistics snapshot.
+The recommendation metrics and ranking logic are defined by OMG-Draft-Seer and are not an
+official Windrun score.

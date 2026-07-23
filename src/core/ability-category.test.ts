@@ -8,15 +8,15 @@ describe('ability categories', () => {
     expect(isHeroAbility({ id: 1, isHero: false })).toBe(false)
   })
 
-  it('keeps heroes, normal abilities, and ultimates in separate slot pools', () => {
+  it('keeps heroes, abilities, and ultimates in separate slot pools', () => {
     const legacyHero = { id: -1, isHero: false, isUltimate: false }
-    const normalAbility = { id: 1, isHero: false, isUltimate: false }
+    const ability = { id: 1, isHero: false, isUltimate: false }
     const ultimate = { id: 2, isHero: false, isUltimate: true }
 
     expect(matchesSlotCategory(legacyHero, 'hero')).toBe(true)
-    expect(matchesSlotCategory(legacyHero, 'normal')).toBe(false)
-    expect(matchesSlotCategory(normalAbility, 'normal')).toBe(true)
-    expect(matchesSlotCategory(normalAbility, 'ultimate')).toBe(false)
+    expect(matchesSlotCategory(legacyHero, 'ability')).toBe(false)
+    expect(matchesSlotCategory(ability, 'ability')).toBe(true)
+    expect(matchesSlotCategory(ability, 'ultimate')).toBe(false)
     expect(matchesSlotCategory(ultimate, 'ultimate')).toBe(true)
   })
 })

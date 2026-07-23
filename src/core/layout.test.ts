@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { clampRectToCanvas, cropCenter, DEFAULT_LAYOUT_DOCUMENT, FIXED_SLOT_LAYOUT, FIXED_SLOT_RECTS, scaleLayoutToCanvas, slotLabel, SUPPORTED_HEIGHT, SUPPORTED_WIDTH, ULTIMATE_SLOT_ORDER, validateScreenshotDimensions } from './layout'
+import { clampRectToCanvas, cropCenter, DEFAULT_LAYOUT_DOCUMENT, FIXED_SLOT_LAYOUT, FIXED_SLOT_RECTS, parseLayoutDocument, scaleLayoutToCanvas, slotLabel, SUPPORTED_HEIGHT, SUPPORTED_WIDTH, ULTIMATE_SLOT_ORDER, validateScreenshotDimensions } from './layout'
 
 describe('default screenshot layout', () => {
-  it('contains 12 heroes, 36 normal skills and 12 ultimate skills inside the image', () => {
+  it('contains 12 heroes, 36 abilities and 12 ultimate skills inside the image', () => {
     expect(DEFAULT_LAYOUT_DOCUMENT.width).toBe(SUPPORTED_WIDTH)
     expect(DEFAULT_LAYOUT_DOCUMENT.height).toBe(SUPPORTED_HEIGHT)
     expect(FIXED_SLOT_RECTS).toHaveLength(60)
     expect(FIXED_SLOT_LAYOUT.filter((slot) => slot.category === 'hero')).toHaveLength(12)
-    expect(FIXED_SLOT_LAYOUT.filter((slot) => slot.category === 'normal')).toHaveLength(36)
+    expect(FIXED_SLOT_LAYOUT.filter((slot) => slot.category === 'ability')).toHaveLength(36)
     expect(FIXED_SLOT_LAYOUT.filter((slot) => slot.category === 'ultimate')).toHaveLength(12)
     for (const rect of FIXED_SLOT_RECTS) {
       expect(rect.x).toBeGreaterThanOrEqual(0)
@@ -19,7 +19,7 @@ describe('default screenshot layout', () => {
 
   it('keeps the slot order stable for recognition and user confirmation', () => {
     expect(FIXED_SLOT_LAYOUT.slice(0, 12).every((slot) => slot.category === 'hero')).toBe(true)
-    expect(FIXED_SLOT_LAYOUT.slice(12, 48).every((slot) => slot.category === 'normal')).toBe(true)
+    expect(FIXED_SLOT_LAYOUT.slice(12, 48).every((slot) => slot.category === 'ability')).toBe(true)
     expect(FIXED_SLOT_LAYOUT.slice(48).every((slot) => slot.category === 'ultimate')).toBe(true)
   })
 
@@ -38,10 +38,29 @@ describe('default screenshot layout', () => {
     ])
   })
 
-  it('accepts positive input dimensions for layout scaling', () => {
+  it('accepts valid layout documents and rejects malformed imports', () => {
+    expect(parseLayoutDocument(DEFAULT_LAYOUT_DOCUMENT)).toMatchObject({ version: 1, width: 2560, height: 1440 })
+    expect(parseLayoutDocument({ ...DEFAULT_LAYOUT_DOCUMENT, version: 2 })).toBeNull()
+    expect(parseLayoutDocument({ ...DEFAULT_LAYOUT_DOCUMENT, slots: DEFAULT_LAYOUT_DOCUMENT.slots.slice(0, 59) })).toBeNull()
+    expect(parseLayoutDocument({
+      ...DEFAULT_LAYOUT_DOCUMENT,
+      slots: DEFAULT_LAYOUT_DOCUMENT.slots.map((slot) => ({ ...slot, category: 'hero' as const })),
+    })).toBeNull()
+    expect(parseLayoutDocument({
+      ...DEFAULT_LAYOUT_DOCUMENT,
+      slots: DEFAULT_LAYOUT_DOCUMENT.slots.map((slot, index) => index === 0 ? { ...slot, rect: { ...slot.rect, x: -1 } } : slot),
+    })).toBeNull()
+    expect(parseLayoutDocument({
+      ...DEFAULT_LAYOUT_DOCUMENT,
+      slots: DEFAULT_LAYOUT_DOCUMENT.slots.map((slot, index) => index === 12 ? { ...slot, category: 'normal' } : slot),
+    })).toBeNull()
+  })
+
+  it('accepts positive integer input dimensions and rejects invalid dimensions', () => {
     expect(validateScreenshotDimensions(2560, 1440)).toBeNull()
     expect(validateScreenshotDimensions(1920, 1080)).toBeNull()
-    expect(validateScreenshotDimensions(0, 1080)).toContain('尺寸无效')
+    expect(validateScreenshotDimensions(0, 1080)).not.toBeNull()
+    expect(validateScreenshotDimensions(1920.5, 1080)).not.toBeNull()
   })
 
   it('scales the JSON layout to the input image dimensions', () => {

@@ -17,7 +17,8 @@ export interface LayoutDocument {
   slots: FixedSlot[]
 }
 
-const SLOT_CATEGORIES: readonly SlotCategory[] = ['hero', 'normal', 'ultimate']
+const SLOT_CATEGORIES: readonly SlotCategory[] = ['hero', 'ability', 'ultimate']
+const SLOT_CATEGORY_COUNTS: Record<SlotCategory, number> = { hero: 12, ability: 36, ultimate: 12 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -53,6 +54,12 @@ export function parseLayoutDocument(value: unknown): LayoutDocument | null {
     if (!isRectWithinCanvas(rect, width, height)) return null
     slots.push({ category: item.category, rect })
   }
+
+  const categoryCounts = slots.reduce<Record<SlotCategory, number>>((counts, slot) => {
+    counts[slot.category] += 1
+    return counts
+  }, { hero: 0, ability: 0, ultimate: 0 })
+  if (SLOT_CATEGORIES.some((category) => categoryCounts[category] !== SLOT_CATEGORY_COUNTS[category])) return null
 
   return { version: 1, width, height, slots }
 }

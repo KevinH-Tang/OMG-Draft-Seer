@@ -1,49 +1,23 @@
-# Windows 构建与测试
+# Windows Build and Validation
 
-本文是把工程交给 Windows 环境后的操作入口。项目桌面端只支持 Windows 和 macOS，浏览器版仍可通过 HTTP 服务运行；Linux、Android 和 iOS 不在支持范围内。
+This guide is the Windows handoff procedure for the Tauri desktop shell. The desktop target is
+Windows and macOS; the browser build remains available through an HTTP development or preview
+server. Linux, Android, and iOS are outside the supported scope.
 
-所有命令都从项目根目录执行。Windows 下可使用 PowerShell，命令不要求 Python 环境。
+Run all commands from the repository root. PowerShell is sufficient; no Python environment is
+required.
 
-## 上传前检查
+## Prerequisites
 
-如果通过 Git 上传，确认以下新增目录和文件已经加入提交：
+Use Windows 10 or 11 x64 with:
 
-- `src-tauri/`
-- `src/platform/`
-- `docs/`
-- `scripts/verify-runtime-assets.ts`
-- `.github/workflows/ci.yml`
-- `.nvmrc`
-- 更新后的 `package.json` 和 `package-lock.json`
+1. Node.js `22.12.0` or newer, as specified by `.nvmrc` and `package.json`.
+2. npm `10` or newer.
+3. Rust stable with the `stable-x86_64-pc-windows-msvc` toolchain and Rust `1.85` or newer.
+4. Visual Studio Build Tools 2022 with `Desktop development with C++`, MSVC, and the Windows SDK.
+5. Microsoft WebView2 Runtime. Most supported Windows installations already include it.
 
-必须保留的运行时资源包括：
-
-- `public/data/`
-- `public/assets/`
-- `heroes/selection/`
-- `omg-layout-2560x1440.json`
-- `src-tauri/icons/`
-
-以下目录是本地生成物，不需要上传：
-
-- `node_modules/`
-- `dist/`
-- `src-tauri/target/`
-- `src-tauri/gen/`
-- `.DS_Store`
-
-不要使用 `git clean -fd` 清理当前工作区，除非已经确认所有新增的 Tauri 和平台适配文件都已提交或备份。
-
-## Windows 环境
-
-建议使用 Windows 10/11 x64，并准备以下工具：
-
-1. Node.js `22.12.0`，npm `10` 或更高版本。
-2. Rust stable MSVC 工具链，Rust `1.85` 或更高版本；2026-07-22 的 Windows 验收使用 Rust/Cargo `1.97.1`。
-3. Visual Studio Build Tools 2022，安装 `Desktop development with C++`，同时包含 MSVC 和 Windows SDK。
-4. Microsoft WebView2 Runtime。大多数 Windows 10/11 系统已经安装；缺失时需要单独安装 Evergreen Runtime。
-
-安装完成后检查版本：
+Check the installed toolchain:
 
 ```powershell
 node --version
@@ -53,15 +27,29 @@ cargo --version
 rustup show active-toolchain
 ```
 
-Rust 应使用 MSVC 工具链：
+If needed, select the MSVC toolchain:
 
 ```powershell
 rustup default stable-x86_64-pc-windows-msvc
 ```
 
-## 安装与基础验证
+## Repository Inputs
 
-首次进入工程后执行：
+The following files and directories are required for a functional checkout:
+
+- `src-tauri/`
+- `src/platform/`
+- `public/data/`
+- `public/assets/`
+- `heroes/selection/`
+- `omg-layout-2560x1440.json`
+- `scripts/`
+- `package-lock.json`
+
+Do not copy local generated directories such as `node_modules/`, `dist/`, `src-tauri/target/`,
+`src-tauri/gen/`, or `.DS_Store`. Recreate them with the commands below.
+
+## Install and Baseline Checks
 
 ```powershell
 npm ci
@@ -70,85 +58,89 @@ npm run build
 npm run verify:runtime
 ```
 
-预期结果：
+Expected results:
 
-- `npm test` 的全部测试通过。
-- `npm run build` 生成前端 `dist/`。
-- `npm run verify:runtime` 报告 636 个运行候选、636 个签名 ID 和 636 个缓存清单 ID，失败数为 0。
+- All Vitest tests pass.
+- `npm run build` creates the frontend `dist/` bundle.
+- `npm run verify:runtime` reports matching candidate, signature, and icon-manifest IDs with zero
+  failures.
 
-## Tauri 开发运行
+## Desktop Development
 
-启动桌面开发窗口：
+Start the Tauri development window:
 
 ```powershell
 npm run desktop:dev
 ```
 
-首次运行可能需要 Cargo 下载 Rust 依赖。开发窗口启动后至少检查：
+Perform this smoke check in the desktop window:
 
-- 上传一张符合当前 OMG UI 的截图。
-- 页面显示 60 个布局格，类别数量为 12 个英雄、36 个普通技能和 12 个终极技能。
-- 调整布局后点击 `Re-slice`，识别结果能够更新。
-- `Save layout` 导出布局，`Load layout` 能恢复布局。
-- 关闭并重新打开窗口后，已保存的布局仍然存在。
-- 识别结果、候选确认、Tier List、Ability Pairs 和推荐页面可以正常切换。
+- Upload a screenshot using the supported OMG UI.
+- Confirm that the page shows 60 slots: 12 heroes, 36 abilities, and 12 ultimates.
+- Move or resize a slot, click `Re-slice`, and confirm that recognition updates.
+- Export a layout with `Save layout` and restore it with `Load layout`.
+- Close and reopen the window and confirm that saved calibration remains available.
+- Switch between recognition, candidate confirmation, `Tier List`, `Ability Pairs`, and
+  recommendations.
 
-## Windows 生产构建
-
-执行：
+## Production Build
 
 ```powershell
 npm run desktop:build
 ```
 
-该命令会先执行生产前端构建，再执行 Tauri 打包。常见输出位置：
+The command builds the Vite frontend before packaging the Tauri application. Common output paths
+are:
 
 ```text
 src-tauri/target/release/bundle/nsis/*.exe
 src-tauri/target/release/bundle/msi/*.msi
 ```
 
-安装一个生成的安装包并重新检查：
+Install one generated package and repeat the desktop smoke check. Verify the application title,
+window size, screenshot workflow, layout persistence, and recommendation pages.
 
-- 应用能正常启动，窗口尺寸和标题正确。
-- 上传截图、识别、人工确认和推荐流程正常。
-- 布局保存、加载和重启后恢复正常。
+## Recorded Windows Run
 
-## Windows 验收记录
+The 2026-07-22 Windows validation used:
 
-建议在 Windows 上记录以下命令和结果：
-
-| 项目 | 结果 | 备注 |
+| Check | Result | Recorded detail |
 | --- | --- | --- |
-| `node --version` / `npm --version` | 通过 | Node `24.16.0`、npm `11.13.0`，高于最低要求 |
-| `rustc --version` / `cargo --version` | 通过 | Rust/Cargo `1.97.1`，`stable-x86_64-pc-windows-msvc` |
-| `npm ci` | 通过 | 安装 63 个锁定依赖；审计 0 个漏洞 |
-| `npm test` | 通过 | 10 个测试文件、37 个测试全部通过 |
-| `npm run build` | 通过 | TypeScript/Vite 生产构建生成 `dist/` |
-| `npm run verify:runtime` | 通过 | 636 个候选、636 个签名 ID、636 个缓存清单 ID，0 个失败 |
-| `npm run desktop:build` | 通过 | 已生成 x64 MSI 和 NSIS 安装包 |
-| 桌面可执行文件启动 | 待补充 | 重命名前的 release exe 已直接启动正常；重命名后已重新构建，待复测启动 |
-| 安装包启动 | 待补充 | 尚未完成 MSI/NSIS 安装后的启动验收 |
-| 截图识别和布局持久化 | 待填写 | 是否完成完整流程 |
+| Node/npm | Passed | Node `24.16.0`, npm `11.13.0` |
+| Rust/Cargo | Passed | `1.97.1`, stable MSVC toolchain |
+| `npm ci` | Passed | Lockfile installation completed |
+| `npm test` | Passed | Test suite completed successfully |
+| `npm run build` | Passed | Production `dist/` bundle generated |
+| `npm run verify:runtime` | Passed | 636 candidates, 636 signature IDs, 636 manifest IDs, zero failures |
+| `npm run desktop:build` | Passed | x64 MSI and NSIS packages generated |
+| Release executable startup | Pending | Pre-rename executable started; renamed executable needs retest |
+| MSI/NSIS installation | Pending | Installer startup check not recorded |
+| Screenshot recognition and persistence | Pending | Full target-WebView workflow not recorded |
 
-本次生成的 Windows x64 安装包：
+The generated package names were:
 
 ```text
 src-tauri/target/release/bundle/msi/OMG-Draft-Seer_0.1.0_x64_en-US.msi
 src-tauri/target/release/bundle/nsis/OMG-Draft-Seer_0.1.0_x64-setup.exe
 ```
 
-## 常见问题
+## Troubleshooting
 
-- `cl.exe`、`link.exe` 或 Windows SDK 找不到：重新安装或修复 Visual Studio Build Tools 的 C++ 工作负载，并从新的终端重试。
-- 应用启动时报 WebView2 错误：安装或修复 Microsoft WebView2 Runtime。
-- Cargo 下载依赖超时：确认网络、代理和 crates.io 访问权限；不要删除 `Cargo.toml` 或 `Cargo.lock`。
-- 构建目录内容异常：删除 `dist/`、`src-tauri/target/` 和 `src-tauri/gen/` 后重新执行 `npm run desktop:build`。这些目录会自动生成。
-- 浏览器直接打开 `index.html` 失败：这是预期行为，请使用 `npm run dev`、`npm run preview` 或 Tauri 桌面命令。
+- `cl.exe`, `link.exe`, or the Windows SDK is missing: repair the Visual Studio C++ workload and
+  open a new terminal.
+- WebView2 errors appear at startup: install or repair the Microsoft WebView2 Runtime.
+- Cargo cannot download dependencies: check network, proxy, and crates.io access. Keep
+  `Cargo.toml` and `Cargo.lock` intact.
+- Build output is stale or inconsistent: remove `dist/`, `src-tauri/target/`, and `src-tauri/gen/`,
+  then rerun `npm run desktop:build`.
+- The browser page is blank when `index.html` is opened directly: use `npm run dev`,
+  `npm run preview`, or a Tauri command instead. `file://` is not supported.
 
-## 当前限制
+## Current Limits
 
-- 只支持当前固定 OMG UI 构成和 2560x1440 基准布局。
-- 当前没有游戏窗口捕获、全局快捷键、系统托盘或游戏内叠加层。
-- 图标识别准确率仍需要更多人工标注截图进行评估。
-- Windrun、DatDota 和本地 VPK 资源的公开再分发需要在发布前复核许可。
+- The supported layout targets one OMG UI composition and uses manual alignment.
+- The application does not capture the game window, provide an overlay, or register global
+  shortcuts.
+- Recognition accuracy still needs a larger independently labelled screenshot set.
+- Windrun, DatDota, local VPK-derived images, and desktop icon sources require licence review
+  before redistribution.

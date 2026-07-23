@@ -25,4 +25,15 @@ describe('storage adapter', () => {
     expect(readStoredJson(storage, 'missing', { defaulted: true })).toEqual({ defaulted: true })
     expect(readStoredJson(storage, 'broken', { defaulted: true })).toEqual({ defaulted: true })
   })
+
+  it('keeps the session usable when persistence throws', () => {
+    const storage: StorageAdapter = {
+      getItem: () => { throw new Error('storage unavailable') },
+      setItem: () => { throw new Error('storage unavailable') },
+      removeItem: () => { throw new Error('storage unavailable') },
+    }
+
+    expect(() => writeStoredJson(storage, 'layout', { version: 1 })).not.toThrow()
+    expect(readStoredJson(storage, 'layout', { fallback: true })).toEqual({ fallback: true })
+  })
 })

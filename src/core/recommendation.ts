@@ -1,21 +1,20 @@
-import type { Ability, AbilityStats, PairStats, Recommendation, RecommendationInteraction, SlotCategory, Snapshot, TripletStats } from '../types'
+import type { Ability, AbilityStats, PairStats, PartialRecommendationInteraction, Recommendation, RecommendationInteraction, SlotCategory, Snapshot, TripletStats } from '../types'
 import { matchesSlotCategory } from './ability-category'
-import { abilityPairKey, abilityTripletKey, buildPairStatsMap, buildTripletStatsMap, calculatePairSynergy, MIN_ABILITY_PAIR_PICKS } from './pairs'
-import { buildAbilityTierList, type TierCategory } from './tiers'
+import { abilityPairKey, abilityTripletKey, buildPairStatsMap, buildTripletStatsMap, calculateCombinedLogit, calculateLogit, calculateSigmoid, calculateWinRate, MIN_ABILITY_PAIR_PICKS } from './pairs'
+import { buildAbilityTierList } from './tiers'
 
 export const MAX_COMBINATION_EVALUATIONS = 50_000
 export const MAX_SHORTLIST_SIZE = 28
-export const INTERACTION_CONFIDENCE_Z_SCORE = 1.96
 
 export const BUILD_PICK_LIMITS = {
   hero: 1,
-  normal: 3,
+  ability: 3,
   ultimate: 1,
 } as const
 
 export interface BuildCandidatePools {
   heroIds: readonly number[]
-  normalIds: readonly number[]
+  abilityIds: readonly number[]
   ultimateIds: readonly number[]
 }
 
@@ -35,22 +34,46 @@ interface ScoreContext {
   pairs: Map<string, PairStats>
   triplets: Map<string, TripletStats>
   tiers: Map<number, TierMetric>
+  metrics: Map<number, AbilityMetric>
+  pairImpacts: Map<string, InteractionImpact | null>
+  tripletImpacts: Map<string, TripleImpact | null>
 }
 
-interface PairImpact {
-  value: number
+const SCORE_CONTEXT_CACHE = new WeakMap<Snapshot, ScoreContext>()
+
+interface InteractionEstimate {
+  baselineLogit: number
   rawValue: number
   picks: number
 }
 
-interface InteractionImpact extends PairImpact {
+interface InteractionImpact {
+  value: number
+  rawValue: number
+  synergy: number
+  rawSynergy: number
+  picks: number
   type: RecommendationInteraction['type']
   abilityIds: number[]
+}
+
+interface PartialTripleImpact {
+  abilityIds: number[]
+  rawValue: number
+  picks: number
+  pairCoverage: number
+  missingPairIds: number[][]
+}
+
+interface TripleImpact {
+  impact?: InteractionImpact
+  partial?: PartialTripleImpact
 }
 
 interface InteractionSummary {
   value: number
   effectiveInteractions: RecommendationInteraction[]
+  partialInteractions: PartialRecommendationInteraction[]
 }
 
 interface SearchPool {
@@ -59,15 +82,11 @@ interface SearchPool {
   needed: number
 }
 
-const TIER_CATEGORY_BY_SLOT: Record<SlotCategory, TierCategory> = {
-  hero: 'heroes',
-  normal: 'abilities',
-  ultimate: 'ultimates',
-}
+const BUILD_SLOT_CATEGORIES: readonly SlotCategory[] = ['hero', 'ability', 'ultimate']
 
 function createTierMetrics(snapshot: Snapshot): Map<number, TierMetric> {
   const metrics = new Map<number, TierMetric>()
-  for (const category of Object.values(TIER_CATEGORY_BY_SLOT)) {
+  for (const category of BUILD_SLOT_CATEGORIES) {
     const entries = buildAbilityTierList(snapshot, category)
     const lastRank = Math.max(1, entries.length - 1)
     for (const entry of entries) {
@@ -79,104 +98,190 @@ function createTierMetrics(snapshot: Snapshot): Map<number, TierMetric> {
   return metrics
 }
 
+function buildAbilityStatsMap(stats: AbilityStats[]): Map<number, AbilityStats> {
+  const entries = new Map<number, AbilityStats>()
+  for (const stat of stats) {
+    if (!Number.isFinite(stat.picks) || !Number.isFinite(stat.wins) || stat.picks <= 0 || stat.wins < 0 || stat.wins > stat.picks) continue
+    const previous = entries.get(stat.abilityId)
+    if (!previous || stat.picks > previous.picks) entries.set(stat.abilityId, stat)
+  }
+  return entries
+}
+
 function createScoreContext(snapshot: Snapshot): ScoreContext {
+  const cached = SCORE_CONTEXT_CACHE.get(snapshot)
+  if (cached) return cached
+
   const abilities = new Map(snapshot.abilities.map((ability) => [ability.id, ability]))
-  const pairs = buildPairStatsMap(snapshot.pairStats)
-  return {
+  const context = {
     abilities,
-    stats: new Map(snapshot.abilityStats.map((stat) => [stat.abilityId, stat])),
-    pairs,
+    stats: buildAbilityStatsMap(snapshot.abilityStats),
+    pairs: buildPairStatsMap(snapshot.pairStats),
     triplets: buildTripletStatsMap(snapshot.tripletStats ?? []),
     tiers: createTierMetrics(snapshot),
+    metrics: new Map<number, AbilityMetric>(),
+    pairImpacts: new Map<string, InteractionImpact | null>(),
+    tripletImpacts: new Map<string, TripleImpact | null>(),
   }
+  SCORE_CONTEXT_CACHE.set(snapshot, context)
+  return context
 }
 
 function abilityMetric(abilityId: number, context: ScoreContext): AbilityMetric {
+  const cached = context.metrics.get(abilityId)
+  if (cached) return cached
+
   const stat = context.stats.get(abilityId)
-  if (!stat || stat.picks <= 0 || !Number.isFinite(stat.picks) || !Number.isFinite(stat.wins)) {
-    return { winRate: 0.5, picks: 0 }
-  }
-  return {
-    winRate: stat.wins / stat.picks,
+  const winRate = stat ? calculateWinRate(stat.picks, stat.wins) : undefined
+  const metric = !stat || winRate === undefined ? { winRate: 0.5, picks: 0 } : {
+    winRate,
     avgPickPosition: stat.avgPickPosition,
     picks: stat.picks,
   }
+  context.metrics.set(abilityId, metric)
+  return metric
 }
 
-function interactionImpact(
-  type: RecommendationInteraction['type'],
+function estimateInteraction(
   abilityIds: number[],
   wins: number,
   picks: number,
   context: ScoreContext,
-): InteractionImpact | undefined {
-  if (picks < MIN_ABILITY_PAIR_PICKS || picks <= 0 || !Number.isFinite(wins)) return undefined
-  const observedWinRate = wins / picks
-  if (!Number.isFinite(observedWinRate) || observedWinRate <= 0 || observedWinRate > 1) return undefined
+): InteractionEstimate | undefined {
+  if (picks < MIN_ABILITY_PAIR_PICKS) return undefined
+  const groupWinRate = calculateWinRate(picks, wins)
+  if (groupWinRate === undefined || groupWinRate <= 0 || groupWinRate >= 1) return undefined
   const metrics = abilityIds.map((id) => abilityMetric(id, context))
-  if (metrics.some((metric) => metric.picks <= 0)) return undefined
-  const baseline = metrics.reduce((sum, metric) => sum + metric.winRate, 0) / metrics.length
-  const rawValue = observedWinRate - baseline
-  const observedVariance = observedWinRate * (1 - observedWinRate) / picks
-  const baselineVariance = metrics.reduce((sum, metric) => sum + metric.winRate * (1 - metric.winRate) / metric.picks, 0) / metrics.length ** 2
-  const standardError = Math.sqrt(observedVariance + baselineVariance)
-  const value = Math.sign(rawValue) * Math.max(0, Math.abs(rawValue) - INTERACTION_CONFIDENCE_Z_SCORE * standardError)
-  return { type, abilityIds, value, rawValue, picks }
+  if (metrics.some((metric) => metric.picks <= 0 || metric.winRate <= 0 || metric.winRate >= 1)) return undefined
+  const baselineLogit = calculateCombinedLogit(metrics.map((metric) => metric.winRate))
+  const groupLogit = calculateLogit(groupWinRate)
+  if (baselineLogit === undefined || groupLogit === undefined) return undefined
+  return {
+    baselineLogit,
+    rawValue: groupLogit - baselineLogit,
+    picks,
+  }
 }
 
-function pairImpact(leftId: number, rightId: number, context: ScoreContext): PairImpact | undefined {
-  const pair = context.pairs.get(abilityPairKey(leftId, rightId))
-  if (!pair || pair.picks < MIN_ABILITY_PAIR_PICKS) return undefined
-  const rawValue = calculatePairSynergy(pair, context.stats.get(leftId), context.stats.get(rightId))
-  if (rawValue === undefined) return undefined
-  const impact = interactionImpact('pair', [leftId, rightId], pair.wins, pair.picks, context)
-  return impact ? { value: impact.value, rawValue, picks: impact.picks } : undefined
+function buildInteractionImpact(
+  type: RecommendationInteraction['type'],
+  abilityIds: number[],
+  estimate: InteractionEstimate,
+): InteractionImpact {
+  const value = estimate.rawValue
+  const baseline = calculateSigmoid(estimate.baselineLogit)
+  return {
+    value,
+    rawValue: estimate.rawValue,
+    synergy: calculateSigmoid(estimate.baselineLogit + value) - baseline,
+    rawSynergy: calculateSigmoid(estimate.baselineLogit + estimate.rawValue) - baseline,
+    picks: estimate.picks,
+    type,
+    abilityIds,
+  }
 }
 
-function tripletImpact(firstId: number, secondId: number, thirdId: number, context: ScoreContext): InteractionImpact | undefined {
-  const triplet = context.triplets.get(abilityTripletKey(firstId, secondId, thirdId))
-  if (!triplet) return undefined
-  return interactionImpact('triple', [firstId, secondId, thirdId], triplet.wins, triplet.picks, context)
+function pairImpact(leftId: number, rightId: number, context: ScoreContext): InteractionImpact | undefined {
+  const key = abilityPairKey(leftId, rightId)
+  if (context.pairImpacts.has(key)) return context.pairImpacts.get(key) ?? undefined
+  const pair = context.pairs.get(key)
+  const estimate = pair ? estimateInteraction([leftId, rightId], pair.wins, pair.picks, context) : undefined
+  const impact = estimate ? buildInteractionImpact('pair', [leftId, rightId], estimate) : undefined
+  context.pairImpacts.set(key, impact ?? null)
+  return impact
 }
 
-function buildInteractionCoverage(ids: number[], context: ScoreContext): InteractionSummary {
-  const idBit = new Map(ids.map((id, index) => [id, 1 << index]))
-  const candidates: Array<InteractionImpact & { mask: number }> = []
+function tripletImpact(firstId: number, secondId: number, thirdId: number, context: ScoreContext): TripleImpact | undefined {
+  const key = abilityTripletKey(firstId, secondId, thirdId)
+  if (context.tripletImpacts.has(key)) return context.tripletImpacts.get(key) ?? undefined
+  const triplet = context.triplets.get(key)
+  if (!triplet) {
+    context.tripletImpacts.set(key, null)
+    return undefined
+  }
+  const direct = estimateInteraction([firstId, secondId, thirdId], triplet.wins, triplet.picks, context)
+  if (!direct) {
+    context.tripletImpacts.set(key, null)
+    return undefined
+  }
+
+  const pairEntries = [
+    { ids: [firstId, secondId], impact: pairImpact(firstId, secondId, context) },
+    { ids: [firstId, thirdId], impact: pairImpact(firstId, thirdId, context) },
+    { ids: [secondId, thirdId], impact: pairImpact(secondId, thirdId, context) },
+  ]
+  const pairImpacts = pairEntries
+    .map((entry) => entry.impact)
+    .filter((impact): impact is InteractionImpact => impact !== undefined)
+  if (pairImpacts.length < pairEntries.length) {
+    const result = {
+      partial: {
+        abilityIds: [firstId, secondId, thirdId],
+        rawValue: direct.rawValue,
+        picks: direct.picks,
+        pairCoverage: pairImpacts.length,
+        missingPairIds: pairEntries.filter((entry) => entry.impact === undefined).map((entry) => entry.ids),
+      },
+    }
+    context.tripletImpacts.set(key, result)
+    return result
+  }
+
+  const incrementalEstimate: InteractionEstimate = {
+    ...direct,
+    rawValue: direct.rawValue - pairImpacts.reduce((sum, impact) => sum + impact.value, 0),
+  }
+  const result = { impact: buildInteractionImpact('triple', [firstId, secondId, thirdId], incrementalEstimate) }
+  context.tripletImpacts.set(key, result)
+  return result
+}
+
+function buildInteractionSummary(ids: number[], context: ScoreContext): InteractionSummary {
+  const candidates: InteractionImpact[] = []
+  const partialInteractions: PartialRecommendationInteraction[] = []
   for (let leftIndex = 0; leftIndex < ids.length; leftIndex += 1) {
     for (let rightIndex = leftIndex + 1; rightIndex < ids.length; rightIndex += 1) {
       const impact = pairImpact(ids[leftIndex], ids[rightIndex], context)
-      if (!impact || impact.value <= 0) continue
-      candidates.push({ ...impact, type: 'pair', abilityIds: [ids[leftIndex], ids[rightIndex]], mask: (idBit.get(ids[leftIndex]) ?? 0) | (idBit.get(ids[rightIndex]) ?? 0) })
+      if (!impact || impact.value === 0) continue
+      candidates.push({ ...impact, type: 'pair', abilityIds: [ids[leftIndex], ids[rightIndex]] })
     }
   }
   for (let firstIndex = 0; firstIndex < ids.length; firstIndex += 1) {
     for (let secondIndex = firstIndex + 1; secondIndex < ids.length; secondIndex += 1) {
       for (let thirdIndex = secondIndex + 1; thirdIndex < ids.length; thirdIndex += 1) {
         const triple = tripletImpact(ids[firstIndex], ids[secondIndex], ids[thirdIndex], context)
-        if (!triple || triple.value <= 0) continue
-        candidates.push({ ...triple, mask: (idBit.get(ids[firstIndex]) ?? 0) | (idBit.get(ids[secondIndex]) ?? 0) | (idBit.get(ids[thirdIndex]) ?? 0) })
+        if (!triple) continue
+        if (triple.impact && triple.impact.value !== 0) {
+          candidates.push({ ...triple.impact, abilityIds: [ids[firstIndex], ids[secondIndex], ids[thirdIndex]] })
+        } else if (triple.partial) {
+          partialInteractions.push({
+            type: 'triple',
+            abilityIds: triple.partial.abilityIds,
+            rawLogitSynergy: triple.partial.rawValue,
+            picks: triple.partial.picks,
+            pairCoverage: triple.partial.pairCoverage,
+            missingPairIds: triple.partial.missingPairIds,
+          })
+        }
       }
     }
   }
 
-  const coverage = new Map<number, { value: number; interactions: Array<InteractionImpact & { mask: number }> }>()
-  coverage.set(0, { value: 0, interactions: [] })
-  for (const candidate of candidates) {
-    for (const [mask, state] of [...coverage.entries()]) {
-      if ((mask & candidate.mask) !== 0) continue
-      const nextMask = mask | candidate.mask
-      const nextValue = state.value + candidate.value
-      const previous = coverage.get(nextMask)
-      if (!previous || nextValue > previous.value) coverage.set(nextMask, { value: nextValue, interactions: [...state.interactions, candidate] })
-    }
-  }
-
-  const best = [...coverage.values()].reduce((current, candidate) => candidate.value > current.value ? candidate : current)
   return {
-    value: best.value,
-    effectiveInteractions: best.interactions
-      .map(({ type, abilityIds, value, rawValue, picks }) => ({ type, abilityIds, synergy: value, rawSynergy: rawValue, picks }))
-      .sort((left, right) => right.synergy - left.synergy || right.picks - left.picks),
+    value: candidates.reduce((sum, candidate) => sum + candidate.value, 0),
+    effectiveInteractions: candidates
+      .map(({ type, abilityIds, value, rawValue, synergy, rawSynergy, picks }) => ({
+        type,
+        abilityIds,
+        synergy,
+        rawSynergy,
+        logitSynergy: value,
+        rawLogitSynergy: rawValue,
+        picks,
+      }))
+      .sort((left, right) => Math.abs(right.logitSynergy) - Math.abs(left.logitSynergy) || right.picks - left.picks),
+    partialInteractions: partialInteractions
+      .sort((left, right) => Math.abs(right.rawLogitSynergy) - Math.abs(left.rawLogitSynergy) || right.picks - left.picks),
   }
 }
 
@@ -219,9 +324,11 @@ function forEachCombination<T>(items: T[], needed: number, visit: (selection: T[
 
 function scoreBuild(ids: number[], context: ScoreContext): Recommendation {
   const individual = ids.map((id) => abilityMetric(id, context))
-  const abilityWinRate = individual.reduce((sum, metric) => sum + metric.winRate, 0) / Math.max(1, individual.length)
-  const synergy = buildInteractionCoverage(ids, context)
-  const score = Math.min(1, Math.max(0, abilityWinRate + synergy.value)) * 100
+  const baseLogit = calculateCombinedLogit(individual.map((metric) => metric.winRate)) ?? 0
+  const synergy = buildInteractionSummary(ids, context)
+  const abilityWinRate = calculateSigmoid(baseLogit)
+  const scoreWinRate = calculateSigmoid(baseLogit + synergy.value)
+  const score = scoreWinRate * 100
   const positions = individual.flatMap((metric) => metric.avgPickPosition === undefined ? [] : [metric.avgPickPosition])
   const averagePickPosition = positions.length > 0 ? positions.reduce((sum, position) => sum + position, 0) / positions.length : 50
   const pickOrderIds = ids
@@ -233,26 +340,70 @@ function scoreBuild(ids: number[], context: ScoreContext): Recommendation {
     pickOrderIds,
     score,
     abilityWinRate,
-    synergy: synergy.value,
+    synergy: scoreWinRate - abilityWinRate,
+    logitSynergy: synergy.value,
     effectiveInteractionCount: synergy.effectiveInteractions.length,
     effectiveInteractions: synergy.effectiveInteractions,
+    partialInteractions: synergy.partialInteractions,
     averagePickPosition,
   }
 }
 
-function candidatePriority(id: number, selectedIds: number[], context: ScoreContext): number {
+export function scoreDraftBuild(ids: readonly number[], snapshot: Snapshot): Recommendation | undefined {
+  if (ids.length !== BUILD_PICK_LIMITS.hero + BUILD_PICK_LIMITS.ability + BUILD_PICK_LIMITS.ultimate) return undefined
+  const context = createScoreContext(snapshot)
+  const selected = [...new Set(ids)]
+  if (selected.length !== ids.length) return undefined
+
+  const grouped: Record<SlotCategory, number[]> = { hero: [], ability: [], ultimate: [] }
+  for (const id of selected) {
+    const ability = context.abilities.get(id)
+    if (!ability) return undefined
+    const category = (['hero', 'ability', 'ultimate'] as const).find((candidate) => matchesSlotCategory(ability, candidate))
+    if (!category) return undefined
+    grouped[category].push(id)
+  }
+  if (grouped.hero.length !== BUILD_PICK_LIMITS.hero || grouped.ability.length !== BUILD_PICK_LIMITS.ability || grouped.ultimate.length !== BUILD_PICK_LIMITS.ultimate) return undefined
+  return scoreBuild([...grouped.hero, ...grouped.ability, ...grouped.ultimate], context)
+}
+
+function candidatePriority(id: number, selectedIds: number[], referenceIds: number[], context: ScoreContext): number {
   const tierStrength = context.tiers.get(id)?.strength ?? 0
-  const selectedSynergy = selectedIds.reduce((sum, selectedId) => sum + (pairImpact(id, selectedId, context)?.value ?? 0), 0)
-  return tierStrength * 100 + selectedSynergy * 100
+  const baseLogit = calculateCombinedLogit([abilityMetric(id, context).winRate]) ?? 0
+  const selectedPairPotential = selectedIds.reduce((sum, selectedId) => sum + (pairImpact(id, selectedId, context)?.value ?? 0), 0)
+  let selectedTriplePotential = 0
+  for (let firstIndex = 0; firstIndex < selectedIds.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < selectedIds.length; secondIndex += 1) {
+      selectedTriplePotential += tripletImpact(id, selectedIds[firstIndex], selectedIds[secondIndex], context)?.impact?.value ?? 0
+    }
+  }
+  const pairPotential = referenceIds.reduce((best, referenceId) => {
+    if (referenceId === id) return best
+    return Math.max(best, pairImpact(id, referenceId, context)?.value ?? 0)
+  }, 0)
+  let futureTriplePotential = 0
+  for (const selectedId of selectedIds) {
+    for (const referenceId of referenceIds) {
+      if (referenceId === id || referenceId === selectedId) continue
+      futureTriplePotential = Math.max(futureTriplePotential, tripletImpact(id, selectedId, referenceId, context)?.impact?.value ?? 0)
+    }
+  }
+  return tierStrength * 100
+    + baseLogit * 10
+    + selectedPairPotential * 100
+    + selectedTriplePotential * 100
+    + pairPotential * 50
+    + futureTriplePotential * 50
 }
 
 function shortlistCandidatePools(pools: SearchPool[], selectedIds: number[], context: ScoreContext): SearchPool[] {
   if (searchCombinationCount(pools, MAX_COMBINATION_EVALUATIONS) <= MAX_COMBINATION_EVALUATIONS) return pools
+  const referenceIds = [...new Set([...selectedIds, ...pools.flatMap((pool) => pool.candidates)])]
 
   const shortlist = pools.map((pool) => ({
     ...pool,
     candidates: pool.candidates
-      .map((id, index) => ({ id, index, priority: candidatePriority(id, selectedIds, context) }))
+      .map((id, index) => ({ id, index, priority: candidatePriority(id, selectedIds, referenceIds, context) }))
       .sort((left, right) => right.priority - left.priority || left.index - right.index)
       .slice(0, Math.max(pool.needed, MAX_SHORTLIST_SIZE))
       .map((candidate) => candidate.id),
@@ -291,10 +442,10 @@ export function recommendBuilds(
   if (limit <= 0) return []
   const context = createScoreContext(snapshot)
   const heroCandidates = normalizeCandidatePool(candidatePools.heroIds, 'hero', context)
-  const normalCandidates = normalizeCandidatePool(candidatePools.normalIds, 'normal', context)
+  const abilityCandidates = normalizeCandidatePool(candidatePools.abilityIds, 'ability', context)
   const ultimateCandidates = normalizeCandidatePool(candidatePools.ultimateIds, 'ultimate', context)
   const selectedHeroIds = selectedCandidates(heroCandidates, selectedIds, BUILD_PICK_LIMITS.hero)
-  const selectedNormalIds = selectedCandidates(normalCandidates, selectedIds, BUILD_PICK_LIMITS.normal)
+  const selectedAbilityIds = selectedCandidates(abilityCandidates, selectedIds, BUILD_PICK_LIMITS.ability)
   const selectedUltimateIds = selectedCandidates(ultimateCandidates, selectedIds, BUILD_PICK_LIMITS.ultimate)
 
   const pools: SearchPool[] = [
@@ -304,9 +455,9 @@ export function recommendBuilds(
       needed: BUILD_PICK_LIMITS.hero - selectedHeroIds.length,
     },
     {
-      category: 'normal',
-      candidates: normalCandidates.filter((id) => !selectedNormalIds.includes(id)),
-      needed: BUILD_PICK_LIMITS.normal - selectedNormalIds.length,
+      category: 'ability',
+      candidates: abilityCandidates.filter((id) => !selectedAbilityIds.includes(id)),
+      needed: BUILD_PICK_LIMITS.ability - selectedAbilityIds.length,
     },
     {
       category: 'ultimate',
@@ -316,17 +467,17 @@ export function recommendBuilds(
   ]
   if (pools.some((pool) => pool.needed < 0 || pool.candidates.length < pool.needed)) return []
 
-  const selected = [...selectedHeroIds, ...selectedNormalIds, ...selectedUltimateIds]
-  const [heroPool, normalPool, ultimatePool] = shortlistCandidatePools(pools, selected, context)
+  const selected = [...selectedHeroIds, ...selectedAbilityIds, ...selectedUltimateIds]
+  const [heroPool, abilityPool, ultimatePool] = shortlistCandidatePools(pools, selected, context)
   const recommendations: Recommendation[] = []
   forEachCombination(heroPool.candidates, heroPool.needed, (heroAddition) => {
-    forEachCombination(normalPool.candidates, normalPool.needed, (normalAddition) => {
+    forEachCombination(abilityPool.candidates, abilityPool.needed, (abilityAddition) => {
       forEachCombination(ultimatePool.candidates, ultimatePool.needed, (ultimateAddition) => {
         recommendations.push(scoreBuild([
           ...selectedHeroIds,
           ...heroAddition,
-          ...selectedNormalIds,
-          ...normalAddition,
+          ...selectedAbilityIds,
+          ...abilityAddition,
           ...selectedUltimateIds,
           ...ultimateAddition,
         ], context))

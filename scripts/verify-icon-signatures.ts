@@ -17,7 +17,7 @@ function abilityIconUrl(ability: Ability): string {
 
 function categoryFor(ability: Ability): SlotCategory {
   if (isHeroAbility(ability)) return 'hero'
-  return ability.isUltimate ? 'ultimate' : 'normal'
+  return ability.isUltimate ? 'ultimate' : 'ability'
 }
 
 async function main() {

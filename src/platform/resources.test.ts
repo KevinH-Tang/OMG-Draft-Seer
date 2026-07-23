@@ -12,4 +12,8 @@ describe('platform resource URLs', () => {
     expect(localAbilityIconUrl(3060, 'hidden_gates', false)).toBe('/assets/ability-icons/3060.png')
     expect(remoteAbilityIconUrl('antimage', true)).toBe('https://cdn.datdota.com/images/miniheroes/antimage.png')
   })
+
+  it('encodes CDN icon names as URL path segments', () => {
+    expect(remoteAbilityIconUrl('hero ability', false)).toBe('https://cdn.datdota.com/images/ability/hero%20ability.png')
+  })
 })

@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "generatedAt": "2026-07-20T21:02:21.955Z",
+  "generatedAt": "2026-07-22T09:31:35.252Z",
   "source": "Windrun DatDota CDN icon cache",
   "count": 636,
   "cached": 636,
   "missing": 0,
-  "pruned": 344,
+  "pruned": 0,
   "categories": {
     "heroes": 127,
     "ultimates": 122,
