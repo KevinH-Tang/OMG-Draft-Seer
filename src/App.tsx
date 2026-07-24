@@ -3,6 +3,7 @@ import * as AlertDialog from '@radix-ui/react-alert-dialog'
 import * as Popover from '@radix-ui/react-popover'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { useTranslation } from 'react-i18next'
 import { ArrowDownUp, Bug, Check, ChevronDown, ChevronUp, CircleAlert, Download, FileImage, Filter, FolderOpen, GitFork, Layers, LayoutPanelTop, MousePointer2Off, PanelTop, Pause, Pin, PinOff, Play, RefreshCw, RotateCcw, ScanSearch, Search, Settings2, SkipBack, SkipForward, Sparkles, Timer, Upload, Users } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import { demoSnapshot } from './data/demoSnapshot'
@@ -21,6 +22,9 @@ import { getBrowserFileAdapter } from './platform/files'
 import { closeNativeOverlay, createOverlayChannel, isDesktopRuntime, openNativeOverlay, overlayKindFromLocation, readOverlayState, writeOverlayState, type OverlayKind, type OverlayMessage, type OverlayState } from './platform/overlays'
 import { appResourceUrl, localAbilityIconUrl, remoteAbilityIconUrl } from './platform/resources'
 import { getBrowserStorage, readStoredJson, writeStoredJson } from './platform/storage'
+import { LanguageSwitcher } from './components/LanguageSwitcher'
+import { toAppLocale } from './i18n'
+import { cn } from './lib/cn'
 import type { Ability, IconSignature, PartialRecommendationInteraction, Recommendation, RecommendationInteraction, RecognizedSlot, Rect, SlotCategory, Snapshot } from './types'
 
 const categoryLabel = { hero: '英雄', ability: '技能', ultimate: '终极' } as const
@@ -29,12 +33,12 @@ type AppPage = 'analysis' | 'layout' | 'database' | 'pairs' | 'draft'
 type PairSortKey = 'abilityOne' | 'winRateOne' | 'abilityTwo' | 'winRateTwo' | 'pairWinRate' | 'synergy' | 'trueSynergy'
 type SortDirection = 'asc' | 'desc'
 
-const appPages: Array<{ id: AppPage; label: string; icon: typeof ScanSearch }> = [
-  { id: 'analysis', label: '截图上传技能分析', icon: ScanSearch },
-  { id: 'layout', label: 'Layout 分析', icon: LayoutPanelTop },
-  { id: 'database', label: 'Tier List', icon: Layers },
-  { id: 'pairs', label: 'Ability Pairs', icon: GitFork },
-  { id: 'draft', label: 'Draft Replay', icon: Play },
+const appPages: Array<{ id: AppPage; labelKey: 'nav.analysis' | 'nav.layout' | 'nav.database' | 'nav.pairs' | 'nav.draft'; icon: typeof ScanSearch }> = [
+  { id: 'analysis', labelKey: 'nav.analysis', icon: ScanSearch },
+  { id: 'layout', labelKey: 'nav.layout', icon: LayoutPanelTop },
+  { id: 'database', labelKey: 'nav.database', icon: Layers },
+  { id: 'pairs', labelKey: 'nav.pairs', icon: GitFork },
+  { id: 'draft', labelKey: 'nav.draft', icon: Play },
 ]
 
 const DEBUG_CONTEXT_PADDING = 12
@@ -59,6 +63,7 @@ const DEFAULT_IMAGE_SIZE: ImageSize = {
 
 const EMPTY_OVERLAY_STATE: OverlayState = {
   candidatePools: { heroIds: [], abilityIds: [], ultimateIds: [] },
+  locale: 'zh-CN',
   recommendations: [],
   selectedIds: [],
   tierCategory: 'all',
@@ -305,15 +310,17 @@ function TierAbilityCard({ entry }: { entry: TierEntry }) {
 }
 
 function OverlayToggleButton({ kind, open, onToggle }: { kind: OverlayKind; open: boolean; onToggle: (kind: OverlayKind) => void }) {
+  const { t } = useTranslation()
   const isTier = kind === 'tier'
-  const label = isTier ? 'Tier' : '推荐'
+  const label = isTier ? t('overlay.tier') : t('overlay.recommendation')
   const Icon = open ? PinOff : Pin
   return <button
     className={`overlay-toggle ${open ? 'active' : ''}`}
     type="button"
     aria-pressed={open}
-    aria-label={`${open ? '关闭' : '打开'}${label}置顶浮层`}
-    title={`${open ? '关闭' : '打开'}${label}置顶浮层`}
+    aria-label={`${open ? 'Close' : 'Open'} ${label}`}
+    title={`${open ? 'Close' : 'Open'} ${label}`}
+    data-testid={`overlay-toggle-${kind}`}
     onClick={() => onToggle(kind)}
   >
     <Icon size={15} aria-hidden="true" />
@@ -386,12 +393,13 @@ function OverlayRecommendationContent({ state, abilities }: { state: OverlayStat
 }
 
 function FloatingOverlay({ kind, state, snapshot, abilities }: { kind: OverlayKind; state: OverlayState; snapshot: Snapshot; abilities: ReadonlyMap<number, Ability> }) {
+  const { t } = useTranslation()
   const isTier = kind === 'tier'
-  return <aside className={`floating-overlay floating-overlay-${kind}`} aria-label={isTier ? 'Tier 置顶浮层' : '技能推荐置顶浮层'}>
+  return <aside className={`floating-overlay floating-overlay-${kind}`} aria-label={isTier ? t('overlay.tier') : t('overlay.recommendation')}>
     <div className="floating-overlay-panel">
       <header className="floating-overlay-header">
-        <div><p className="eyebrow"><PanelTop size={13} aria-hidden="true" /> PINNED {isTier ? 'TIERS' : 'RECOMMENDATION'}</p><h2>{isTier ? 'Tier 参考' : '技能推荐'}</h2></div>
-        <span className="overlay-pass-through"><MousePointer2Off size={13} aria-hidden="true" />鼠标穿透</span>
+        <div><p className="eyebrow"><PanelTop size={13} aria-hidden="true" /> PINNED {isTier ? 'TIERS' : 'RECOMMENDATION'}</p><h2>{isTier ? t('overlay.tier') : t('overlay.recommendation')}</h2></div>
+        <span className="overlay-pass-through"><MousePointer2Off size={13} aria-hidden="true" />{t('overlay.passThrough')}</span>
       </header>
       {isTier ? <OverlayTierContent state={state} snapshot={snapshot} /> : <OverlayRecommendationContent state={state} abilities={abilities} />}
     </div>
@@ -399,6 +407,7 @@ function FloatingOverlay({ kind, state, snapshot, abilities }: { kind: OverlayKi
 }
 
 function OverlayApp({ kind }: { kind: OverlayKind }) {
+  const { i18n } = useTranslation()
   const [snapshot, setSnapshot] = useState<Snapshot>(demoSnapshot)
   const [state, setState] = useState<OverlayState>(() => readOverlayState(kind) ?? EMPTY_OVERLAY_STATE)
 
@@ -424,6 +433,10 @@ function OverlayApp({ kind }: { kind: OverlayKind }) {
     channel.postMessage({ type: 'overlay-ready', kind } satisfies OverlayMessage)
     return () => channel.close()
   }, [kind])
+
+  useEffect(() => {
+    void i18n.changeLanguage(state.locale)
+  }, [i18n, state.locale])
 
   const abilitiesById = useMemo(() => new Map(snapshot.abilities.map((ability) => [ability.id, ability])), [snapshot])
   return <Tooltip.Provider delayDuration={250} skipDelayDuration={150}>
@@ -704,7 +717,7 @@ function DraftReplayPage({ simulation, snapshot, abilities, pool, poolSource, po
         <div>{Array.from({ length: 10 }, (_, index) => <span className="draft-player-chip" key={index + 1}>P{index + 1}</span>)}</div>
       </div>
       <div className="draft-strategy-switch" role="tablist" aria-label="Draft pick strategy">
-        {(['tier-first', 'pair-first'] as const).map((strategy) => <button type="button" role="tab" aria-selected={activeStrategy === strategy} className={activeStrategy === strategy ? 'active' : ''} key={strategy} onClick={() => onStrategyChange(strategy)}>
+        {(['tier-first', 'pair-first'] as const).map((strategy) => <button type="button" role="tab" aria-selected={activeStrategy === strategy} data-testid={`draft-strategy-${strategy}`} className={activeStrategy === strategy ? 'active' : ''} key={strategy} onClick={() => onStrategyChange(strategy)}>
           {strategy === 'tier-first' ? 'Tier first' : 'Pair first'}
         </button>)}
       </div>
@@ -754,6 +767,8 @@ function DraftReplayPage({ simulation, snapshot, abilities, pool, poolSource, po
 }
 
 function MainApp() {
+  const { i18n, t } = useTranslation()
+  const locale = toAppLocale(i18n.resolvedLanguage ?? i18n.language)
   const storage = useMemo(getBrowserStorage, [])
   const fileAdapter = useMemo(getBrowserFileAdapter, [])
   const runtimeCapabilities = useMemo(detectRuntimeCapabilities, [])
@@ -873,11 +888,12 @@ function MainApp() {
   )
   const overlayState = useMemo<OverlayState>(() => ({
     candidatePools,
+    locale,
     recommendations,
     selectedIds,
     tierCategory,
     tierQuery,
-  }), [candidatePools, recommendations, selectedIds, tierCategory, tierQuery])
+  }), [candidatePools, locale, recommendations, selectedIds, tierCategory, tierQuery])
 
   useEffect(() => {
     const channel = createOverlayChannel()
@@ -1272,29 +1288,34 @@ function MainApp() {
 
   return (
     <Tooltip.Provider delayDuration={250} skipDelayDuration={150}>
-    <main className="shell">
-      <header className="app-header">
+    <main className="mx-auto w-[min(720px,calc(100vw-24px))] pb-10 pt-[22px] text-text" data-testid="app-shell">
+      <header className="grid gap-x-5 gap-y-3 border-b border-border pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <div>
-          <p className="eyebrow">DOTA 2 / OMG</p>
-          <h1>OMG-Draft-Seer</h1>
+          <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.08em] text-accent">DOTA 2 / OMG</p>
+          <h1 className="m-0 text-3xl font-semibold tracking-tight text-text">OMG-Draft-Seer</h1>
         </div>
-        <nav className="page-tabs" aria-label="Main pages">
+        <nav className="order-3 col-span-full flex max-w-full gap-1 overflow-x-auto rounded-md border border-border bg-surface p-1 sm:order-2" aria-label="Main pages">
           {appPages.map((page) => {
             const Icon = page.icon
             const selected = activePage === page.id
             return <button
               key={page.id}
               type="button"
-              className={selected ? 'selected' : ''}
+              className={cn(
+                'inline-flex shrink-0 items-center gap-1.5 rounded px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                selected && 'bg-accent text-canvas hover:bg-accent hover:text-canvas',
+              )}
               aria-current={selected ? 'page' : undefined}
+              data-testid={`nav-${page.id}`}
               onClick={() => setActivePage(page.id)}
-            ><Icon size={15} />{page.label}</button>
+            ><Icon size={15} />{t(page.labelKey)}</button>
           })}
         </nav>
-        <div className="snapshot-meta">
-          <span>Patch {snapshot.patch}</span>
-          <span className="status-dot" />
-          <span>本地快照</span>
+        <div className="order-2 inline-flex items-center gap-2 text-sm text-text-muted sm:order-3 sm:justify-self-end">
+          <span className="font-mono">Patch {snapshot.patch}</span>
+          <span className="size-1.5 rounded-full bg-positive" />
+          <span>{t('app.snapshot')}</span>
+          <LanguageSwitcher />
         </div>
       </header>
 
@@ -1310,6 +1331,7 @@ function MainApp() {
           <input
             ref={inputRef}
             className="visually-hidden"
+            data-testid="screenshot-input"
             type="file"
             accept={SCREENSHOT_FILE_ACCEPT}
             onChange={(event) => event.target.files?.[0] && handleUpload(event.target.files[0])}
@@ -1361,7 +1383,7 @@ function MainApp() {
                 <button onClick={() => layoutFileRef.current?.click()}><FolderOpen size={15} /> Load layout</button>
                 <button onClick={saveLayout}><Download size={15} /> Save layout</button>
                 <AlertDialog.Root>
-                  <AlertDialog.Trigger asChild><button type="button"><RotateCcw size={15} /> Reset</button></AlertDialog.Trigger>
+                  <AlertDialog.Trigger asChild><button type="button" data-testid="layout-reset"><RotateCcw size={15} /> Reset</button></AlertDialog.Trigger>
                   <AlertDialog.Portal>
                     <AlertDialog.Overlay className="layout-reset-overlay" />
                     <AlertDialog.Content className="layout-reset-dialog">
@@ -1421,7 +1443,7 @@ function MainApp() {
               <h2>推荐方案</h2>
             </div>
             <div className="section-heading-actions">
-              {slots.length > 0 && <button className="icon-command" title="采用当前第一候选" onClick={acceptSuggestions}><Check size={17} /></button>}
+              {slots.length > 0 && <button className="icon-command" data-testid="accept-suggestions" title="采用当前第一候选" onClick={acceptSuggestions}><Check size={17} /></button>}
               <OverlayToggleButton kind="recommendation" open={overlayVisibility.recommendation} onToggle={toggleOverlay} />
               <OverlayToggleButton kind="tier" open={overlayVisibility.tier} onToggle={toggleOverlay} />
               <Sparkles size={19} className="accent" />
@@ -1538,7 +1560,7 @@ function MainApp() {
           <label className="tier-search">
             <Search size={15} aria-hidden="true" />
             <span className="visually-hidden">Search abilities</span>
-            <input value={tierQuery} onChange={(event) => setTierQuery(event.target.value)} placeholder="Search abilities" />
+            <input data-testid="tier-search" value={tierQuery} onChange={(event) => setTierQuery(event.target.value)} placeholder="Search abilities" />
           </label>
         </div>
 
@@ -1575,11 +1597,11 @@ function MainApp() {
           <label className="pairs-search">
             <Search size={15} aria-hidden="true" />
             <span className="visually-hidden">Search ability pairs</span>
-            <input value={pairQuery} onChange={(event) => setPairQuery(event.target.value)} placeholder="Search ability pairs..." />
+            <input data-testid="pairs-search" value={pairQuery} onChange={(event) => setPairQuery(event.target.value)} placeholder="Search ability pairs..." />
           </label>
           <div className="pairs-toolbar-actions">
             <span className="pairs-sample-note">Minimum 50 picks</span>
-            <button className={`pairs-toggle ${excludeSameHero ? 'selected' : ''}`} type="button" aria-pressed={excludeSameHero} onClick={() => setExcludeSameHero((current) => !current)}>
+            <button className={`pairs-toggle ${excludeSameHero ? 'selected' : ''}`} type="button" aria-pressed={excludeSameHero} data-testid="pairs-exclude-same-hero" onClick={() => setExcludeSameHero((current) => !current)}>
               <Filter size={14} aria-hidden="true" /> Exclude Same Hero
             </button>
           </div>

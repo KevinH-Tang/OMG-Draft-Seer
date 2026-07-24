@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Minimal desktop capability for the main application window.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "wdio:default", "wdio-webdriver:default"]
 }

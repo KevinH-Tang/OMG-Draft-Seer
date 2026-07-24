@@ -10,7 +10,7 @@ statistics, and generate a data-backed recommendation.
 
 ## Scope
 
-- React/Vite browser application with an optional Tauri v2 desktop shell for Windows and macOS.
+- Tauri v2 is the primary, fully validated Windows experience. The React/Vite browser build remains a basic HTTP-served fallback for core analysis and data pages.
 - A fixed 60-slot draft layout: 12 heroes, 36 abilities, and 12 ultimate abilities.
 - A `2560x1440` baseline layout. Other image sizes are scaled proportionally and can be corrected
   manually in the UI.
@@ -19,6 +19,7 @@ statistics, and generate a data-backed recommendation.
 - The Tauri desktop build can open independent Tier and recommendation overlays. They stay above
   other windows and ignore cursor events; the browser build uses fixed, mouse-transparent panels.
 - The app does not capture the game window or provide global hotkeys.
+- Static interface text supports 简体中文 and English. Chinese is the first-run default; the header selector persists the choice locally and synchronizes open desktop overlays.
 
 ## Quick Start
 
@@ -60,6 +61,17 @@ The desktop bundle reuses the same Vite frontend and bundled runtime resources. 
 sources and generated files are documented in [src-tauri/icons/README.md](src-tauri/icons/README.md).
 macOS transparent overlays use Tauri's macOS private API, so macOS releases must be distributed
 directly (for example, a Developer ID-signed and notarized DMG), not through the Mac App Store.
+
+### Windows native E2E
+
+The desktop regression suite targets the actual Tauri WebView through WebdriverIO. It is Windows-only
+and builds a test-only desktop binary with its WebDriver bridge enabled; production desktop bundles
+do not include that bridge.
+
+```sh
+npm run build:tauri:test
+npm run test:tauri
+```
 
 ## Workflow
 
@@ -153,6 +165,8 @@ The standard local checks are:
 npm test
 npm run build
 npm run verify:runtime
+npm run build:tauri:test
+npm run test:tauri
 ```
 
 Fixture labels can be regenerated with `npm run build:fixture-labels`; see
@@ -199,6 +213,7 @@ are intentionally excluded from version control.
 - [Recommendation metrics](docs/recommendation-metrics.md)
 - [Draft strategy tree](docs/draft-strategy-tree.md)
 - [Windows build and validation](docs/windows-build-test.md)
+- [Tailwind v4 and Tauri migration design](docs/tailwind-v4-migration-design.md)
 - [Golden screenshot fixtures](tests/fixtures/README.md)
 - [Desktop icon source](src-tauri/icons/README.md)
 

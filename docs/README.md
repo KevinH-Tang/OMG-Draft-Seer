@@ -14,6 +14,7 @@ been removed.
 | [Draft strategy tree](draft-strategy-tree.md) | The 10-player serpentine draft model, all-player policies, pool masking, and Top20 ranking | Draft-state implementation, strategy behavior, or masking assumptions change |
 | [Windows build and validation](windows-build-test.md) | Windows setup, Tauri builds, and manual acceptance checks | Windows requirements or desktop release steps change |
 | [cc-switch reference research](cc-switch-reference.md) | Reusable design, dependency, license, and toolchain findings from cc-switch | The reference review is refreshed or adopted decisions change |
+| [Tailwind v4 and Tauri migration design](tailwind-v4-migration-design.md) | Tauri-first delivery phases, design tokens, localization, and native E2E architecture | UI architecture, desktop test strategy, or migration scope changes |
 
 ## Local Guides
 

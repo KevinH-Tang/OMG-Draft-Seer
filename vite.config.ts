@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -21,5 +22,5 @@ function heroSelectionAssets(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), heroSelectionAssets()],
+  plugins: [react(), tailwindcss(), heroSelectionAssets()],
 })

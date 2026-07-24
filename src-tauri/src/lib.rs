@@ -62,7 +62,14 @@ fn close_overlay(app: tauri::AppHandle, kind: String) -> Result<(), String> {
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    #[cfg(feature = "wdio")]
+    let builder = builder
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init());
+
+    builder
         .invoke_handler(tauri::generate_handler![open_overlay, close_overlay])
         .run(tauri::generate_context!())
         .expect("error while running OMG-Draft-Seer")

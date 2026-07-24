@@ -1,4 +1,5 @@
 import type { BuildCandidatePools } from '../core/recommendation'
+import type { AppLocale } from '../i18n'
 import type { TierCategory } from '../core/tiers'
 import type { Recommendation } from '../types'
 
@@ -6,6 +7,7 @@ export type OverlayKind = 'recommendation' | 'tier'
 
 export interface OverlayState {
   candidatePools: BuildCandidatePools
+  locale: AppLocale
   recommendations: Recommendation[]
   selectedIds: number[]
   tierCategory: TierCategory
