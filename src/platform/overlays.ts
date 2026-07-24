@@ -53,13 +53,16 @@ export function readOverlayState(kind: OverlayKind): OverlayState | undefined {
   if (typeof window === 'undefined') return undefined
   try {
     const value = window.localStorage.getItem(overlayStorageKey(kind))
-    return value ? JSON.parse(value) as OverlayState : undefined
+    return value ? (JSON.parse(value) as OverlayState) : undefined
   } catch {
     return undefined
   }
 }
 
-export function writeOverlayState(kind: OverlayKind, state: OverlayState): void {
+export function writeOverlayState(
+  kind: OverlayKind,
+  state: OverlayState,
+): void {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(overlayStorageKey(kind), JSON.stringify(state))
@@ -68,9 +71,14 @@ export function writeOverlayState(kind: OverlayKind, state: OverlayState): void 
   }
 }
 
-async function invokeOverlayCommand<T>(command: string, args: Record<string, unknown>): Promise<T> {
-  const internals = typeof window === 'undefined' ? undefined : window.__TAURI_INTERNALS__
-  if (!internals) throw new Error('Overlay windows are only available in the desktop shell.')
+async function invokeOverlayCommand<T>(
+  command: string,
+  args: Record<string, unknown>,
+): Promise<T> {
+  const internals =
+    typeof window === 'undefined' ? undefined : window.__TAURI_INTERNALS__
+  if (!internals)
+    throw new Error('Overlay windows are only available in the desktop shell.')
   return internals.invoke<T>(command, args)
 }
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { confidenceLabel, hexToRgb, rankByColor, similarityFromRgb } from './recognition'
+import {
+  confidenceLabel,
+  hexToRgb,
+  rankByColor,
+  similarityFromRgb,
+} from './recognition'
 import { MAX_MATCH_CANDIDATES } from './matching'
 import { demoSnapshot } from '../data/demoSnapshot'
 
@@ -13,7 +18,11 @@ describe('color fallback recognition', () => {
   })
 
   it('puts the nearest reference first and returns up to ten options', () => {
-    const ranked = rankByColor([58, 176, 210], demoSnapshot.abilities, 'ability')
+    const ranked = rankByColor(
+      [58, 176, 210],
+      demoSnapshot.abilities,
+      'ability',
+    )
     expect(ranked).toHaveLength(Math.min(MAX_MATCH_CANDIDATES, 7))
     expect(ranked[0]).toMatchObject({ abilityId: 5048, score: 1 })
   })

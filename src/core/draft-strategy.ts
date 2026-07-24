@@ -1,7 +1,18 @@
-import { buildPairStatsMap, calculateWinRate, MIN_ABILITY_PAIR_PICKS } from './pairs'
+import {
+  buildPairStatsMap,
+  calculateWinRate,
+  MIN_ABILITY_PAIR_PICKS,
+} from './pairs'
 import { buildAbilityTierList, type AbilityTier } from './tiers'
 import { memoizeByKey } from './cache'
-import { allRemainingIds, applyDraftPick, DRAFT_PICK_QUOTAS, playerDraftCategoryCounts, type DraftState, type DraftStrategyId } from './draft-state'
+import {
+  allRemainingIds,
+  applyDraftPick,
+  DRAFT_PICK_QUOTAS,
+  playerDraftCategoryCounts,
+  type DraftState,
+  type DraftStrategyId,
+} from './draft-state'
 import { DRAFT_TOTAL_PICKS, turnAt, type DraftTurn } from './draft-turns'
 import type { AbilityStats, Snapshot } from '../types'
 
@@ -19,7 +30,10 @@ export interface DraftStrategyContext {
   futureStrategies: Readonly<Record<number, DraftStrategyId>>
   futurePoolCache: WeakMap<DraftState, Map<string, readonly number[]>>
   futureStateCache: WeakMap<DraftState, Map<string, DraftState>>
-  rankedCandidatesCache: WeakMap<DraftState, Map<string, RankedDraftCandidate[]>>
+  rankedCandidatesCache: WeakMap<
+    DraftState,
+    Map<string, RankedDraftCandidate[]>
+  >
   snapshot: Snapshot
 }
 
@@ -60,22 +74,39 @@ function legalRemainingIds(state: DraftState, turn?: DraftTurn): number[] {
   if (!turn) return candidates.slice()
   const counts = playerDraftCategoryCounts(state, turn.player)
   const blocked = new Set<number>()
-  if (counts.hero >= DRAFT_PICK_QUOTAS.hero) for (const id of state.remainingByCategory.heroIds) blocked.add(id)
-  if (counts.ability >= DRAFT_PICK_QUOTAS.ability) for (const id of state.remainingByCategory.abilityIds) blocked.add(id)
-  if (counts.ultimate >= DRAFT_PICK_QUOTAS.ultimate) for (const id of state.remainingByCategory.ultimateIds) blocked.add(id)
-  return blocked.size === 0 ? candidates.slice() : candidates.filter((abilityId) => !blocked.has(abilityId))
+  if (counts.hero >= DRAFT_PICK_QUOTAS.hero)
+    for (const id of state.remainingByCategory.heroIds) blocked.add(id)
+  if (counts.ability >= DRAFT_PICK_QUOTAS.ability)
+    for (const id of state.remainingByCategory.abilityIds) blocked.add(id)
+  if (counts.ultimate >= DRAFT_PICK_QUOTAS.ultimate)
+    for (const id of state.remainingByCategory.ultimateIds) blocked.add(id)
+  return blocked.size === 0
+    ? candidates.slice()
+    : candidates.filter((abilityId) => !blocked.has(abilityId))
 }
 
-function pairWinRate(pair: { picks: number; wins: number }): number | undefined {
+function pairWinRate(pair: {
+  picks: number
+  wins: number
+}): number | undefined {
   if (pair.picks < MIN_ABILITY_PAIR_PICKS) return undefined
   return calculateWinRate(pair.picks, pair.wins)
 }
 
-export function createDraftStrategyContext(snapshot: Snapshot, futureStrategies: Readonly<Record<number, DraftStrategyId>> = {}): DraftStrategyContext {
-  const stats = new Map(snapshot.abilityStats.map((entry) => [entry.abilityId, entry]))
+export function createDraftStrategyContext(
+  snapshot: Snapshot,
+  futureStrategies: Readonly<Record<number, DraftStrategyId>> = {},
+): DraftStrategyContext {
+  const stats = new Map(
+    snapshot.abilityStats.map((entry) => [entry.abilityId, entry]),
+  )
   const tiers = new Map<number, TierInfo>()
   for (const entry of buildAbilityTierList(snapshot, 'all')) {
-    tiers.set(entry.ability.id, { rank: entry.rank, tier: entry.tier, picks: entry.stats.picks })
+    tiers.set(entry.ability.id, {
+      rank: entry.rank,
+      tier: entry.tier,
+      picks: entry.stats.picks,
+    })
   }
   const pairStats = buildPairStatsMap(snapshot.pairStats)
   const pairValues = new Map<string, number>()
@@ -84,8 +115,10 @@ export function createDraftStrategyContext(snapshot: Snapshot, futureStrategies:
     const value = pairWinRate(pair)
     if (value === undefined) continue
     pairValues.set(key, value)
-    const leftPartners = pairValuesByAbility.get(pair.abilityIdOne) ?? new Map<number, number>()
-    const rightPartners = pairValuesByAbility.get(pair.abilityIdTwo) ?? new Map<number, number>()
+    const leftPartners =
+      pairValuesByAbility.get(pair.abilityIdOne) ?? new Map<number, number>()
+    const rightPartners =
+      pairValuesByAbility.get(pair.abilityIdTwo) ?? new Map<number, number>()
     leftPartners.set(pair.abilityIdTwo, value)
     rightPartners.set(pair.abilityIdOne, value)
     pairValuesByAbility.set(pair.abilityIdOne, leftPartners)
@@ -104,60 +137,125 @@ export function createDraftStrategyContext(snapshot: Snapshot, futureStrategies:
   }
 }
 
-export function pairValue(leftId: number, rightId: number, context: DraftStrategyContext): number | undefined {
+export function pairValue(
+  leftId: number,
+  rightId: number,
+  context: DraftStrategyContext,
+): number | undefined {
   return context.pairValuesByAbility.get(leftId)?.get(rightId)
 }
 
-function compareTierPriority(leftId: number, rightId: number, context: DraftStrategyContext): number {
+function compareTierPriority(
+  leftId: number,
+  rightId: number,
+  context: DraftStrategyContext,
+): number {
   const leftTier = context.tiers.get(leftId)
   const rightTier = context.tiers.get(rightId)
   const leftRank = leftTier?.rank ?? Number.POSITIVE_INFINITY
   const rightRank = rightTier?.rank ?? Number.POSITIVE_INFINITY
-  if (Number.isFinite(leftRank) !== Number.isFinite(rightRank)) return Number.isFinite(leftRank) ? -1 : 1
+  if (Number.isFinite(leftRank) !== Number.isFinite(rightRank))
+    return Number.isFinite(leftRank) ? -1 : 1
   if (leftRank !== rightRank) return leftRank - rightRank
   const leftPicks = leftTier?.picks ?? context.stats.get(leftId)?.picks ?? 0
   const rightPicks = rightTier?.picks ?? context.stats.get(rightId)?.picks ?? 0
   return rightPicks - leftPicks || leftId - rightId
 }
 
-export function chooseTierFirstCandidate(state: DraftState, context: DraftStrategyContext, turn?: DraftTurn): number | undefined {
-  if (!turn) return legalRemainingIds(state).sort((left, right) => compareTierPriority(left, right, context))[0]
-  return rankDraftCandidates(state, turn, 'tier-first', context, { limit: 1, allowFutureLookahead: false })[0]?.abilityId
+export function chooseTierFirstCandidate(
+  state: DraftState,
+  context: DraftStrategyContext,
+  turn?: DraftTurn,
+): number | undefined {
+  if (!turn)
+    return legalRemainingIds(state).sort((left, right) =>
+      compareTierPriority(left, right, context),
+    )[0]
+  return rankDraftCandidates(state, turn, 'tier-first', context, {
+    limit: 1,
+    allowFutureLookahead: false,
+  })[0]?.abilityId
 }
 
-function nextTurnForPlayer(turn: DraftTurn, player: number): DraftTurn | undefined {
-  for (let globalPick = turn.globalPick + 1; globalPick <= DRAFT_TOTAL_PICKS; globalPick += 1) {
+function nextTurnForPlayer(
+  turn: DraftTurn,
+  player: number,
+): DraftTurn | undefined {
+  for (
+    let globalPick = turn.globalPick + 1;
+    globalPick <= DRAFT_TOTAL_PICKS;
+    globalPick += 1
+  ) {
     const nextTurn = turnAt(globalPick)
     if (nextTurn.player === player) return nextTurn
   }
   return undefined
 }
 
-function survivingFutureCandidates(state: DraftState, turn: DraftTurn, player: number, candidateId: number, context: DraftStrategyContext): readonly number[] {
+function survivingFutureCandidates(
+  state: DraftState,
+  turn: DraftTurn,
+  player: number,
+  candidateId: number,
+  context: DraftStrategyContext,
+): readonly number[] {
   const cacheKey = `${turn.globalPick}|${player}|${candidateId}`
   return memoizeByKey(context.futurePoolCache, state, cacheKey, () => {
-    const hypothetical = futureStateAfterMasks(state, turn, player, candidateId, context)
+    const hypothetical = futureStateAfterMasks(
+      state,
+      turn,
+      player,
+      candidateId,
+      context,
+    )
     const nextTurn = nextTurnForPlayer(turn, player)
-    return nextTurn ? legalRemainingIds(hypothetical, nextTurn) : allRemainingIds(hypothetical)
+    return nextTurn
+      ? legalRemainingIds(hypothetical, nextTurn)
+      : allRemainingIds(hypothetical)
   })
 }
 
-function futureStateAfterMasks(state: DraftState, turn: DraftTurn, player: number, candidateId: number, context: DraftStrategyContext): DraftState {
+function futureStateAfterMasks(
+  state: DraftState,
+  turn: DraftTurn,
+  player: number,
+  candidateId: number,
+  context: DraftStrategyContext,
+): DraftState {
   const cacheKey = `${turn.globalPick}|${player}|${candidateId}`
   return memoizeByKey(context.futureStateCache, state, cacheKey, () => {
-    let hypothetical = applyDraftPick(state, turn, candidateId, 'player-pick', 'pair-first')
+    let hypothetical = applyDraftPick(
+      state,
+      turn,
+      candidateId,
+      'player-pick',
+      'pair-first',
+    )
     const nextTurn = nextTurnForPlayer(turn, player)
     if (nextTurn) {
       while (hypothetical.nextGlobalPick < nextTurn.globalPick) {
         const maskTurn = turnAt(hypothetical.nextGlobalPick)
-        const maskPolicy = context.futureStrategies[maskTurn.player] ?? 'tier-first'
-        const maskChoice = chooseMaskCandidate(hypothetical, maskTurn, maskPolicy, context)
+        const maskPolicy =
+          context.futureStrategies[maskTurn.player] ?? 'tier-first'
+        const maskChoice = chooseMaskCandidate(
+          hypothetical,
+          maskTurn,
+          maskPolicy,
+          context,
+        )
         if (!maskChoice) break
-        hypothetical = applyDraftPick(hypothetical, maskTurn, maskChoice.abilityId, 'opponent-mask', maskPolicy, {
-          rationale: maskChoice.rationale,
-          pairScore: maskChoice.pairScore,
-          pairProfile: maskChoice.pairProfile,
-        })
+        hypothetical = applyDraftPick(
+          hypothetical,
+          maskTurn,
+          maskChoice.abilityId,
+          'opponent-mask',
+          maskPolicy,
+          {
+            rationale: maskChoice.rationale,
+            pairScore: maskChoice.pairScore,
+            pairProfile: maskChoice.pairProfile,
+          },
+        )
       }
     }
     return hypothetical
@@ -168,64 +266,120 @@ const PAIR_PRIMARY_MARGIN = 0.01
 const PAIR_PROFILE_MARGIN = 0.003
 const PAIR_PROFILE_WEIGHTS = [0.55, 0.3, 0.15]
 
-function pairProfileForPartners(candidateId: number, partnerIds: readonly number[], context: DraftStrategyContext): PairProfile {
+function pairProfileForPartners(
+  candidateId: number,
+  partnerIds: readonly number[],
+  context: DraftStrategyContext,
+): PairProfile {
   const values = partnerIds.flatMap((partnerId) => {
     const value = pairValue(candidateId, partnerId, context)
     return value === undefined ? [] : [{ value, partnerId }]
   })
   const top = values
     .slice()
-    .sort((left, right) => right.value - left.value || left.partnerId - right.partnerId)
+    .sort(
+      (left, right) =>
+        right.value - left.value || left.partnerId - right.partnerId,
+    )
     .slice(0, PAIR_PROFILE_WEIGHTS.length)
-  const weightTotal = top.reduce((sum, _entry, index) => sum + PAIR_PROFILE_WEIGHTS[index], 0)
+  const weightTotal = top.reduce(
+    (sum, _entry, index) => sum + PAIR_PROFILE_WEIGHTS[index],
+    0,
+  )
   return {
     topValues: top.map((entry) => entry.value),
     topPartnerIds: top.map((entry) => entry.partnerId),
-    weightedValue: weightTotal === 0 ? 0 : top.reduce((sum, entry, index) => sum + entry.value * PAIR_PROFILE_WEIGHTS[index], 0) / weightTotal,
+    weightedValue:
+      weightTotal === 0
+        ? 0
+        : top.reduce(
+            (sum, entry, index) =>
+              sum + entry.value * PAIR_PROFILE_WEIGHTS[index],
+            0,
+          ) / weightTotal,
     optionCount: values.length,
   }
 }
 
-function firstPickProfile(state: DraftState, turn: DraftTurn, candidateId: number, context: DraftStrategyContext): PairProfile {
-  const surviving = survivingFutureCandidates(state, turn, turn.player, candidateId, context)
+function firstPickProfile(
+  state: DraftState,
+  turn: DraftTurn,
+  candidateId: number,
+  context: DraftStrategyContext,
+): PairProfile {
+  const surviving = survivingFutureCandidates(
+    state,
+    turn,
+    turn.player,
+    candidateId,
+    context,
+  )
   return pairProfileForPartners(candidateId, surviving, context)
 }
 
-function immediateFirstPickProfile(state: DraftState, turn: DraftTurn, candidateId: number, context: DraftStrategyContext): PairProfile {
-  const hypothetical = applyDraftPick(state, turn, candidateId, 'player-pick', 'pair-first')
+function immediateFirstPickProfile(
+  state: DraftState,
+  turn: DraftTurn,
+  candidateId: number,
+  context: DraftStrategyContext,
+): PairProfile {
+  const hypothetical = applyDraftPick(
+    state,
+    turn,
+    candidateId,
+    'player-pick',
+    'pair-first',
+  )
   const nextTurn = nextTurnForPlayer(turn, turn.player)
-  const available = nextTurn ? legalRemainingIds(hypothetical, nextTurn) : allRemainingIds(hypothetical)
+  const available = nextTurn
+    ? legalRemainingIds(hypothetical, nextTurn)
+    : allRemainingIds(hypothetical)
   return pairProfileForPartners(candidateId, available, context)
 }
 
-function independentWinRate(abilityId: number, context: DraftStrategyContext): number {
+function independentWinRate(
+  abilityId: number,
+  context: DraftStrategyContext,
+): number {
   const stat = context.stats.get(abilityId)
   return (stat && calculateWinRate(stat.picks, stat.wins)) ?? 0.5
 }
 
-function compareIndependentPriority(left: RankedDraftCandidate, right: RankedDraftCandidate): number {
-  return right.individualWinRate - left.individualWinRate
-    || right.sampleCount - left.sampleCount
-    || (left.avgPickPosition ?? Number.POSITIVE_INFINITY) - (right.avgPickPosition ?? Number.POSITIVE_INFINITY)
-    || left.abilityId - right.abilityId
+function compareIndependentPriority(
+  left: RankedDraftCandidate,
+  right: RankedDraftCandidate,
+): number {
+  return (
+    right.individualWinRate - left.individualWinRate ||
+    right.sampleCount - left.sampleCount ||
+    (left.avgPickPosition ?? Number.POSITIVE_INFINITY) -
+      (right.avgPickPosition ?? Number.POSITIVE_INFINITY) ||
+    left.abilityId - right.abilityId
+  )
 }
 
 function comparePairProfile(left: PairProfile, right: PairProfile): number {
   const leftTop = left.topValues[0] ?? Number.NEGATIVE_INFINITY
   const rightTop = right.topValues[0] ?? Number.NEGATIVE_INFINITY
-  if (Math.abs(rightTop - leftTop) > PAIR_PRIMARY_MARGIN) return rightTop - leftTop
+  if (Math.abs(rightTop - leftTop) > PAIR_PRIMARY_MARGIN)
+    return rightTop - leftTop
 
   for (let index = 1; index < PAIR_PROFILE_WEIGHTS.length; index += 1) {
     const leftValue = left.topValues[index] ?? Number.NEGATIVE_INFINITY
     const rightValue = right.topValues[index] ?? Number.NEGATIVE_INFINITY
-    if (leftValue === Number.NEGATIVE_INFINITY || rightValue === Number.NEGATIVE_INFINITY) {
+    if (
+      leftValue === Number.NEGATIVE_INFINITY ||
+      rightValue === Number.NEGATIVE_INFINITY
+    ) {
       if (leftValue !== rightValue) return rightValue - leftValue
       continue
     }
-    if (Math.abs(rightValue - leftValue) > PAIR_PROFILE_MARGIN) return rightValue - leftValue
+    if (Math.abs(rightValue - leftValue) > PAIR_PROFILE_MARGIN)
+      return rightValue - leftValue
   }
 
-  return Math.abs(right.weightedValue - left.weightedValue) > PAIR_PROFILE_MARGIN
+  return Math.abs(right.weightedValue - left.weightedValue) >
+    PAIR_PROFILE_MARGIN
     ? right.weightedValue - left.weightedValue
     : right.optionCount - left.optionCount
 }
@@ -235,12 +389,14 @@ function compareDraftCandidates(
   right: RankedDraftCandidate,
   policy: DraftStrategyId,
 ): number {
-  const primary = policy === 'pair-first'
-    ? comparePairProfile(left.pairProfile, right.pairProfile)
-    : left.tierRank - right.tierRank
-  const secondary = policy === 'pair-first'
-    ? left.tierRank - right.tierRank
-    : comparePairProfile(left.pairProfile, right.pairProfile)
+  const primary =
+    policy === 'pair-first'
+      ? comparePairProfile(left.pairProfile, right.pairProfile)
+      : left.tierRank - right.tierRank
+  const secondary =
+    policy === 'pair-first'
+      ? left.tierRank - right.tierRank
+      : comparePairProfile(left.pairProfile, right.pairProfile)
   return primary || secondary || compareIndependentPriority(left, right)
 }
 
@@ -252,7 +408,8 @@ function candidatePairProfile(
   allowFutureLookahead: boolean,
 ): PairProfile {
   const ownPicks = state.picksByPlayer[turn.player] ?? []
-  if (ownPicks.length > 0) return pairProfileForPartners(candidateId, ownPicks, context)
+  if (ownPicks.length > 0)
+    return pairProfileForPartners(candidateId, ownPicks, context)
   return allowFutureLookahead
     ? firstPickProfile(state, turn, candidateId, context)
     : immediateFirstPickProfile(state, turn, candidateId, context)
@@ -272,7 +429,13 @@ function candidateRank(
     rank: 0,
     tierRank: tier?.rank ?? Number.POSITIVE_INFINITY,
     tier: tier?.tier,
-    pairProfile: candidatePairProfile(state, turn, abilityId, context, allowFutureLookahead),
+    pairProfile: candidatePairProfile(
+      state,
+      turn,
+      abilityId,
+      context,
+      allowFutureLookahead,
+    ),
     individualWinRate: independentWinRate(abilityId, context),
     sampleCount: tier?.picks ?? stat?.picks ?? 0,
     avgPickPosition: stat?.avgPickPosition,
@@ -298,27 +461,40 @@ export function rankDraftCandidates(
     if (limit === 1) {
       let best: RankedDraftCandidate | undefined
       for (const abilityId of legalIds) {
-        const candidate = candidateRank(state, turn, abilityId, context, allowFutureLookahead)
-        if (!best || compareDraftCandidates(candidate, best, policy) < 0) best = candidate
+        const candidate = candidateRank(
+          state,
+          turn,
+          abilityId,
+          context,
+          allowFutureLookahead,
+        )
+        if (!best || compareDraftCandidates(candidate, best, policy) < 0)
+          best = candidate
       }
       return best ? [{ ...best, rank: 1 }] : []
     }
 
     return legalIds
-      .map((abilityId) => candidateRank(state, turn, abilityId, context, allowFutureLookahead))
+      .map((abilityId) =>
+        candidateRank(state, turn, abilityId, context, allowFutureLookahead),
+      )
       .sort((left, right) => compareDraftCandidates(left, right, policy))
       .map((candidate, index) => ({ ...candidate, rank: index + 1 }))
       .slice(0, limit)
   })
 }
 
-export function draftChoiceFromRankedCandidate(candidate: RankedDraftCandidate, policy: DraftStrategyId): DraftChoice {
+export function draftChoiceFromRankedCandidate(
+  candidate: RankedDraftCandidate,
+  policy: DraftStrategyId,
+): DraftChoice {
   const pairScore = candidate.pairProfile.topValues[0]
-  const rationale = policy === 'pair-first'
-    ? pairScore === undefined
-      ? 'Tier fallback: no Pair data'
-      : `Highest Pair WR with ${candidate.pairProfile.optionCount} connected picks`
-    : 'Highest global tier'
+  const rationale =
+    policy === 'pair-first'
+      ? pairScore === undefined
+        ? 'Tier fallback: no Pair data'
+        : `Highest Pair WR with ${candidate.pairProfile.optionCount} connected picks`
+      : 'Highest global tier'
   return {
     abilityId: candidate.abilityId,
     rationale,
@@ -334,18 +510,37 @@ function chooseDraftCandidateInternal(
   context: DraftStrategyContext,
   allowFutureLookahead: boolean,
 ): DraftChoice | undefined {
-  const candidate = rankDraftCandidates(state, turn, policy, context, { limit: 1, allowFutureLookahead })[0]
-  return candidate ? draftChoiceFromRankedCandidate(candidate, policy) : undefined
+  const candidate = rankDraftCandidates(state, turn, policy, context, {
+    limit: 1,
+    allowFutureLookahead,
+  })[0]
+  return candidate
+    ? draftChoiceFromRankedCandidate(candidate, policy)
+    : undefined
 }
 
-function chooseMaskCandidate(state: DraftState, turn: DraftTurn, policy: DraftStrategyId, context: DraftStrategyContext): DraftChoice | undefined {
+function chooseMaskCandidate(
+  state: DraftState,
+  turn: DraftTurn,
+  policy: DraftStrategyId,
+  context: DraftStrategyContext,
+): DraftChoice | undefined {
   return chooseDraftCandidateInternal(state, turn, policy, context, false)
 }
 
-export function choosePairFirstCandidate(state: DraftState, turn: DraftTurn, context: DraftStrategyContext): DraftChoice | undefined {
+export function choosePairFirstCandidate(
+  state: DraftState,
+  turn: DraftTurn,
+  context: DraftStrategyContext,
+): DraftChoice | undefined {
   return chooseDraftCandidateInternal(state, turn, 'pair-first', context, true)
 }
 
-export function chooseDraftCandidate(state: DraftState, turn: DraftTurn, policy: DraftStrategyId, context: DraftStrategyContext): DraftChoice | undefined {
+export function chooseDraftCandidate(
+  state: DraftState,
+  turn: DraftTurn,
+  policy: DraftStrategyId,
+  context: DraftStrategyContext,
+): DraftChoice | undefined {
   return chooseDraftCandidateInternal(state, turn, policy, context, true)
 }

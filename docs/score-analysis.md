@@ -87,19 +87,19 @@ The actual accumulation remains in logit space.
 
 The bundled snapshot is patch `7.41d`, generated on `2026-07-22`:
 
-| Input | Count | Pick-count range |
-| --- | ---: | ---: |
-| Individual ability statistics | 636 | 3,211 - 40,802 |
-| Canonical Pair records | 7,500 | 358 - 19,912 |
-| Canonical Triple records | 10,000 | 138 - 9,584 |
+| Input                         |  Count | Pick-count range |
+| ----------------------------- | -----: | ---------------: |
+| Individual ability statistics |    636 |   3,211 - 40,802 |
+| Canonical Pair records        |  7,500 |     358 - 19,912 |
+| Canonical Triple records      | 10,000 |      138 - 9,584 |
 
 All bundled Pair and Triple records are above the current 50-pick threshold. Applying the raw logit
 formulas and complete Triple residual rule gives:
 
-| Interaction | Eligible | Positive | Negative |
-| --- | ---: | ---: | ---: |
-| Pair | 7,500 | 4,816 | 2,684 |
-| Complete Triple | 2,472 | 982 | 1,490 |
+| Interaction     | Eligible | Positive | Negative |
+| --------------- | -------: | -------: | -------: |
+| Pair            |    7,500 |    4,816 |    2,684 |
+| Complete Triple |    2,472 |      982 |    1,490 |
 
 The remaining 7,528 Triple records have incomplete Pair coverage and are diagnostics only. These are
 snapshot-wide counts; a recognized build only sees IDs present in its candidate pools.

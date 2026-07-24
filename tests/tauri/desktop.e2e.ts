@@ -2,21 +2,30 @@ import { browser, $, expect } from '@wdio/globals'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
-const screenshotPath = resolve('tests/fixtures/{241DAD27-9A37-4364-BF08-68998F993992}.jpg')
+const screenshotPath = resolve(
+  'tests/fixtures/{241DAD27-9A37-4364-BF08-68998F993992}.jpg',
+)
 
 async function setScreenshotInput() {
   const imageBase64 = (await readFile(screenshotPath)).toString('base64')
 
   await browser.execute((base64) => {
-    const input = document.querySelector<HTMLInputElement>('[data-testid="screenshot-input"]')
+    const input = document.querySelector<HTMLInputElement>(
+      '[data-testid="screenshot-input"]',
+    )
     if (!input) throw new Error('Screenshot input was not found')
 
-    const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0))
+    const bytes = Uint8Array.from(atob(base64), (character) =>
+      character.charCodeAt(0),
+    )
     const file = new File([bytes], 'desktop-e2e.jpg', { type: 'image/jpeg' })
     const transfer = new DataTransfer()
     transfer.items.add(file)
 
-    const filesSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files')?.set
+    const filesSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'files',
+    )?.set
     filesSetter?.call(input, transfer.files)
     input.dispatchEvent(new Event('change', { bubbles: true }))
   }, imageBase64)
@@ -24,9 +33,12 @@ async function setScreenshotInput() {
 
 describe('Tauri desktop application', () => {
   before(async () => {
-    await browser.waitUntil(async () => await $('[data-testid="app-shell"]').isDisplayed(), {
-      timeoutMsg: 'OMG-Draft-Seer main window did not become ready',
-    })
+    await browser.waitUntil(
+      async () => await $('[data-testid="app-shell"]').isDisplayed(),
+      {
+        timeoutMsg: 'OMG-Draft-Seer main window did not become ready',
+      },
+    )
   })
 
   it('switches pages through the native WebView navigation', async () => {
@@ -62,10 +74,14 @@ describe('Tauri desktop application', () => {
     await (await $('[data-testid="nav-analysis"]')).click()
     await setScreenshotInput()
     await expect($('.screenshot-frame')).toBeDisplayed()
-    await browser.waitUntil(async () => await $('[data-testid="accept-suggestions"]').isDisplayed(), {
-      timeout: 60_000,
-      timeoutMsg: 'Screenshot recognition did not produce selectable candidates',
-    })
+    await browser.waitUntil(
+      async () => await $('[data-testid="accept-suggestions"]').isDisplayed(),
+      {
+        timeout: 60_000,
+        timeoutMsg:
+          'Screenshot recognition did not produce selectable candidates',
+      },
+    )
     await (await $('[data-testid="accept-suggestions"]')).click()
 
     await (await $('[data-testid="nav-layout"]')).click()
@@ -82,8 +98,11 @@ describe('Tauri desktop application', () => {
     await (await $('[data-testid="nav-database"]')).click()
     const handles = await browser.getWindowHandles()
     await (await $('[data-testid="overlay-toggle-tier"]')).click()
-    await browser.waitUntil(async () => (await browser.getWindowHandles()).length > handles.length, {
-      timeoutMsg: 'Tier overlay window did not open',
-    })
+    await browser.waitUntil(
+      async () => (await browser.getWindowHandles()).length > handles.length,
+      {
+        timeoutMsg: 'Tier overlay window did not open',
+      },
+    )
   })
 })

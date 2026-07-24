@@ -19,8 +19,8 @@ export const TIER_DEFINITIONS = [
   { id: 'F', threshold: 1 },
 ] as const
 
-export type TierCategory = typeof TIER_CATEGORY_OPTIONS[number]['id']
-export type AbilityTier = typeof TIER_DEFINITIONS[number]['id']
+export type TierCategory = (typeof TIER_CATEGORY_OPTIONS)[number]['id']
+export type AbilityTier = (typeof TIER_DEFINITIONS)[number]['id']
 
 export const TIER_ORDER: AbilityTier[] = TIER_DEFINITIONS.map((tier) => tier.id)
 
@@ -46,53 +46,85 @@ function isInCategory(ability: Ability, category: TierCategory): boolean {
 export function tierForRank(rank: number, total: number): AbilityTier {
   if (total <= 0 || rank < 0) return 'F'
   const percentile = (rank + 1) / total
-  return TIER_DEFINITIONS.find((tier) => percentile <= tier.threshold)?.id ?? 'F'
+  return (
+    TIER_DEFINITIONS.find((tier) => percentile <= tier.threshold)?.id ?? 'F'
+  )
 }
 
 function compareEntries(left: TierEntry, right: TierEntry): number {
-  return right.winRate - left.winRate
-    || right.stats.picks - left.stats.picks
-    || left.ability.name.localeCompare(right.ability.name)
+  return (
+    right.winRate - left.winRate ||
+    right.stats.picks - left.stats.picks ||
+    left.ability.name.localeCompare(right.ability.name)
+  )
 }
 
-export function buildAbilityTierList(snapshot: Snapshot, category: TierCategory = 'all'): TierEntry[] {
+export function buildAbilityTierList(
+  snapshot: Snapshot,
+  category: TierCategory = 'all',
+): TierEntry[] {
   return memoizeByKey(TIER_LIST_CACHE, snapshot, category, () => {
-    const statsByAbilityId = new Map(snapshot.abilityStats.map((stats) => [stats.abilityId, stats]))
+    const statsByAbilityId = new Map(
+      snapshot.abilityStats.map((stats) => [stats.abilityId, stats]),
+    )
     const entries = snapshot.abilities.flatMap((ability) => {
       const stats = statsByAbilityId.get(ability.id)
-      if (!stats || stats.picks <= 0 || isSpecialBonusAbility(ability) || !isInCategory(ability, category)) return []
-      return [{
-        ability,
-        stats,
-        winRate: stats.wins / stats.picks,
-        value: snapshot.abilityValuations?.[String(ability.id)],
-        rank: 0,
-        tier: 'F' as AbilityTier,
-      }]
+      if (
+        !stats ||
+        stats.picks <= 0 ||
+        isSpecialBonusAbility(ability) ||
+        !isInCategory(ability, category)
+      )
+        return []
+      return [
+        {
+          ability,
+          stats,
+          winRate: stats.wins / stats.picks,
+          value: snapshot.abilityValuations?.[String(ability.id)],
+          rank: 0,
+          tier: 'F' as AbilityTier,
+        },
+      ]
     })
 
-    return entries
-      .sort(compareEntries)
-      .map((entry, index, sorted) => ({
-        ...entry,
-        rank: index + 1,
-        tier: tierForRank(index, sorted.length),
-      }))
+    return entries.sort(compareEntries).map((entry, index, sorted) => ({
+      ...entry,
+      rank: index + 1,
+      tier: tierForRank(index, sorted.length),
+    }))
   })
 }
 
-export function filterTierEntries(entries: readonly TierEntry[], query: string): TierEntry[] {
+export function filterTierEntries(
+  entries: readonly TierEntry[],
+  query: string,
+): TierEntry[] {
   const normalizedQuery = query.trim().toLowerCase()
   if (!normalizedQuery) return [...entries]
-  return entries.filter((entry) => `${entry.ability.name} ${entry.ability.shortName}`.toLowerCase().includes(normalizedQuery))
+  return entries.filter((entry) =>
+    `${entry.ability.name} ${entry.ability.shortName}`
+      .toLowerCase()
+      .includes(normalizedQuery),
+  )
 }
 
-export function matchesTierCategory(ability: Ability, category: TierCategory): boolean {
+export function matchesTierCategory(
+  ability: Ability,
+  category: TierCategory,
+): boolean {
   return isInCategory(ability, category)
 }
 
-export function getTierCategoryCounts(snapshot: Snapshot): Record<TierCategory, number> {
-  const counts: Record<TierCategory, number> = { all: 0, ultimate: 0, hero: 0, ability: 0 }
+export function getTierCategoryCounts(
+  snapshot: Snapshot,
+): Record<TierCategory, number> {
+  const counts: Record<TierCategory, number> = {
+    all: 0,
+    ultimate: 0,
+    hero: 0,
+    ability: 0,
+  }
   for (const category of TIER_CATEGORY_OPTIONS) {
     counts[category.id] = buildAbilityTierList(snapshot, category.id).length
   }

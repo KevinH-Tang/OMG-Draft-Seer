@@ -1,4 +1,12 @@
-import { mkdir, readdir, rename, readFile, stat, unlink, writeFile } from 'node:fs/promises'
+import {
+  mkdir,
+  readdir,
+  rename,
+  readFile,
+  stat,
+  unlink,
+  writeFile,
+} from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { PNG } from 'pngjs'
 import { isHeroAbility } from '../src/core/ability-category.ts'
@@ -19,13 +27,23 @@ function relativeFileName(ability: Snapshot['abilities'][number]): string {
   return `${isHeroAbility(ability) ? 'hero-icons' : 'ability-icons'}/${ability.id}.png`
 }
 
-function category(ability: Snapshot['abilities'][number]): 'hero' | 'ultimate' | 'ability' {
-  return isHeroAbility(ability) ? 'hero' : ability.isUltimate ? 'ultimate' : 'ability'
+function category(
+  ability: Snapshot['abilities'][number],
+): 'hero' | 'ultimate' | 'ability' {
+  return isHeroAbility(ability)
+    ? 'hero'
+    : ability.isUltimate
+      ? 'ultimate'
+      : 'ability'
 }
 
 function runtimeAbilities(snapshot: Snapshot): Snapshot['abilities'] {
-  const statAbilityIds = new Set(snapshot.abilityStats.map((stat) => stat.abilityId))
-  return snapshot.abilities.filter((ability) => isHeroAbility(ability) || statAbilityIds.has(ability.id))
+  const statAbilityIds = new Set(
+    snapshot.abilityStats.map((stat) => stat.abilityId),
+  )
+  return snapshot.abilities.filter(
+    (ability) => isHeroAbility(ability) || statAbilityIds.has(ability.id),
+  )
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -37,14 +55,20 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-async function pruneStaleAssets(abilities: Snapshot['abilities']): Promise<number> {
+async function pruneStaleAssets(
+  abilities: Snapshot['abilities'],
+): Promise<number> {
   const desired = new Set(abilities.map(relativeFileName))
   let pruned = 0
   for (const directoryName of ['hero-icons', 'ability-icons']) {
     const directory = resolve(assetRoot, directoryName)
     const fileNames = await readdir(directory).catch(() => [] as string[])
     for (const fileName of fileNames) {
-      if (!fileName.endsWith('.png') || desired.has(`${directoryName}/${fileName}`)) continue
+      if (
+        !fileName.endsWith('.png') ||
+        desired.has(`${directoryName}/${fileName}`)
+      )
+        continue
       await unlink(resolve(directory, fileName))
       pruned += 1
     }
@@ -56,11 +80,19 @@ async function cacheAbility(ability: Snapshot['abilities'][number]) {
   const fileName = relativeFileName(ability)
   const outputPath = resolve(assetRoot, fileName)
   if (await fileExists(outputPath)) {
-    return { abilityId: ability.id, shortName: ability.shortName, category: category(ability), fileName, status: 'cached' as const }
+    return {
+      abilityId: ability.id,
+      shortName: ability.shortName,
+      category: category(ability),
+      fileName,
+      status: 'cached' as const,
+    }
   }
 
   try {
-    const response = await fetch(iconUrl(ability), { signal: AbortSignal.timeout(20000) })
+    const response = await fetch(iconUrl(ability), {
+      signal: AbortSignal.timeout(20000),
+    })
     if (!response.ok) throw new Error(String(response.status))
     const buffer = Buffer.from(await response.arrayBuffer())
     PNG.sync.read(buffer)
@@ -68,9 +100,21 @@ async function cacheAbility(ability: Snapshot['abilities'][number]) {
     const temporaryPath = `${outputPath}.tmp-${process.pid}`
     await writeFile(temporaryPath, buffer)
     await rename(temporaryPath, outputPath)
-    return { abilityId: ability.id, shortName: ability.shortName, category: category(ability), fileName, status: 'downloaded' as const }
+    return {
+      abilityId: ability.id,
+      shortName: ability.shortName,
+      category: category(ability),
+      fileName,
+      status: 'downloaded' as const,
+    }
   } catch {
-    return { abilityId: ability.id, shortName: ability.shortName, category: category(ability), fileName, status: 'missing' as const }
+    return {
+      abilityId: ability.id,
+      shortName: ability.shortName,
+      category: category(ability),
+      fileName,
+      status: 'missing' as const,
+    }
   }
 }
 
@@ -85,7 +129,8 @@ async function main() {
     while (next < abilities.length) {
       const ability = abilities[next++]
       results.push(await cacheAbility(ability))
-      if (results.length % 100 === 0) console.log(`Cached ${results.length}/${abilities.length}`)
+      if (results.length % 100 === 0)
+        console.log(`Cached ${results.length}/${abilities.length}`)
     }
   }
   await Promise.all(Array.from({ length: concurrency }, worker))
@@ -101,15 +146,26 @@ async function main() {
     missing: results.filter((item) => item.status === 'missing').length,
     pruned,
     categories: {
-      heroes: results.filter((item) => item.category === 'hero' && item.status !== 'missing').length,
-      ultimates: results.filter((item) => item.category === 'ultimate' && item.status !== 'missing').length,
-      abilities: results.filter((item) => item.category === 'ability' && item.status !== 'missing').length,
+      heroes: results.filter(
+        (item) => item.category === 'hero' && item.status !== 'missing',
+      ).length,
+      ultimates: results.filter(
+        (item) => item.category === 'ultimate' && item.status !== 'missing',
+      ).length,
+      abilities: results.filter(
+        (item) => item.category === 'ability' && item.status !== 'missing',
+      ).length,
     },
     entries: results,
   }
   await mkdir(dirname(manifestPath), { recursive: true })
   await writeFile(manifestPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
-  console.log(`Cached ${payload.cached}/${payload.count} ability icons; ${payload.missing} missing; pruned ${payload.pruned} stale files`)
+  console.log(
+    `Cached ${payload.cached}/${payload.count} ability icons; ${payload.missing} missing; pruned ${payload.pruned} stale files`,
+  )
 }
 
-main().catch((error: unknown) => { console.error(error); process.exitCode = 1 })
+main().catch((error: unknown) => {
+  console.error(error)
+  process.exitCode = 1
+})

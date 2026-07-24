@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { createDraftTestSnapshot, draftTestPool } from './draft-test-fixtures'
 import { applyDraftPick, createInitialDraftState } from './draft-state'
-import { chooseDraftCandidate, choosePairFirstCandidate, chooseTierFirstCandidate, createDraftStrategyContext, rankDraftCandidates } from './draft-strategy'
+import {
+  chooseDraftCandidate,
+  choosePairFirstCandidate,
+  chooseTierFirstCandidate,
+  createDraftStrategyContext,
+  rankDraftCandidates,
+} from './draft-strategy'
 import { turnAt } from './draft-turns'
 
 describe('draft strategies', () => {
@@ -11,7 +17,14 @@ describe('draft strategies', () => {
       ...base,
       abilityStats: base.abilityStats.map((stats) => ({
         ...stats,
-        wins: stats.abilityId === 101 ? 95 : stats.abilityId === 1 ? 90 : stats.abilityId === -1 ? 85 : 50,
+        wins:
+          stats.abilityId === 101
+            ? 95
+            : stats.abilityId === 1
+              ? 90
+              : stats.abilityId === -1
+                ? 85
+                : 50,
       })),
     }
     const state = createInitialDraftState(draftTestPool, snapshot.abilities)
@@ -33,7 +46,9 @@ describe('draft strategies', () => {
     expect(choice).toMatchObject({ abilityId: 30 })
     expect(choice?.rationale).toContain('Highest Pair WR')
     expect(choice?.pairScore).toBeCloseTo(0.95)
-    expect(chooseDraftCandidate(state, turnAt(1), 'pair-first', context)).toEqual(choice)
+    expect(
+      chooseDraftCandidate(state, turnAt(1), 'pair-first', context),
+    ).toEqual(choice)
   })
 
   it('uses the raw Pair WR instead of a synergy delta', () => {
@@ -59,9 +74,19 @@ describe('draft strategies', () => {
     }
     let state = createInitialDraftState(draftTestPool, snapshot.abilities)
     for (let globalPick = 1; globalPick <= 9; globalPick += 1) {
-      state = applyDraftPick(state, turnAt(globalPick), globalPick, 'opponent-mask', 'tier-first')
+      state = applyDraftPick(
+        state,
+        turnAt(globalPick),
+        globalPick,
+        'opponent-mask',
+        'tier-first',
+      )
     }
-    const choice = choosePairFirstCandidate(state, turnAt(10), createDraftStrategyContext(snapshot))
+    const choice = choosePairFirstCandidate(
+      state,
+      turnAt(10),
+      createDraftStrategyContext(snapshot),
+    )
 
     expect(choice?.abilityId).toBe(30)
     expect(choice?.pairScore).toBeCloseTo(0.95)
@@ -82,7 +107,13 @@ describe('draft strategies', () => {
     let state = createInitialDraftState(draftTestPool, snapshot.abilities)
     state = applyDraftPick(state, turnAt(1), 30, 'player-pick', 'pair-first')
     for (let globalPick = 2; globalPick <= 19; globalPick += 1) {
-      state = applyDraftPick(state, turnAt(globalPick), globalPick - 1, 'opponent-mask', 'tier-first')
+      state = applyDraftPick(
+        state,
+        turnAt(globalPick),
+        globalPick - 1,
+        'opponent-mask',
+        'tier-first',
+      )
     }
 
     const choice = choosePairFirstCandidate(state, turnAt(20), context)
@@ -113,22 +144,46 @@ describe('draft strategies', () => {
     }
     const state = createInitialDraftState(draftTestPool, snapshot.abilities)
     const context = createDraftStrategyContext(snapshot)
-    const tierCandidates = rankDraftCandidates(state, turnAt(1), 'tier-first', context, { limit: 60 })
-    const pairCandidates = rankDraftCandidates(state, turnAt(1), 'pair-first', context, { limit: 60 })
+    const tierCandidates = rankDraftCandidates(
+      state,
+      turnAt(1),
+      'tier-first',
+      context,
+      { limit: 60 },
+    )
+    const pairCandidates = rankDraftCandidates(
+      state,
+      turnAt(1),
+      'pair-first',
+      context,
+      { limit: 60 },
+    )
 
     expect(tierCandidates[0]?.abilityId).toBe(1)
     expect(pairCandidates[0]?.abilityId).toBe(30)
-    expect(tierCandidates.find((candidate) => candidate.abilityId === 30)?.pairProfile.topValues).toEqual([0.95])
-    expect(pairCandidates.find((candidate) => candidate.abilityId === 30)?.tierRank).toBeDefined()
+    expect(
+      tierCandidates.find((candidate) => candidate.abilityId === 30)
+        ?.pairProfile.topValues,
+    ).toEqual([0.95])
+    expect(
+      pairCandidates.find((candidate) => candidate.abilityId === 30)?.tierRank,
+    ).toBeDefined()
   })
 
   it('returns at most twenty ranked candidates for the current player position', () => {
     const snapshot = createDraftTestSnapshot()
     const state = createInitialDraftState(draftTestPool, snapshot.abilities)
     const context = createDraftStrategyContext(snapshot)
-    const candidates = rankDraftCandidates(state, turnAt(1), 'tier-first', context)
+    const candidates = rankDraftCandidates(
+      state,
+      turnAt(1),
+      'tier-first',
+      context,
+    )
 
     expect(candidates).toHaveLength(20)
-    expect(candidates.map((candidate) => candidate.rank)).toEqual(Array.from({ length: 20 }, (_, index) => index + 1))
+    expect(candidates.map((candidate) => candidate.rank)).toEqual(
+      Array.from({ length: 20 }, (_, index) => index + 1),
+    )
   })
 })

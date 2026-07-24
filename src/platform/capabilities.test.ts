@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { detectRuntimeCapabilities, missingRuntimeCapabilities, type RuntimeCapabilities } from './capabilities'
+import {
+  detectRuntimeCapabilities,
+  missingRuntimeCapabilities,
+  type RuntimeCapabilities,
+} from './capabilities'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -13,11 +17,20 @@ describe('runtime capability checks', () => {
       offscreenCanvas: false,
     }
 
-    expect(missingRuntimeCapabilities(capabilities)).toEqual(['Web Worker', 'OffscreenCanvas'])
+    expect(missingRuntimeCapabilities(capabilities)).toEqual([
+      'Web Worker',
+      'OffscreenCanvas',
+    ])
   })
 
   it('returns no errors when all capabilities are available', () => {
-    expect(missingRuntimeCapabilities({ createImageBitmap: true, worker: true, offscreenCanvas: true })).toEqual([])
+    expect(
+      missingRuntimeCapabilities({
+        createImageBitmap: true,
+        worker: true,
+        offscreenCanvas: true,
+      }),
+    ).toEqual([])
   })
 
   it('detects browser primitives from the runtime global', () => {

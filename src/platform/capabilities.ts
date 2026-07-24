@@ -17,7 +17,9 @@ export function detectRuntimeCapabilities(): RuntimeCapabilities {
   }
 }
 
-export function missingRuntimeCapabilities(capabilities: RuntimeCapabilities): string[] {
+export function missingRuntimeCapabilities(
+  capabilities: RuntimeCapabilities,
+): string[] {
   return [
     !capabilities.createImageBitmap ? 'createImageBitmap' : undefined,
     !capabilities.worker ? 'Web Worker' : undefined,

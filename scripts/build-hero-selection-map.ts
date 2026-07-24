@@ -15,14 +15,27 @@ async function main() {
     const fileName = `${hero.shortName}.png`
     const filePath = resolve(assetDir, fileName)
     const file = await stat(filePath).catch(() => undefined)
-    if (!file?.isFile() || file.size === 0) throw new Error(`Missing hero selection asset: ${filePath}`)
-    entries.push({ abilityId: hero.id, name: hero.name, shortName: hero.shortName, file: `heroes/selection/${fileName}` })
+    if (!file?.isFile() || file.size === 0)
+      throw new Error(`Missing hero selection asset: ${filePath}`)
+    entries.push({
+      abilityId: hero.id,
+      name: hero.name,
+      shortName: hero.shortName,
+      file: `heroes/selection/${fileName}`,
+    })
   }
 
   entries.sort((left, right) => left.abilityId - right.abilityId)
   await mkdir(dirname(outputPath), { recursive: true })
-  await writeFile(outputPath, `${JSON.stringify({ version: 1, generatedAt: new Date().toISOString(), source: 'Dota 2 VPK heroes/selection assets', entries }, null, 2)}\n`, 'utf8')
+  await writeFile(
+    outputPath,
+    `${JSON.stringify({ version: 1, generatedAt: new Date().toISOString(), source: 'Dota 2 VPK heroes/selection assets', entries }, null, 2)}\n`,
+    'utf8',
+  )
   console.log(`Mapped ${entries.length} hero selection assets to ${outputPath}`)
 }
 
-main().catch((error: unknown) => { console.error(error); process.exitCode = 1 })
+main().catch((error: unknown) => {
+  console.error(error)
+  process.exitCode = 1
+})

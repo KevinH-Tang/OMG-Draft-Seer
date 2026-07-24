@@ -10,7 +10,7 @@ statistics, and generate a data-backed recommendation.
 
 ## Scope
 
-- Tauri v2 is the primary, fully validated Windows experience. The React/Vite browser build remains a basic HTTP-served fallback for core analysis and data pages.
+- Windows Tauri v2/WebView2 is the primary, fully validated desktop experience and the only continuous native E2E target. macOS is supported for desktop builds, direct distribution, and release-candidate manual acceptance with WKWebView. The React/Vite browser build remains a basic HTTP-served fallback for core analysis and data pages.
 - A fixed 60-slot draft layout: 12 heroes, 36 abilities, and 12 ultimate abilities.
 - A `2560x1440` baseline layout. Other image sizes are scaled proportionally and can be corrected
   manually in the UI.
@@ -48,9 +48,12 @@ npm run preview
 
 ### Desktop
 
-The desktop shell requires Rust `1.85` or newer and the platform dependencies required by Tauri.
+The desktop shell requires Rust `1.90` or newer and the platform dependencies required by Tauri.
 Windows also needs the MSVC toolchain, Visual Studio C++ build tools, and WebView2. See the
-[Windows build and validation guide](docs/windows-build-test.md) for the complete setup.
+[Windows build and validation guide](docs/windows-build-test.md) for the complete setup. macOS
+requires Xcode Command Line Tools and an Apple Silicon Rust target. GitHub Releases publish an
+unsigned arm64 DMG with a SHA-256 file; they do not require an Apple Developer membership. See the
+[macOS build and release validation guide](docs/macos-build-test.md).
 
 ```sh
 npm run desktop:dev
@@ -59,8 +62,10 @@ npm run desktop:build
 
 The desktop bundle reuses the same Vite frontend and bundled runtime resources. Desktop icon
 sources and generated files are documented in [src-tauri/icons/README.md](src-tauri/icons/README.md).
-macOS transparent overlays use Tauri's macOS private API, so macOS releases must be distributed
-directly (for example, a Developer ID-signed and notarized DMG), not through the Mac App Store.
+macOS transparent overlays use Tauri's macOS private API, so macOS releases are distributed
+directly through GitHub, not through the Mac App Store. The current free distribution strategy
+does not include Developer ID signing or notarization; users must verify the published SHA-256 and
+complete the documented Gatekeeper first-open flow.
 
 ### Windows native E2E
 
@@ -140,14 +145,14 @@ npm test
 npm run build
 ```
 
-| Command | Purpose | Main output |
-| --- | --- | --- |
-| `sync:data` | Fetch the Windrun `/api/v2` snapshot | `public/data/snapshots/latest.json` |
-| `build:hero-map` | Validate local hero selection templates | `reports/hero-selection-map.json` |
-| `build:icons` | Generate template signatures | `public/data/icon-signatures.json` |
-| `cache:icons` | Cache display icons from DatDota | `public/assets/`, `reports/ability-icon-cache.json` |
-| `verify:icons` | Check remote/local icon inputs and signatures | `reports/icon-self-check.json` |
-| `verify:runtime` | Check the offline runtime asset graph | Terminal output |
+| Command          | Purpose                                       | Main output                                         |
+| ---------------- | --------------------------------------------- | --------------------------------------------------- |
+| `sync:data`      | Fetch the Windrun `/api/v2` snapshot          | `public/data/snapshots/latest.json`                 |
+| `build:hero-map` | Validate local hero selection templates       | `reports/hero-selection-map.json`                   |
+| `build:icons`    | Generate template signatures                  | `public/data/icon-signatures.json`                  |
+| `cache:icons`    | Cache display icons from DatDota              | `public/assets/`, `reports/ability-icon-cache.json` |
+| `verify:icons`   | Check remote/local icon inputs and signatures | `reports/icon-self-check.json`                      |
+| `verify:runtime` | Check the offline runtime asset graph         | Terminal output                                     |
 
 The current snapshot contains 3,122 ability records and 636 statistical runtime candidates. These
 counts change when the snapshot is refreshed. The runtime prefers local assets and only falls back
@@ -159,14 +164,34 @@ current-data result.
 
 ## Validation
 
-The standard local checks are:
+The portable local checks are:
 
 ```sh
+npm run format:check
+npm run format:rust:check
 npm test
 npm run build
 npm run verify:runtime
+```
+
+Run `npm run format` to rewrite frontend, configuration, and documentation files. Rust files can
+be rewritten with `npm run format:rust`; `npm run lint:rust` runs Clippy with warnings denied.
+The pre-commit hook formats staged supported files and rejects Rust code that does not pass
+Rustfmt. `npm run check` runs the portable formatting, build, test, Clippy, and runtime checks.
+
+On Windows, also run the native E2E build and suite:
+
+```sh
 npm run build:tauri:test
 npm run test:tauri
+```
+
+On an Apple Silicon macOS release environment, build the release candidate and perform the manual acceptance
+check in [macOS build and release validation](docs/macos-build-test.md):
+
+```sh
+npm run desktop:build
+npm run verify:macos-bundle -- --require-arm64 --require-dmg --require-runtime-assets
 ```
 
 Fixture labels can be regenerated with `npm run build:fixture-labels`; see
@@ -213,6 +238,7 @@ are intentionally excluded from version control.
 - [Recommendation metrics](docs/recommendation-metrics.md)
 - [Draft strategy tree](docs/draft-strategy-tree.md)
 - [Windows build and validation](docs/windows-build-test.md)
+- [macOS build and release validation](docs/macos-build-test.md)
 - [Tailwind v4 and Tauri migration design](docs/tailwind-v4-migration-design.md)
 - [Golden screenshot fixtures](tests/fixtures/README.md)
 - [Desktop icon source](src-tauri/icons/README.md)

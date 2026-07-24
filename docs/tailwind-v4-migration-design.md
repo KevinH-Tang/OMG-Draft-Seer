@@ -2,7 +2,9 @@
 
 ## 目标与边界
 
-本次迁移以 **Windows Tauri 2/WebView2** 作为完整体验和自动化验收目标。浏览器构建保留为基础支持：可启动、加载本地快照、完成截图分析以及 Tier、Pairs、Draft 页面操作；它不承诺原生窗口、透明浮层或与桌面窗口尺寸完全一致的行为。
+本次迁移以 **Windows Tauri 2/WebView2** 作为完整体验和持续自动化验收目标。macOS 使用
+WKWebView，支持桌面构建、直接分发和发布候选手工验收，但不维护第二套常规 WebDriver E2E。
+浏览器构建保留为基础支持：可启动、加载本地快照、完成截图分析以及 Tier、Pairs、Draft 页面操作；它不承诺原生窗口、透明浮层或与桌面窗口尺寸完全一致的行为。
 
 现有绿色和极紧凑的视觉结果不是兼容性目标，但在迁移早期保留现有信息架构与 720 × 920 窗口的可用性。不会引入宽屏侧栏式 IA、亮色主题、国际化路由、远程翻译加载或新的全局状态管理层。
 
@@ -30,18 +32,18 @@
 
 ## 设计 token
 
-| 语义 | 值 | Tailwind 工具示例 |
-| --- | --- | --- |
-| 画布 | `#0b0d12` | `bg-canvas` |
-| 基础面板 | `#121720` | `bg-surface` |
-| 抬升面板 | `#1a2130` | `bg-surface-raised` |
-| 边框 | `#2b3445` | `border-border` |
-| 主文字 | `#eef2f7` | `text-text` |
-| 弱文字 | `#94a3b8` | `text-text-muted` |
-| 主强调 | `#60a5fa` | `bg-accent` / `text-accent` |
-| 成功 | `#4ade80` | `text-positive` |
-| 警告 | `#fbbf24` | `text-warning` |
-| 错误 | `#fb7185` | `text-negative` |
+| 语义     | 值        | Tailwind 工具示例           |
+| -------- | --------- | --------------------------- |
+| 画布     | `#0b0d12` | `bg-canvas`                 |
+| 基础面板 | `#121720` | `bg-surface`                |
+| 抬升面板 | `#1a2130` | `bg-surface-raised`         |
+| 边框     | `#2b3445` | `border-border`             |
+| 主文字   | `#eef2f7` | `text-text`                 |
+| 弱文字   | `#94a3b8` | `text-text-muted`           |
+| 主强调   | `#60a5fa` | `bg-accent` / `text-accent` |
+| 成功     | `#4ade80` | `text-positive`             |
+| 警告     | `#fbbf24` | `text-warning`              |
+| 错误     | `#fb7185` | `text-negative`             |
 
 颜色的语义名是稳定 API；页面不应重新引入绿色品牌色常量。现有历史 CSS 在阶段 2 逐批删除或替换，避免一次性重写造成紧凑桌面窗口回归。
 
@@ -59,9 +61,19 @@
 
 1. 以 `VITE_WDIO_E2E=true` 构建前端，以便装载 WDIO 前端桥接；
 2. 以 `custom-protocol,wdio` feature 编译嵌入静态资源的 release 二进制；
-3. 把测试副本置入服务当前解析的 debug 路径。
+3. 用共享 typed helper 按平台和可选目标三元组解析 release 二进制路径；不复制或改名测试副本。
 
-这保证测试不依赖 Vite 开发服务器，也不把 WebDriver server 带进正式桌面构建。当前 Windows E2E 覆盖导航、语言持久化、Tier/Pairs 筛选、截图识别和布局确认、Draft 策略以及原生浮层开启。
+这保证测试不依赖 Vite 开发服务器，也不把 WebDriver server 带进正式桌面构建。`build:tauri:test`
+由 Node/TS 通过 `process.env` 注入构建变量，不依赖 Windows `set` 语法。`build.rs` 仅在
+`wdio` feature 启用时选择 WebDriver capability；该权限只匹配 `main` 与 `overlay-*`，生产
+包不编译测试插件或注册 HTTP server。WDIO 的 embedded provider 在 Windows 才设置
+`autoDownloadEdgeDriver`；macOS 不下载 EdgeDriver。当前 Windows E2E 覆盖导航、语言持久化、
+Tier/Pairs 筛选、截图识别和布局确认、Draft 策略以及原生浮层开启。
+
+macOS 的 `macos-private-api` 透明浮层只能直接分发，不能提交 Mac App Store。当前项目采用
+GitHub Releases 的免费 arm64 DMG 策略，不使用 Developer ID 签名或公证，并同时发布 SHA-256。
+WKWebView 的透明、点击穿透、多 Space 与 Gatekeeper 首次启动路径由 `macos-build-test.md` 的
+发布前手工验收覆盖；Windows 保持持续 E2E 门禁。
 
 ## 依赖取舍
 

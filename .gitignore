@@ -6,3 +6,6 @@ src-tauri/target/
 src-tauri/gen/
 test-results/
 wdio-report/
+.husky/_/
+.agents/skills/tailwind-4-docs/references/docs/
+.agents/skills/tailwind-4-docs/references/docs-index.tsx

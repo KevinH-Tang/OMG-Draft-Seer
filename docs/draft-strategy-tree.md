@@ -63,17 +63,17 @@ all = remaining heroes + remaining abilities + remaining ultimates
 代码测试和状态转换应以此表为固定行为基准。
 
 | Player | Pick1 / Round1 | Pick2 / Round2 | Pick3 / Round3 | Pick4 / Round4 | Pick5 / Round5 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| P1 | pos1 | pos20 | pos21 | pos40 | pos41 |
-| P2 | pos2 | pos19 | pos22 | pos39 | pos42 |
-| P3 | pos3 | pos18 | pos23 | pos38 | pos43 |
-| P4 | pos4 | pos17 | pos24 | pos37 | pos44 |
-| P5 | pos5 | pos16 | pos25 | pos36 | pos45 |
-| P6 | pos6 | pos15 | pos26 | pos35 | pos46 |
-| P7 | pos7 | pos14 | pos27 | pos34 | pos47 |
-| P8 | pos8 | pos13 | pos28 | pos33 | pos48 |
-| P9 | pos9 | pos12 | pos29 | pos32 | pos49 |
-| P10 | pos10 | pos11 | pos30 | pos31 | pos50 |
+| ------ | -------------: | -------------: | -------------: | -------------: | -------------: |
+| P1     |           pos1 |          pos20 |          pos21 |          pos40 |          pos41 |
+| P2     |           pos2 |          pos19 |          pos22 |          pos39 |          pos42 |
+| P3     |           pos3 |          pos18 |          pos23 |          pos38 |          pos43 |
+| P4     |           pos4 |          pos17 |          pos24 |          pos37 |          pos44 |
+| P5     |           pos5 |          pos16 |          pos25 |          pos36 |          pos45 |
+| P6     |           pos6 |          pos15 |          pos26 |          pos35 |          pos46 |
+| P7     |           pos7 |          pos14 |          pos27 |          pos34 |          pos47 |
+| P8     |           pos8 |          pos13 |          pos28 |          pos33 |          pos48 |
+| P9     |           pos9 |          pos12 |          pos29 |          pos32 |          pos49 |
+| P10    |          pos10 |          pos11 |          pos30 |          pos31 |          pos50 |
 
 每个玩家的五手位置都必须从这张表读取，不能把任何玩家的五手排列成连续时间点。比如 P1
 是 `pos1/pos20/pos21/pos40/pos41`，P10 是 `pos10/pos11/pos30/pos31/pos50`。
@@ -250,7 +250,10 @@ t=20      P1 pick2
 伪代码如下：
 
 ```ts
-function advanceDraft(state: DraftState, strategyByPlayer: Record<number, StrategyId>) {
+function advanceDraft(
+  state: DraftState,
+  strategyByPlayer: Record<number, StrategyId>,
+) {
   while (state.nextGlobalPick <= 50) {
     const turn = turnAt(state.nextGlobalPick)
     const strategy = strategyByPlayer[turn.player] ?? 'tier-first'
@@ -283,7 +286,13 @@ function advanceDraft(state: DraftState, strategyByPlayer: Record<number, Strate
 for (const turn of buildDraftTurns()) {
   const strategy = strategyByPlayer[turn.player] ?? 'tier-first'
   const top20 = rankDraftCandidates(state, turn, strategy)
-  state = applyDraftPick(state, turn, top20[0].abilityId, 'player-pick', strategy)
+  state = applyDraftPick(
+    state,
+    turn,
+    top20[0].abilityId,
+    'player-pick',
+    strategy,
+  )
 }
 ```
 
@@ -294,8 +303,12 @@ for (const turn of buildDraftTurns()) {
 要比较两种策略，使用相同的 snapshot 和初始池分别运行两份策略映射，例如：
 
 ```ts
-const tierScenario = Object.fromEntries(players.map((player) => [player, 'tier-first']))
-const pairScenario = Object.fromEntries(players.map((player) => [player, 'pair-first']))
+const tierScenario = Object.fromEntries(
+  players.map((player) => [player, 'tier-first']),
+)
+const pairScenario = Object.fromEntries(
+  players.map((player) => [player, 'pair-first']),
+)
 ```
 
 也可以传入混合映射来模拟不同位置的玩家画像，但混合映射应被明确标记为一个场景，不能
@@ -343,14 +356,14 @@ const pairScenario = Object.fromEntries(players.map((player) => [player, 'pair-f
 
 运行时实现保持核心逻辑纯函数，并按以下边界拆分：
 
-| 模块 | 职责 |
-| --- | --- |
-| `src/core/draft-turns.ts` | 生成 50 个 `DraftTurn`，校验蛇形顺序、玩家映射和个人手数 |
-| `src/core/draft-state.ts` | 初始池、合法性、不变量、应用选择、history 和 `stateKey` |
-| `src/core/draft-strategy.ts` | 共同候选特征、Top20 排序、`tier-first`、`pair-first` 和策略 tie-break |
-| `src/core/draft-tree.ts` | 全 50 手路径、每步 Top20、mask memoization 和 replay frame |
-| `src/types.ts` | 对外的 draft 状态、策略、树节点和结果类型 |
-| `src/core/recommendation.ts` 或独立 score helper | 暴露可复用的完整五 Pick 评分，不复制 Pair/Triple 公式 |
+| 模块                                             | 职责                                                                  |
+| ------------------------------------------------ | --------------------------------------------------------------------- |
+| `src/core/draft-turns.ts`                        | 生成 50 个 `DraftTurn`，校验蛇形顺序、玩家映射和个人手数              |
+| `src/core/draft-state.ts`                        | 初始池、合法性、不变量、应用选择、history 和 `stateKey`               |
+| `src/core/draft-strategy.ts`                     | 共同候选特征、Top20 排序、`tier-first`、`pair-first` 和策略 tie-break |
+| `src/core/draft-tree.ts`                         | 全 50 手路径、每步 Top20、mask memoization 和 replay frame            |
+| `src/types.ts`                                   | 对外的 draft 状态、策略、树节点和结果类型                             |
+| `src/core/recommendation.ts` 或独立 score helper | 暴露可复用的完整五 Pick 评分，不复制 Pair/Triple 公式                 |
 
 第一阶段不需要修改 Windrun snapshot schema。初始共享池来自已确认的 60 个截图格，统计
 仍来自现有 `Snapshot`。如果后续要把模拟从启发式升级为校准模型，数据同步脚本需要额外

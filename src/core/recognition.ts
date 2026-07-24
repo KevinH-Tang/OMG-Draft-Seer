@@ -20,14 +20,25 @@ export function hexToRgb(color: string): Rgb {
 }
 
 export function similarityFromRgb(source: Rgb, target: Rgb): number {
-  const distance = Math.sqrt(source.reduce((sum, value, index) => sum + (value - target[index]) ** 2, 0))
+  const distance = Math.sqrt(
+    source.reduce((sum, value, index) => sum + (value - target[index]) ** 2, 0),
+  )
   return Math.max(0, 1 - distance / 441.67)
 }
 
-export function rankByColor(source: Rgb, abilities: Ability[], category: SlotCategory): IconCandidate[] {
+export function rankByColor(
+  source: Rgb,
+  abilities: Ability[],
+  category: SlotCategory,
+): IconCandidate[] {
   return abilities
-    .filter((ability) => ability.iconColor && matchesSlotCategory(ability, category))
-    .map((ability) => ({ abilityId: ability.id, score: similarityFromRgb(source, hexToRgb(ability.iconColor)) }))
+    .filter(
+      (ability) => ability.iconColor && matchesSlotCategory(ability, category),
+    )
+    .map((ability) => ({
+      abilityId: ability.id,
+      score: similarityFromRgb(source, hexToRgb(ability.iconColor)),
+    }))
     .sort((left, right) => right.score - left.score)
     .slice(0, MAX_MATCH_CANDIDATES)
 }

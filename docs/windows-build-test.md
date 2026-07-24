@@ -13,7 +13,7 @@ Use Windows 10 or 11 x64 with:
 
 1. Node.js `22.12.0` or newer, as specified by `.nvmrc` and `package.json`.
 2. npm `10` or newer.
-3. Rust stable with the `stable-x86_64-pc-windows-msvc` toolchain and Rust `1.85` or newer.
+3. Rust stable with the `stable-x86_64-pc-windows-msvc` toolchain and Rust `1.90` or newer.
 4. Visual Studio Build Tools 2022 with `Desktop development with C++`, MSVC, and the Windows SDK.
 5. Microsoft WebView2 Runtime. Most supported Windows installations already include it.
 
@@ -108,18 +108,18 @@ recommendation pages.
 
 The 2026-07-22 Windows validation used:
 
-| Check | Result | Recorded detail |
-| --- | --- | --- |
-| Node/npm | Passed | Node `24.16.0`, npm `11.13.0` |
-| Rust/Cargo | Passed | `1.97.1`, stable MSVC toolchain |
-| `npm ci` | Passed | Lockfile installation completed |
-| `npm test` | Passed | Test suite completed successfully |
-| `npm run build` | Passed | Production `dist/` bundle generated |
-| `npm run verify:runtime` | Passed | 636 candidates, 636 signature IDs, 636 manifest IDs, zero failures |
-| `npm run desktop:build` | Passed | x64 MSI and NSIS packages generated |
-| Release executable startup | Pending | Pre-rename executable started; renamed executable needs retest |
-| MSI/NSIS installation | Pending | Installer startup check not recorded |
-| Screenshot recognition and persistence | Pending | Full target-WebView workflow not recorded |
+| Check                                  | Result  | Recorded detail                                                    |
+| -------------------------------------- | ------- | ------------------------------------------------------------------ |
+| Node/npm                               | Passed  | Node `24.16.0`, npm `11.13.0`                                      |
+| Rust/Cargo                             | Passed  | `1.97.1`, stable MSVC toolchain                                    |
+| `npm ci`                               | Passed  | Lockfile installation completed                                    |
+| `npm test`                             | Passed  | Test suite completed successfully                                  |
+| `npm run build`                        | Passed  | Production `dist/` bundle generated                                |
+| `npm run verify:runtime`               | Passed  | 636 candidates, 636 signature IDs, 636 manifest IDs, zero failures |
+| `npm run desktop:build`                | Passed  | x64 MSI and NSIS packages generated                                |
+| Release executable startup             | Pending | Pre-rename executable started; renamed executable needs retest     |
+| MSI/NSIS installation                  | Pending | Installer startup check not recorded                               |
+| Screenshot recognition and persistence | Pending | Full target-WebView workflow not recorded                          |
 
 The generated package names were:
 

@@ -1,7 +1,7 @@
 # Recommendation Metrics
 
 > This document describes the current recommendation implementation. `Tier List` and `Ability
-> Pairs` have separate display and browsing rankings; they do not directly change a build's
+Pairs` have separate display and browsing rankings; they do not directly change a build's
 > `Score`.
 
 ## Purpose and Scope

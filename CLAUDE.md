@@ -35,6 +35,7 @@ After refreshing data: run `npm test && npm run build`.
 The app is a single `App.tsx` component (~all UI state) backed by pure TypeScript modules in `src/core/`. There is no global state library; all state lives in `useState`/`useMemo` hooks within `App.tsx`.
 
 **Core modules** (`src/core/`):
+
 - `layout.ts` — 60-slot layout document (12 heroes, 36 abilities, 12 ultimates); slot geometry, scaling, cropping. Default layout loaded from `omg-layout-2560x1440.json`.
 - `template-matching.ts` + `recognition.ts` — icon matching; template path derives a `16×16` grayscale luma signature + mean RGB. `recognition.ts` provides color-only fallback.
 - `tiers.ts` / `pairs.ts` — tier list and pair/triple synergy tables built from the bundled Windrun snapshot.
@@ -44,12 +45,14 @@ The app is a single `App.tsx` component (~all UI state) backed by pure TypeScrip
 **Recognition worker** (`src/workers/recognizer.worker.ts`): Spawned by `App.tsx` for each re-slice. Receives `ImageBitmap` + layout + abilities + signatures; returns `RecognizedSlot[]` via `postMessage`. Uses `OffscreenCanvas`; requires `createImageBitmap`, `Worker`, and `OffscreenCanvas` (checked by `src/platform/capabilities.ts`).
 
 **Platform adapters** (`src/platform/`):
+
 - `resources.ts` — resolves `appResourceUrl`, local icon URLs, and DatDota CDN fallback URLs.
 - `storage.ts` — `localStorage`-backed layout persistence.
 - `files.ts` — browser `File` import/export adapter.
 - `capabilities.ts` — detects `createImageBitmap` / `Worker` / `OffscreenCanvas` at runtime.
 
 **Runtime data** (committed, not generated at build time):
+
 - `public/data/snapshots/latest.json` — Windrun snapshot (abilities, heroes, stats, pairs, triples).
 - `public/data/icon-signatures.json` — template signatures consumed by the worker.
 - `public/assets/` — cached hero and ability display icons.

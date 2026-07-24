@@ -28,11 +28,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test
+      - name: Check frontend formatting
+        run: npm run format:check
 
       - name: Build production bundle
         run: npm run build
+
+      - name: Run tests
+        run: npm test
 
       - name: Verify bundled runtime assets
         run: npm run verify:runtime
@@ -52,10 +55,18 @@ jobs:
           cache: npm
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@1.85
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: rustfmt, clippy
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Check Rust formatting
+        run: npm run format:rust:check
+
+      - name: Run Clippy
+        run: npm run lint:rust
 
       - name: Build Tauri test binary
         run: npm run build:tauri:test
@@ -73,3 +84,35 @@ jobs:
             wdio-report/
             logs/
           if-no-files-found: ignore
+
+  macos-desktop-smoke:
+    name: Tauri desktop smoke (macOS)
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Confirm Apple Silicon runner
+        shell: bash
+        run: test "$(uname -m)" = arm64
+
+      - name: Build unsigned macOS application bundle
+        run: npm run desktop:build -- --bundles app
+
+      - name: Verify embedded runtime resources
+        run: npm run verify:macos-bundle -- --require-arm64 --require-runtime-assets

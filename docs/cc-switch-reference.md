@@ -9,11 +9,13 @@ This note records a targeted review of
 cc-switch uses system font stacks in its Tailwind configuration:
 
 ```css
-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-  "Helvetica Neue", Arial, sans-serif;
+font-family:
+  -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+  Arial, sans-serif;
 
-font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas,
-  "Liberation Mono", Menlo, monospace;
+font-family:
+  ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo,
+  monospace;
 ```
 
 The sans-serif stack is used for UI copy and the monospaced stack for IDs, scores, and technical

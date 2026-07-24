@@ -6,10 +6,18 @@ describe('draft turn generator', () => {
     const turns = buildDraftTurns()
 
     expect(turns).toHaveLength(50)
-    expect(turns.slice(0, 10).map((turn) => turn.player)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    expect(turns.slice(10, 20).map((turn) => turn.player)).toEqual([10, 9, 8, 7, 6, 5, 4, 3, 2, 1])
-    expect(turns.slice(20, 30).map((turn) => turn.player)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    expect(turns.slice(40, 50).map((turn) => turn.player)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    expect(turns.slice(0, 10).map((turn) => turn.player)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ])
+    expect(turns.slice(10, 20).map((turn) => turn.player)).toEqual([
+      10, 9, 8, 7, 6, 5, 4, 3, 2, 1,
+    ])
+    expect(turns.slice(20, 30).map((turn) => turn.player)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ])
+    expect(turns.slice(40, 50).map((turn) => turn.player)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ])
     expect(turns.every((turn) => turn.selectionPool === 'all')).toBe(true)
   })
 

@@ -8,13 +8,34 @@
 
 ## Build, Test, and Development Commands
 
-Run `npm install` once, then use `npm run dev` to start the Vite development server at `http://127.0.0.1:5173`. Run `npm test` for the Vitest suite, `npm run test:watch` during active development, and `npm run build` for TypeScript plus production-build validation.
+Requires Node `22.12.0` (`.nvmrc`), npm `>=10`, and Rust `>=1.90` for Tauri. Use `npm ci` for locked dependencies; `npm run dev`, `npm run preview`, and `npm run desktop:dev` are persistent interactive commands.
 
-When refreshing external data, run `npm run sync:data`, `npm run build:hero-map`, `npm run build:icons`, `npm run cache:icons`, and `npm run verify:icons` in that order. These commands contact public services and update files under `public/` and `reports/`, so review the resulting diff before committing.
+Use `npm run format:check`, `npm run format:rust:check`, `npm test`, `npm run build`, and offline `npm run verify:runtime` for standard validation. `npm run lint:rust` runs Clippy with warnings denied. `npm run desktop:build` packages the Tauri application. Native E2E is Windows-only: run `npm run build:tauri:test` before `npm run test:tauri`.
+
+For data refresh, run `sync:data`, `build:hero-map`, `build:icons`, `cache:icons`, `verify:icons`, `verify:runtime`, tests, and build in that order. `sync:data`, `build:icons`, `cache:icons`, and `verify:icons` may access Windrun or DatDota and update generated files; `cache:icons` prunes stale assets. Review the diff and licences before committing.
+
+## Routine Command Authorization
+
+The repository owner has pre-authorized these routine dependency and validation commands. Run them without requesting confirmation when needed for work in this repository:
+
+- `npm ci`
+- `npm test`
+- `npm run build`
+- `npm run format:rust`
+- `npm run format:rust:check`
+- `npm run lint:rust`
+- `npm run check`
+- `npm run verify:runtime`
+- `npm run desktop:build`
+- `npm run test:tauri`
+
+These commands may need npm, crates.io, or EdgeDriver downloads when caches are cold. If sandbox networking blocks one, request elevation only for that command; this does not authorize data refreshes or releases.
+
+Other npm commands, data refreshes, publishing, deployment, signing, notarization, and destructive operations require explicit authorization. The protected macOS release workflow is checked in, but its Apple credentials and release execution remain external authorization gates. Managed sandbox and organization policies still take precedence.
 
 ## Coding Style & Naming Conventions
 
-Use TypeScript/TSX with two-space indentation, single quotes, and no semicolons, matching the existing code. Name React components and types in `PascalCase`, functions and variables in `camelCase`, and fixed configuration constants in `UPPER_SNAKE_CASE`. Prefer small typed helpers and existing core abstractions. No repository formatter or linter is configured; keep changes consistent with neighboring files and use `npm run build` as the type check.
+Use TypeScript/TSX with two-space indentation, single quotes, and no semicolons, enforced by Prettier. Rust uses four spaces and Rustfmt. Name React components and types in `PascalCase`, functions and variables in `camelCase`, and fixed configuration constants in `UPPER_SNAKE_CASE`. Prefer small typed helpers and existing core abstractions. Use `npm run build` as the TypeScript type check.
 
 ## Testing Guidelines
 

@@ -9,22 +9,31 @@
     "npm": ">=10"
   },
   "scripts": {
+    "prepare": "husky",
     "dev": "vite",
     "preview": "vite preview",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
-    "build:tauri:test": "set VITE_WDIO_E2E=true&& npm run build -- --base ./ && cargo build --manifest-path src-tauri/Cargo.toml --release --features custom-protocol,wdio && tsx scripts/stage-tauri-test-binary.ts",
+    "build:tauri:test": "tsx scripts/build-tauri-test.ts",
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:tauri": "wdio run wdio.tauri.conf.ts",
     "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "format:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml",
+    "format:rust:check": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
+    "lint:rust": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+    "check:staged": "lint-staged",
+    "check": "npm run format:check && npm run format:rust:check && npm run build && npm test && npm run lint:rust && npm run verify:runtime",
     "sync:data": "tsx scripts/sync-windrun.ts",
     "build:icons": "tsx scripts/build-icon-signatures.ts",
     "build:hero-map": "tsx scripts/build-hero-selection-map.ts",
     "cache:icons": "tsx scripts/cache-ability-icons.ts",
     "build:fixture-labels": "tsx scripts/generate-fixture-labels.ts",
     "verify:icons": "tsx scripts/verify-icon-signatures.ts",
-    "verify:runtime": "tsx scripts/verify-runtime-assets.ts"
+    "verify:runtime": "tsx scripts/verify-runtime-assets.ts",
+    "verify:macos-bundle": "tsx scripts/verify-macos-bundle.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.20",
@@ -62,9 +71,15 @@
     "@wdio/spec-reporter": "^9.27.1",
     "@wdio/tauri-plugin": "^1.2.0",
     "@wdio/tauri-service": "^1.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.9.6",
     "tsx": "4.23.1",
     "typescript": "7.0.2",
     "vitest": "4.1.10",
     "webdriverio": "^9.27.1"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,css,json,md,yml,yaml}": "prettier --write"
   }
 }

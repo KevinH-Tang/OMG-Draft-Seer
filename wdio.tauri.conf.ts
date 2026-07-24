@@ -1,29 +1,39 @@
-import { resolve } from 'node:path'
 import type { Options } from '@wdio/types'
+import {
+  readTauriTestTarget,
+  resolveTauriTestBinaryPath,
+} from './scripts/tauri-test-target'
 
-const appBinaryPath = resolve('src-tauri/target/debug/OMG-Draft-Seer.exe')
+const appBinaryPath = resolveTauriTestBinaryPath({
+  target: readTauriTestTarget(),
+})
+const isWindows = process.platform === 'win32'
 
 export const config: Options.Testrunner = {
   runner: 'local',
   specs: ['./tests/tauri/**/*.e2e.ts'],
   maxInstances: 1,
-  services: [[
-    '@wdio/tauri-service',
+  services: [
+    [
+      '@wdio/tauri-service',
+      {
+        driverProvider: 'embedded',
+        embeddedPort: 4445,
+        ...(isWindows ? { autoDownloadEdgeDriver: true } : {}),
+        startTimeout: 120_000,
+        commandTimeout: 30_000,
+        captureBackendLogs: true,
+        captureFrontendLogs: true,
+        logLevel: 'warn',
+      },
+    ],
+  ],
+  capabilities: [
     {
-      driverProvider: 'embedded',
-      embeddedPort: 4445,
-      autoDownloadEdgeDriver: true,
-      startTimeout: 120_000,
-      commandTimeout: 30_000,
-      captureBackendLogs: true,
-      captureFrontendLogs: true,
-      logLevel: 'warn',
+      browserName: 'tauri',
+      'tauri:options': { application: appBinaryPath },
     },
-  ]],
-  capabilities: [{
-    browserName: 'tauri',
-    'tauri:options': { application: appBinaryPath },
-  }],
+  ],
   logLevel: 'warn',
   waitforTimeout: 10_000,
   connectionRetryTimeout: 120_000,

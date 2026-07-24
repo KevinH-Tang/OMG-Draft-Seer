@@ -1,6 +1,8 @@
 import type { Ability, Snapshot } from '../types'
 
-export function createDraftTestSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
+export function createDraftTestSnapshot(
+  overrides: Partial<Snapshot> = {},
+): Snapshot {
   const abilities: Ability[] = [
     ...Array.from({ length: 12 }, (_, index) => ({
       id: -(index + 1),

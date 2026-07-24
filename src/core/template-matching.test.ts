@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { decodeTemplateSignatures, rankByTemplate, signatureFromRgba, structuralSimilarity, TEMPLATE_TRANSFORMS, templateScore } from './template-matching'
+import {
+  decodeTemplateSignatures,
+  rankByTemplate,
+  signatureFromRgba,
+  structuralSimilarity,
+  TEMPLATE_TRANSFORMS,
+  templateScore,
+} from './template-matching'
 import type { Ability, SlotCategory } from '../types'
 
 function rgba(pixels: Array<[number, number, number]>): Uint8ClampedArray {
-  return new Uint8ClampedArray(pixels.flatMap(([red, green, blue]) => [red, green, blue, 255]))
+  return new Uint8ClampedArray(
+    pixels.flatMap(([red, green, blue]) => [red, green, blue, 255]),
+  )
 }
 
 describe('template matching', () => {
@@ -20,7 +29,12 @@ describe('template matching', () => {
   })
 
   it('creates a stable luminance signature from image pixels', () => {
-    const source = rgba([[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 255]])
+    const source = rgba([
+      [255, 0, 0],
+      [0, 255, 0],
+      [0, 0, 255],
+      [255, 255, 255],
+    ])
     const signature = signatureFromRgba(source, 2, 2)
     expect(signature.luma).toHaveLength(256)
     expect(signature.meanRgb).toEqual([128, 128, 128])
@@ -49,32 +63,63 @@ describe('template matching', () => {
     const left = new Uint8Array([0, 40, 180, 255])
     const right = new Uint8Array([255, 180, 40, 0])
     expect(structuralSimilarity(left, left)).toBeCloseTo(1)
-    const crop = { luma: left, meanRgb: [90, 100, 110] as [number, number, number] }
-    expect(templateScore(crop, { luma: left, meanRgb: [90, 100, 110] })).toBeGreaterThan(templateScore(crop, { luma: right, meanRgb: [240, 20, 30] }))
+    const crop = {
+      luma: left,
+      meanRgb: [90, 100, 110] as [number, number, number],
+    }
+    expect(
+      templateScore(crop, { luma: left, meanRgb: [90, 100, 110] }),
+    ).toBeGreaterThan(
+      templateScore(crop, { luma: right, meanRgb: [240, 20, 30] }),
+    )
   })
 
   it('decodes persisted signatures into per-ability template variants', () => {
     const luma = new Uint8Array(256).fill(42)
     const encoded = btoa(String.fromCharCode(...luma))
-    const templates = decodeTemplateSignatures([{ abilityId: 7, variant: 'base', luma: encoded, meanRgb: [1, 2, 3] }])
+    const templates = decodeTemplateSignatures([
+      { abilityId: 7, variant: 'base', luma: encoded, meanRgb: [1, 2, 3] },
+    ])
 
     expect(templates.get(7)).toEqual([{ luma, meanRgb: [1, 2, 3] }])
   })
 
   it('returns the correct top-1 candidate for every required perturbation', () => {
     const abilities: Ability[] = [
-      { id: 1, name: 'Target', shortName: 'target', isHero: false, isUltimate: false, iconColor: '#000000' },
-      { id: 2, name: 'Distractor', shortName: 'distractor', isHero: false, isUltimate: false, iconColor: '#ffffff' },
+      {
+        id: 1,
+        name: 'Target',
+        shortName: 'target',
+        isHero: false,
+        isUltimate: false,
+        iconColor: '#000000',
+      },
+      {
+        id: 2,
+        name: 'Distractor',
+        shortName: 'distractor',
+        isHero: false,
+        isUltimate: false,
+        iconColor: '#ffffff',
+      },
     ]
     const category: SlotCategory = 'ability'
-    const template = (value: number) => ({ luma: new Uint8Array(256).fill(value), meanRgb: [value, value, value] as [number, number, number] })
+    const template = (value: number) => ({
+      luma: new Uint8Array(256).fill(value),
+      meanRgb: [value, value, value] as [number, number, number],
+    })
     const templates = new Map([
       [1, TEMPLATE_TRANSFORMS.map((_, index) => template(20 + index * 10))],
       [2, TEMPLATE_TRANSFORMS.map(() => template(220))],
     ])
 
     TEMPLATE_TRANSFORMS.forEach((_, index) => {
-      const [top] = rankByTemplate(template(20 + index * 10), abilities, category, templates)
+      const [top] = rankByTemplate(
+        template(20 + index * 10),
+        abilities,
+        category,
+        templates,
+      )
       expect(top?.abilityId).toBe(1)
     })
   })

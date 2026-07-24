@@ -1,6 +1,6 @@
 # Project Status
 
-> Audit baseline: 2026-07-22. Windows validation update: 2026-07-22. macOS Apple Silicon bundle update: 2026-07-22.
+> Audit baseline: 2026-07-22. Windows validation update: 2026-07-22. macOS Apple Silicon build and free-distribution decision: 2026-07-24.
 
 This document records the current implementation boundary, validated repository inputs, and open
 handoff items. It is a status record, not a product roadmap.
@@ -8,8 +8,11 @@ handoff items. It is a status record, not a product roadmap.
 ## Current State
 
 OMG-Draft-Seer is a React/Vite browser application with a Tauri v2 desktop shell for Windows and
-macOS. The main flow is screenshot upload, manual alignment of 60 slot rectangles, template
-matching, candidate confirmation, tier and pair browsing, and five-pick recommendation.
+macOS. Windows/WebView2 is the complete desktop experience and continuous native E2E target.
+macOS/WKWebView is supported for desktop builds and release-candidate manual validation, not a
+second continuous E2E suite. The main flow is screenshot upload, manual alignment of 60 slot
+rectangles, template matching, candidate confirmation, tier and pair browsing, and five-pick
+recommendation.
 
 The recommendation flow still scores an individual five-pick build, while Draft Replay now models
 the shared 10-player serpentine pool. It applies a configurable `tier-first` or `pair-first`
@@ -21,22 +24,26 @@ Layout detection is manual. The project does not capture a game window or provid
 The Tauri shell now exposes independent Tier and recommendation overlay windows with always-on-top
 and cursor-pass-through behavior; the browser build uses fixed mouse-transparent panels.
 The macOS transparent-overlay implementation uses Tauri's macOS private API, so macOS releases
-must be direct-distribution builds rather than Mac App Store submissions.
+must be direct-distribution builds rather than Mac App Store submissions. The project does not
+join the Apple Developer Program: its macOS release target is an unsigned Apple Silicon DMG plus a
+GitHub Actions-generated SHA-256 file on GitHub Releases. Developer ID signing, notarization, stapling, and automatic
+Gatekeeper approval are intentionally out of scope; users follow the documented first-open flow.
 `src/platform/` contains the browser adapters for resource URLs, layout storage, file import/export,
-overlay state, and runtime capability checks. Tauri bundles have been built for both macOS Apple
-Silicon and Windows x64.
+overlay state, and runtime capability checks. The current macOS build output is intentionally
+limited to a local unsigned Apple Silicon `.app`; universal, DMG, cross-compilation, and temporary
+disk-image artifacts have been cleaned after validation.
 
 ## Runtime Inventory
 
-| Resource | Current state | Role |
-| --- | ---: | --- |
-| `omg-layout-2560x1440.json` | 60 slots | Versioned default layout |
-| `heroes/selection/` | 127 images | Local hero template sources |
-| `public/data/snapshots/latest.json` | 3,122 abilities, 636 statistical candidates | Bundled Windrun snapshot |
-| `public/data/icon-signatures.json` | 636 candidates, 4,452 signatures | Worker template matching |
-| `public/assets/hero-icons/` | 127 images | Hero display icons |
-| `public/assets/ability-icons/` | 509 images | Statistical ability display icons |
-| `tests/fixtures/` | 4 fixtures | Labelled recognition regression inputs |
+| Resource                            |                               Current state | Role                                   |
+| ----------------------------------- | ------------------------------------------: | -------------------------------------- |
+| `omg-layout-2560x1440.json`         |                                    60 slots | Versioned default layout               |
+| `heroes/selection/`                 |                                  127 images | Local hero template sources            |
+| `public/data/snapshots/latest.json` | 3,122 abilities, 636 statistical candidates | Bundled Windrun snapshot               |
+| `public/data/icon-signatures.json`  |            636 candidates, 4,452 signatures | Worker template matching               |
+| `public/assets/hero-icons/`         |                                  127 images | Hero display icons                     |
+| `public/assets/ability-icons/`      |                                  509 images | Statistical ability display icons      |
+| `tests/fixtures/`                   |                                  4 fixtures | Labelled recognition regression inputs |
 
 The snapshot was generated on 2026-07-22. Signatures, caches, and self-check reports were regenerated
 on 2026-07-22. These are derived inputs and reports; regenerate them instead of editing counts by
@@ -44,19 +51,33 @@ hand.
 
 ## Latest Validation
 
-On 2026-07-22, macOS 26.5.1 Apple Silicon validation completed:
+On 2026-07-24, local macOS Apple Silicon validation completed:
 
-- `npm test`: 17 test files and 75 tests passed.
+- `npm test`: 21 test files and 92 tests passed.
 - `npm run build` passed.
-- `npm run build:fixture-labels` generated labels for 4 fixtures with 60 slots each.
 - `npm run verify:runtime` passed for 636 runtime candidates, 636 signature IDs, and 636 icon
   manifest IDs with zero failures.
-- `npm run desktop:build` generated and `hdiutil imageinfo` inspected the `.app` and
-  `OMG-Draft-Seer_0.1.0_aarch64.dmg` bundle.
-- The app uses a local ad-hoc/linker signature. Developer signing and notarization are not
-  configured.
-- The 4 fixtures passed offline top-1 template recognition for all 240 slots. This is a regression
-  check, not an independent accuracy evaluation.
+- The analysis/layout, Tier/Pairs, Draft, and Overlay page surfaces now use Tailwind utility
+  classes. `src/styles.css` retains only theme tokens, global base rules, icon and SVG overlay
+  defaults, native-overlay transparency, and toast styling.
+- `npm run desktop:build -- --bundles app` passed. Its arm64 app embeds every generated frontend
+  resource, snapshot, signature file, and runtime candidate icon, and contains no
+  `TAURI_WEBDRIVER_PORT` bridge.
+- macOS scope is Apple Silicon `arm64` only. The checked-in release workflow rejects a non-arm64
+  runner, builds an unsigned DMG, generates the SHA-256 on the GitHub Actions runner, and uploads
+  both assets using only GitHub `contents: write` permission.
+- A transient unsigned arm64 diagnostic DMG was generated from the verified `.app` with
+  Tauri's generated `create-dmg` script in `--sandbox-safe --skip-jenkins` mode. `hdiutil verify`
+  accepted it, and a read-only mount contained `OMG-Draft-Seer.app` plus the `Applications` link.
+  It was removed during build-output cleanup; this mode omits Finder positioning and is only a
+  managed-environment packaging check, not yet a public release candidate with a published SHA-256
+  and manual acceptance record.
+- This host's normal `npm run desktop:build` DMG path still stops at Tauri's Finder-backed
+  `bundle_dmg.sh` flow. A public release needs a macOS release host with the GUI and disk-image
+  service required by Tauri, or a separately reviewed plain-DMG fallback; neither route needs
+  Apple credentials under the current policy.
+- No local bundle has a Developer ID signature, Team ID, notarization ticket, or Gatekeeper
+  approval. This is expected under the free distribution policy, not an outstanding release gate.
 
 On 2026-07-22, Windows validation used Node `24.16.0`, npm `11.13.0`, and Rust/Cargo `1.97.1`
 with the stable MSVC toolchain. `npm ci`, `npm test`, `npm run build`, `npm run verify:runtime`,
@@ -66,20 +87,21 @@ executable still need startup and installation checks.
 
 ## Repository Responsibilities
 
-| Path | State | Responsibility |
-| --- | --- | --- |
-| `src/` | Maintained | React UI, recognition worker, layout, matching, tiers, pairs, and recommendations |
-| `src/platform/` | Maintained | Resource, storage, file, and runtime capability adapters |
-| `src-tauri/` | Maintained; bundles built | Tauri v2 shell, window configuration, relative asset packaging, and minimal capability |
-| `src-tauri/icons/` | Derived; licence review pending | Windrun favicon-derived Windows/macOS bundle icons |
-| `.github/workflows/ci.yml` | Configured; execution pending | macOS/Windows Node test, build, and runtime asset checks |
-| `public/data/` | Derived runtime input | Snapshot and template signatures used by the application |
-| `public/assets/` | Derived runtime input | Cached display icons |
-| `heroes/selection/` | Maintained source input | Local Dota 2 VPK-derived hero selection images |
-| `scripts/` | Maintained tools | Data sync, mapping, signature generation, caching, and verification |
-| `reports/` | Generated reports | Cache, mapping, and self-check output; not read directly by the web app |
-| `tests/fixtures/` | Maintained test input | Approved screenshots and matching 60-slot label maps |
-| `dist/`, `node_modules/`, `src-tauri/target/`, `src-tauri/gen/` | Generated directories | Recreated by install and build commands; do not commit |
+| Path                                                            | State                                 | Responsibility                                                                                                                                    |
+| --------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/`                                                          | Maintained                            | React UI, recognition worker, layout, matching, tiers, pairs, and recommendations                                                                 |
+| `src/platform/`                                                 | Maintained                            | Resource, storage, file, and runtime capability adapters                                                                                          |
+| `src-tauri/`                                                    | Maintained; bundles built             | Tauri v2 shell, window configuration, relative asset packaging, and minimal capability                                                            |
+| `src-tauri/icons/`                                              | Derived; licence review pending       | Windrun favicon-derived Windows/macOS bundle icons                                                                                                |
+| `.github/workflows/ci.yml`                                      | Configured; execution pending         | macOS/Windows Node test, build, and runtime asset checks                                                                                          |
+| `.github/workflows/release-macos.yml`                           | Configured; release execution pending | Build an unsigned arm64 DMG, generate its SHA-256 on the GitHub Actions runner, and create or update a GitHub Release with `contents: write` only |
+| `public/data/`                                                  | Derived runtime input                 | Snapshot and template signatures used by the application                                                                                          |
+| `public/assets/`                                                | Derived runtime input                 | Cached display icons                                                                                                                              |
+| `heroes/selection/`                                             | Maintained source input               | Local Dota 2 VPK-derived hero selection images                                                                                                    |
+| `scripts/`                                                      | Maintained tools                      | Data sync, mapping, signature generation, caching, and verification                                                                               |
+| `reports/`                                                      | Generated reports                     | Cache, mapping, and self-check output; not read directly by the web app                                                                           |
+| `tests/fixtures/`                                               | Maintained test input                 | Approved screenshots and matching 60-slot label maps                                                                                              |
+| `dist/`, `node_modules/`, `src-tauri/target/`, `src-tauri/gen/` | Generated directories                 | Recreated by install and build commands; do not commit                                                                                            |
 
 ## Data Refresh
 
@@ -97,14 +119,14 @@ npm test
 npm run build
 ```
 
-| Command | Input | Output |
-| --- | --- | --- |
-| `npm run sync:data` | Windrun `/api/v2` public API | `public/data/snapshots/latest.json` |
-| `npm run build:hero-map` | Snapshot and `heroes/selection/` | `reports/hero-selection-map.json` |
-| `npm run build:icons` | Snapshot, local hero images, and DatDota ability images | `public/data/icon-signatures.json` |
-| `npm run cache:icons` | Snapshot and DatDota CDN | `public/assets/`, `reports/ability-icon-cache.json` |
-| `npm run verify:icons` | Snapshot, signatures, and icon sources | `reports/icon-self-check.json` |
-| `npm run verify:runtime` | Snapshot, signatures, and local icons | Offline terminal check |
+| Command                  | Input                                                   | Output                                              |
+| ------------------------ | ------------------------------------------------------- | --------------------------------------------------- |
+| `npm run sync:data`      | Windrun `/api/v2` public API                            | `public/data/snapshots/latest.json`                 |
+| `npm run build:hero-map` | Snapshot and `heroes/selection/`                        | `reports/hero-selection-map.json`                   |
+| `npm run build:icons`    | Snapshot, local hero images, and DatDota ability images | `public/data/icon-signatures.json`                  |
+| `npm run cache:icons`    | Snapshot and DatDota CDN                                | `public/assets/`, `reports/ability-icon-cache.json` |
+| `npm run verify:icons`   | Snapshot, signatures, and icon sources                  | `reports/icon-self-check.json`                      |
+| `npm run verify:runtime` | Snapshot, signatures, and local icons                   | Offline terminal check                              |
 
 `sync:data`, `build:icons`, `cache:icons`, and `verify:icons` may access the network. The runtime
 prefers committed local data and icons; missing display icons may fall back to the CDN. Review
@@ -136,7 +158,15 @@ endpoints; whether a fuller private export exists is not documented in this repo
 - Re-test startup after the renamed Windows executable was rebuilt.
 - Install the generated Windows MSI and NSIS packages and verify startup.
 - Exercise screenshot upload, Worker recognition, DPI behavior, layout import/export, and restart
-  persistence inside the target WebViews on Windows and macOS.
+  persistence inside the target WebViews on Windows and macOS. Before a macOS release, repeat the
+  unsigned-DMG, SHA-256, Gatekeeper-first-open, and overlay acceptance checklist in
+  `macos-build-test.md` on Apple Silicon.
+- Run the free release workflow: one arm64 DMG, one GitHub Actions-generated matching SHA-256
+  file, GitHub `contents: write` publication, and release notes that disclose the missing
+  Developer ID/notarization and user-controlled first-open path.
+  Perform the WKWebView manual smoke check for the 720 x 920-point main window, language syncing,
+  Tier/recommendation overlays, transparent background, cursor pass-through, and multi-Space
+  behavior. These checks cannot be inferred from the build alone.
 - Run the configured CI matrix and add more independently labelled screenshots for top-1/top-10
   accuracy evaluation.
 - Complete source and redistribution licence review for third-party data and image assets.
@@ -159,6 +189,7 @@ restore those paths to document or run the current workflow.
 
 - [Root README](../README.md) is the user-facing setup and usage guide.
 - [Windows build and validation](windows-build-test.md) is the platform handoff procedure.
+- [macOS build and release validation](macos-build-test.md) is the macOS release handoff procedure.
 - [Recommendation metrics](recommendation-metrics.md) defines the project-owned scoring model.
 - [Draft strategy tree](draft-strategy-tree.md) defines the multi-player draft state, all-player
   strategy simulation, and Top20 ranking.

@@ -1,0 +1,14 @@
+.agents/
+dist/
+node_modules/
+package-lock.json
+public/assets/
+public/data/
+reports/
+src-tauri/Cargo.lock
+src-tauri/gen/
+src-tauri/icons/
+src-tauri/target/
+test-results/
+tests/fixtures/
+wdio-report/

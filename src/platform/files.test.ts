@@ -9,7 +9,11 @@ describe('browser file adapter', () => {
   it('reads text from a browser File or Blob', async () => {
     const adapter = getBrowserFileAdapter()
 
-    await expect(adapter.readText(new Blob(['{"version":1}'], { type: 'application/json' }))).resolves.toBe('{"version":1}')
+    await expect(
+      adapter.readText(
+        new Blob(['{"version":1}'], { type: 'application/json' }),
+      ),
+    ).resolves.toBe('{"version":1}')
   })
 
   it('downloads text through a temporary object URL', async () => {
@@ -24,7 +28,11 @@ describe('browser file adapter', () => {
     vi.stubGlobal('document', { createElement })
     vi.stubGlobal('URL', { createObjectURL, revokeObjectURL })
 
-    getBrowserFileAdapter().downloadText('layout.json', '{"version":1}', 'application/json')
+    getBrowserFileAdapter().downloadText(
+      'layout.json',
+      '{"version":1}',
+      'application/json',
+    )
 
     expect(createElement).toHaveBeenCalledWith('a')
     expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob))

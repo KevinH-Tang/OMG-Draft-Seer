@@ -1,0 +1,106 @@
+name: Release macOS
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Unsigned Apple Silicon DMG
+    runs-on: macos-14
+    environment:
+      name: macos-release
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@1.90.0
+
+      - name: Confirm Apple Silicon runner
+        shell: bash
+        run: test "$(uname -m)" = arm64
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the unsigned Apple Silicon DMG
+        run: npm run desktop:build
+
+      - name: Verify Apple Silicon bundle resources
+        run: npm run verify:macos-bundle -- --require-arm64 --require-dmg --require-runtime-assets
+
+      - name: Resolve the final release artifacts
+        id: artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle_dir='src-tauri/target/release/bundle'
+          shopt -s nullglob
+          apps=("$bundle_dir"/macos/*.app)
+          dmgs=("$bundle_dir"/dmg/*.dmg)
+          [[ ${#apps[@]} -eq 1 ]] || { echo "Expected exactly one app, found ${#apps[@]}" >&2; exit 1; }
+          [[ ${#dmgs[@]} -eq 1 ]] || { echo "Expected exactly one DMG, found ${#dmgs[@]}" >&2; exit 1; }
+          echo "app=${apps[0]}" >> "$GITHUB_OUTPUT"
+          echo "dmg=${dmgs[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          hdiutil verify '${{ steps.artifacts.outputs.dmg }}'
+
+      - name: Generate the release checksum
+        id: checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg='${{ steps.artifacts.outputs.dmg }}'
+          dmg_directory=$(dirname "$dmg")
+          dmg_filename=$(basename "$dmg")
+          checksum="$dmg_directory/$dmg_filename.sha256"
+          (
+            cd "$dmg_directory"
+            shasum -a 256 "$dmg_filename" > "$dmg_filename.sha256"
+          )
+          echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the unsigned DMG and checksum
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_notice="This macOS build is Apple Silicon (arm64) only and uses Tauri's macOS private API for transparent click-through overlays.
+
+          It is distributed directly as an unsigned DMG. It is not Developer ID signed or notarized and is not eligible for Mac App Store submission.
+
+          Verify the included SHA-256 file before opening the DMG: shasum -a 256 -c <DMG filename>.sha256.
+
+          For the first launch, use Finder Control-click Open, then Open again. If macOS blocks the launch, use System Settings > Privacy & Security > Open Anyway."
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" '${{ steps.artifacts.outputs.dmg }}' '${{ steps.checksum.outputs.checksum }}' --clobber
+          else
+            gh release create "$RELEASE_TAG" '${{ steps.artifacts.outputs.dmg }}' '${{ steps.checksum.outputs.checksum }}' --title "$RELEASE_TAG" --generate-notes --notes-start "$release_notice"
+          fi

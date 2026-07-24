@@ -23,16 +23,24 @@ export function getBrowserStorage(): StorageAdapter {
   }
 }
 
-export function readStoredJson<T>(storage: StorageAdapter, key: string, fallback: T): T {
+export function readStoredJson<T>(
+  storage: StorageAdapter,
+  key: string,
+  fallback: T,
+): T {
   try {
     const value = storage.getItem(key)
-    return value === null ? fallback : JSON.parse(value) as T
+    return value === null ? fallback : (JSON.parse(value) as T)
   } catch {
     return fallback
   }
 }
 
-export function writeStoredJson(storage: StorageAdapter, key: string, value: unknown): void {
+export function writeStoredJson(
+  storage: StorageAdapter,
+  key: string,
+  value: unknown,
+): void {
   try {
     storage.setItem(key, JSON.stringify(value))
   } catch {
