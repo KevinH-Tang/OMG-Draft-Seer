@@ -38,7 +38,7 @@ the release evidence or pull request; do not add credentials or user data.
 - [ ] Finder `Control`-click **Open**, or **Privacy & Security -> Open Anyway**, opened the app.
 - [ ] The test record does not claim Gatekeeper approval, Developer ID signing, notarization, or
       stapling.
-- [ ] The installed app launched near 720 x 920 logical points.
+- [ ] The installed app launched near 720 x 540 logical points and resized cleanly in both directions.
 - [ ] Screenshot recognition produced 60 slots; re-slice and candidate confirmation worked.
 - [ ] Layout save, load, restart persistence, Tier, Pairs, recommendation, and Draft worked.
 - [ ] Locale changes synchronized to both already-open native overlays.

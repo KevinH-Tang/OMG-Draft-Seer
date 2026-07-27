@@ -14,6 +14,7 @@ import { cn } from '../lib/cn'
 import { formatPairPercent } from '../lib/recommendation-format'
 import type { Snapshot } from '../types'
 import { SkillIcon } from './SkillIcon'
+import { PageHeader } from './ui'
 
 const MAX_VISIBLE_HIDDEN_TRIPLES = 6
 
@@ -181,23 +182,26 @@ export function PairsPage({
       className="mt-6 border-t border-border-subtle pt-5"
       aria-labelledby="pairs-page-title"
     >
-      <div className="flex flex-col items-start justify-between gap-3 min-[601px]:flex-row">
-        <div>
-          <p className="eyebrow">{t('pairs.step')}</p>
-          <h2 id="pairs-page-title">{t('pairs.title')}</h2>
-          <p className="mb-0 mt-2 text-xs text-text-muted">
+      <PageHeader
+        titleId="pairs-page-title"
+        eyebrow={t('pairs.step')}
+        title={t('pairs.title')}
+        description={
+          <>
             {t('common.patch')} {snapshot.patch} ·{' '}
             {t('pairs.visiblePairs', {
               visible: filteredEntries.length.toLocaleString(),
               total: entries.length.toLocaleString(),
             })}
-          </p>
-        </div>
-        <div className="inline-flex items-center gap-2 text-[11px] font-bold tracking-[0.08em] text-accent">
-          <GitFork size={21} aria-hidden="true" />
-          <span>{t('pairs.synergy')}</span>
-        </div>
-      </div>
+          </>
+        }
+        aside={
+          <>
+            <GitFork size={21} aria-hidden="true" />
+            <span>{t('pairs.synergy')}</span>
+          </>
+        }
+      />
 
       <div className="mt-[18px] flex flex-col gap-2 min-[601px]:flex-row min-[601px]:items-center min-[601px]:justify-between">
         <label className="flex min-w-0 w-full items-center gap-2 border border-border-strong bg-surface px-2 py-2 text-text-muted focus-within:border-accent min-[601px]:w-[min(360px,48vw)] min-[601px]:min-w-[230px]">
@@ -405,6 +409,7 @@ export function PairsPage({
                 <td
                   className="h-[190px] text-center text-text-muted"
                   colSpan={8}
+                  data-testid="pairs-empty"
                 >
                   <Search className="mx-auto mb-2" size={22} />
                   <p className="m-0 text-[13px]">

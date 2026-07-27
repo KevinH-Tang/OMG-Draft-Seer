@@ -9,9 +9,13 @@ npm run dev           # Vite dev server at http://127.0.0.1:5173
 npm test              # Run Vitest suite (all tests)
 npm run test:watch    # Watch mode during development
 npm run build         # TypeScript check + production build (use as type check)
+npm run format:check  # Repository-wide Prettier check
+npm run verify:runtime # Offline runtime asset graph check
 
-npm run desktop:dev   # Tauri dev (requires Rust 1.85+)
+npm run desktop:dev   # Tauri dev (repository-pinned Rust 1.90.0)
 npm run desktop:build # Tauri production bundle
+npm run format:rust:check # Rustfmt check
+npm run lint:rust     # Clippy with warnings denied
 
 # Run a single test file
 npx vitest run src/core/recommendation.test.ts
@@ -28,11 +32,16 @@ npm run verify:icons    # Check remote/local icon inputs → reports/icon-self-c
 npm run verify:runtime  # Offline runtime asset graph check (terminal only)
 ```
 
-After refreshing data: run `npm test && npm run build`.
+After refreshing data, complete the remaining refresh sequence documented in `AGENTS.md`, then run
+runtime verification, tests, and the production build.
 
 ## Architecture
 
-The app is a single `App.tsx` component (~all UI state) backed by pure TypeScript modules in `src/core/`. There is no global state library; all state lives in `useState`/`useMemo` hooks within `App.tsx`.
+`src/App.tsx` is the application shell and workflow coordinator. Page-level views are split into
+components under `src/components/`, including analysis recommendations, Tier, Pairs, Draft Replay,
+debug crop preview, manual candidate confirmation, and native overlay views. Shared UI primitives
+live under `src/components/ui/`. There is no global state library; the shell owns workflow state
+with React hooks and passes typed data and callbacks into the page components.
 
 **Core modules** (`src/core/`):
 
@@ -42,13 +51,17 @@ The app is a single `App.tsx` component (~all UI state) backed by pure TypeScrip
 - `recommendation.ts` — exhaustive five-pick build scorer (1 hero + 3 abilities + 1 ultimate). `Score` = logit base + Pair effects + complete Triple residuals. Caches `ScoreContext` via `WeakMap<Snapshot, ...>`. Cap: `MAX_COMBINATION_EVALUATIONS = 50_000`.
 - `draft-state.ts` / `draft-turns.ts` / `draft-strategy.ts` / `draft-tree.ts` — 10-player serpentine draft replay. `draft-turns.ts` defines the 50-pick turn order; `draft-strategy.ts` ranks candidates per `tier-first` or `pair-first`; `draft-tree.ts` simulates the full replay frame-by-frame.
 
-**Recognition worker** (`src/workers/recognizer.worker.ts`): Spawned by `App.tsx` for each re-slice. Receives `ImageBitmap` + layout + abilities + signatures; returns `RecognizedSlot[]` via `postMessage`. Uses `OffscreenCanvas`; requires `createImageBitmap`, `Worker`, and `OffscreenCanvas` (checked by `src/platform/capabilities.ts`).
+**Recognition worker** (`src/workers/recognizer.worker.ts`): Spawned by `App.tsx` for each re-slice.
+Receives `ImageBitmap` + layout + abilities + signatures; returns `RecognizedSlot[]` via
+`postMessage`. Uses `OffscreenCanvas`; requires `createImageBitmap`, `Worker`, and
+`OffscreenCanvas` (checked by `src/platform/capabilities.ts`).
 
 **Platform adapters** (`src/platform/`):
 
 - `resources.ts` — resolves `appResourceUrl`, local icon URLs, and DatDota CDN fallback URLs.
 - `storage.ts` — `localStorage`-backed layout persistence.
 - `files.ts` — browser `File` import/export adapter.
+- `overlays.ts` — synchronized Tier and recommendation overlay state.
 - `capabilities.ts` — detects `createImageBitmap` / `Worker` / `OffscreenCanvas` at runtime.
 
 **Runtime data** (committed, not generated at build time):
@@ -62,12 +75,18 @@ The app is a single `App.tsx` component (~all UI state) backed by pure TypeScrip
 
 ## Style & Conventions
 
-TypeScript/TSX, two-space indentation, single quotes, no semicolons. `PascalCase` for components/types, `camelCase` for functions/variables, `UPPER_SNAKE_CASE` for fixed constants. No formatter or linter is configured; `npm run build` is the type check. Tests are colocated (`*.test.ts`) beside their implementation in `src/core/`.
+TypeScript/TSX uses two-space indentation, single quotes, and no semicolons, enforced by Prettier.
+Rust uses Rustfmt and Clippy. Use `PascalCase` for components/types, `camelCase` for
+functions/variables, and `UPPER_SNAKE_CASE` for fixed constants. `npm run build` is the TypeScript
+type check. Vitest tests are colocated with core, platform, and script implementations; native
+desktop E2E tests live under `tests/tauri/`.
 
 ## Important Constraints
 
 - The browser build must be served over HTTP — `file://` is not supported.
 - `2560×1440` is the baseline layout. Other sizes are scaled proportionally.
+- Do not hard-code absolute filesystem paths. Build repository paths from relative segments or
+  runtime path sources with the host platform's path semantics.
 - `reports/`, `dist/`, `node_modules/`, `src-tauri/target/`, `src-tauri/gen/` are generated — do not commit.
 - Screenshot fixtures in `tests/fixtures/` must be `2560×1440` PNGs with a matching JSON label map; keep them out of the repository unless redistribution and licensing have been reviewed.
 - Windrun data, DatDota icons, local VPK-derived hero images, and the desktop favicon require source/redistribution licence review before release.

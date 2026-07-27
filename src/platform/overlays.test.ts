@@ -28,6 +28,9 @@ describe('overlay platform bridge', () => {
     vi.stubGlobal('window', { location: { search: '?overlay=tier' } })
     expect(overlayKindFromLocation()).toBe('tier')
 
+    vi.stubGlobal('window', { location: { search: '?overlay=layout' } })
+    expect(overlayKindFromLocation()).toBe('layout')
+
     vi.stubGlobal('window', { location: { search: '?overlay=unknown' } })
     expect(overlayKindFromLocation()).toBeUndefined()
   })
@@ -72,10 +75,16 @@ describe('overlay platform bridge', () => {
 
     expect(isDesktopRuntime()).toBe(true)
     await openNativeOverlay('tier')
+    await openNativeOverlay('layout', { width: 1920, height: 1080 })
     await closeNativeOverlay('recommendation')
 
     expect(invoke).toHaveBeenNthCalledWith(1, 'open_overlay', { kind: 'tier' })
-    expect(invoke).toHaveBeenNthCalledWith(2, 'close_overlay', {
+    expect(invoke).toHaveBeenNthCalledWith(2, 'open_overlay', {
+      kind: 'layout',
+      width: 1920,
+      height: 1080,
+    })
+    expect(invoke).toHaveBeenNthCalledWith(3, 'close_overlay', {
       kind: 'recommendation',
     })
   })

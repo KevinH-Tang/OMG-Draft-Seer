@@ -1,6 +1,7 @@
 # Project Status
 
-> Audit baseline: 2026-07-22. Windows validation update: 2026-07-22. macOS Apple Silicon build and free-distribution decision: 2026-07-24.
+> Audit baseline and latest local validation: 2026-07-24. macOS Apple Silicon build and
+> free-distribution decision: 2026-07-24.
 
 This document records the current implementation boundary, validated repository inputs, and open
 handoff items. It is a status record, not a product roadmap.
@@ -20,7 +21,8 @@ strategy to every player position, records up to 20 legal candidates at each glo
 consumes Top1 for the deterministic path. The implementation boundary and assumptions are recorded
 in [Draft strategy tree](draft-strategy-tree.md).
 
-Layout detection is manual. The project does not capture a game window or provide global shortcuts.
+Layout is projected from resource geometry and the screenshot resolution, with manual fixed-layout
+calibration retained as a fallback. The project does not capture a game window or provide global shortcuts.
 The Tauri shell now exposes independent Tier and recommendation overlay windows with always-on-top
 and cursor-pass-through behavior; the browser build uses fixed mouse-transparent panels.
 The macOS transparent-overlay implementation uses Tauri's macOS private API, so macOS releases
@@ -51,7 +53,21 @@ hand.
 
 ## Latest Validation
 
-On 2026-07-24, local macOS Apple Silicon validation completed:
+On 2026-07-24, the current Windows workspace used Node `24.16.0`, npm `11.13.0`, and the
+repository-pinned Rust/Cargo `1.90.0` MSVC toolchain:
+
+- `npm test`: 21 test files and 92 tests passed, including the host-portable Tauri target and
+  macOS bundle path tests.
+- `npm run build` passed and emitted only the existing main-chunk size warning.
+- `npm run format:rust:check` and `npm run lint:rust` passed.
+- `npm run verify:runtime` passed for 636 runtime candidates, 636 signature IDs, and 636 icon
+  manifest IDs with zero failures.
+- The recorded `npm run desktop:build` passed and generated the x64 MSI and NSIS packages listed in
+  `windows-build-test.md`.
+- `npm run format:check` remains blocked by repository-wide Prettier debt outside this focused
+  documentation correction. Native WDIO E2E and installed-package smoke tests were not run.
+
+Also on 2026-07-24, local macOS Apple Silicon validation completed:
 
 - `npm test`: 21 test files and 92 tests passed.
 - `npm run build` passed.
@@ -78,12 +94,6 @@ On 2026-07-24, local macOS Apple Silicon validation completed:
   Apple credentials under the current policy.
 - No local bundle has a Developer ID signature, Team ID, notarization ticket, or Gatekeeper
   approval. This is expected under the free distribution policy, not an outstanding release gate.
-
-On 2026-07-22, Windows validation used Node `24.16.0`, npm `11.13.0`, and Rust/Cargo `1.97.1`
-with the stable MSVC toolchain. `npm ci`, `npm test`, `npm run build`, `npm run verify:runtime`,
-and `npm run desktop:build` passed. The pre-rename release executable started successfully. The
-renamed `OMG-Draft-Seer` executable and newly generated x64 MSI, NSIS installer, and release
-executable still need startup and installation checks.
 
 ## Repository Responsibilities
 
@@ -155,8 +165,10 @@ endpoints; whether a fuller private export exists is not documented in this repo
 - Validate the all-player Top20 ranking and deterministic mask assumptions against more real draft
   pools. The replay is implemented, but it remains a heuristic simulation rather than a calibrated
   model of actual player choices.
-- Re-test startup after the renamed Windows executable was rebuilt.
-- Install the generated Windows MSI and NSIS packages and verify startup.
+- Run `npm run build:tauri:test` followed by `npm run test:tauri` on Windows and retain the native
+  WebdriverIO result.
+- Launch the generated Windows release executable, install both the MSI and NSIS packages, and
+  verify startup from the installed locations.
 - Exercise screenshot upload, Worker recognition, DPI behavior, layout import/export, and restart
   persistence inside the target WebViews on Windows and macOS. Before a macOS release, repeat the
   unsigned-DMG, SHA-256, Gatekeeper-first-open, and overlay acceptance checklist in
@@ -164,7 +176,7 @@ endpoints; whether a fuller private export exists is not documented in this repo
 - Run the free release workflow: one arm64 DMG, one GitHub Actions-generated matching SHA-256
   file, GitHub `contents: write` publication, and release notes that disclose the missing
   Developer ID/notarization and user-controlled first-open path.
-  Perform the WKWebView manual smoke check for the 720 x 920-point main window, language syncing,
+  Perform the WKWebView manual smoke check for the resizable 720 x 540 default main window, language syncing,
   Tier/recommendation overlays, transparent background, cursor pass-through, and multi-Space
   behavior. These checks cannot be inferred from the build alone.
 - Run the configured CI matrix and add more independently labelled screenshots for top-1/top-10
@@ -180,10 +192,10 @@ for Tier and recommendation views.
 
 ## Intentional Cleanup
 
-The current chain no longer uses the old Python/OpenCV automatic layout detector, its Python
-requirements, the Pillow hero-grid splitter, machine-local screenshot paths, or their temporary
-directories. The fixed layout and TypeScript data pipeline are the supported replacements. Do not
-restore those paths to document or run the current workflow.
+The current chain does not infer layout from screenshot content and no longer uses the old
+Python/OpenCV detector, the removed TypeScript anchor detector, their generated reports, Python
+requirements, the Pillow hero-grid splitter, machine-local screenshot paths, or temporary
+directories. Resource projection is the default and the committed fixed layout is the fallback.
 
 ## Maintained References
 

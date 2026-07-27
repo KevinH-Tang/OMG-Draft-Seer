@@ -10,20 +10,12 @@ import {
   type TierEntry,
 } from '../core/tiers'
 import { cn } from '../lib/cn'
+import { TIER_TEXT_CLASSES } from '../lib/tier-presentation'
 import type { OverlayKind } from '../platform/overlays'
 import type { Snapshot } from '../types'
 import { OverlayToggleButton } from './OverlayViews'
 import { SkillIcon } from './SkillIcon'
-
-const PICK_TIER_CLASSES: Record<AbilityTier, string> = {
-  S: 'text-warning',
-  A: 'text-orange-400',
-  B: 'text-positive',
-  C: 'text-accent',
-  D: 'text-text-muted',
-  E: 'text-cyan-300',
-  F: 'text-violet-300',
-}
+import { PageHeader } from './ui'
 
 function formatAveragePickPosition(value: number): string {
   return Number.isFinite(value) ? value.toFixed(2) : '—'
@@ -146,25 +138,28 @@ export function TierListPage({
       className="mt-6 border-t border-border-subtle pt-5"
       aria-labelledby="tier-page-title"
     >
-      <div className="flex flex-col items-start justify-between gap-3 min-[601px]:flex-row">
-        <div>
-          <p className="eyebrow">{t('tiers.step')}</p>
-          <h2 id="tier-page-title">{t('tiers.title')}</h2>
-          <p className="mb-0 mt-2 text-xs text-text-muted">
+      <PageHeader
+        titleId="tier-page-title"
+        eyebrow={t('tiers.step')}
+        title={t('tiers.title')}
+        description={
+          <>
             {t('common.patch')} {snapshot.patch} ·{' '}
             {t('tiers.rankedEntries', { count: categoryCounts[category] })}
-          </p>
-        </div>
-        <div className="inline-flex items-center gap-2 text-[11px] font-bold tracking-[0.08em] text-accent">
-          <Layers size={21} aria-hidden="true" />
-          <span>{t('tiers.percentile')}</span>
-          <OverlayToggleButton
-            kind="tier"
-            open={overlayOpen}
-            onToggle={onToggleOverlay}
-          />
-        </div>
-      </div>
+          </>
+        }
+        aside={
+          <>
+            <Layers size={21} aria-hidden="true" />
+            <span>{t('tiers.percentile')}</span>
+            <OverlayToggleButton
+              kind="tier"
+              open={overlayOpen}
+              onToggle={onToggleOverlay}
+            />
+          </>
+        }
+      />
 
       <div className="mt-[18px] flex flex-col gap-2 border-b border-border min-[601px]:flex-row min-[601px]:items-end min-[601px]:justify-between">
         <div
@@ -225,7 +220,7 @@ export function TierListPage({
               <strong
                 className={cn(
                   'grid size-11 shrink-0 place-items-center border border-current bg-accent-soft text-[22px] leading-none',
-                  PICK_TIER_CLASSES[tier],
+                  TIER_TEXT_CLASSES[tier],
                 )}
               >
                 {tier}
@@ -247,7 +242,10 @@ export function TierListPage({
           </section>
         ))}
         {filteredEntryCount === 0 && (
-          <div className="grid min-h-40 place-content-center justify-items-center gap-2 text-text-muted">
+          <div
+            className="grid min-h-40 place-content-center justify-items-center gap-2 text-text-muted"
+            data-testid="tier-no-results"
+          >
             <Search size={22} />
             <p className="m-0 text-[13px]">
               {query.trim()

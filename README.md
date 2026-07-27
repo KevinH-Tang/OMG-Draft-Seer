@@ -4,16 +4,16 @@
 
 **License:** [AGPL-3.0-only](LICENSE)
 
-OMG-Draft-Seer turns an Ability Draft selection screenshot into a reviewable draft. Align the
-fixed layout, match icons against local templates, confirm candidates, inspect tier and pair
+OMG-Draft-Seer turns an Ability Draft selection screenshot into a reviewable draft. Project the
+resource-defined layout, match icons against local templates, confirm candidates, inspect tier and pair
 statistics, and generate a data-backed recommendation.
 
 ## Scope
 
-- Windows Tauri v2/WebView2 is the primary, fully validated desktop experience and the only continuous native E2E target. macOS is supported for desktop builds, direct distribution, and release-candidate manual acceptance with WKWebView. The React/Vite browser build remains a basic HTTP-served fallback for core analysis and data pages.
-- A fixed 60-slot draft layout: 12 heroes, 36 abilities, and 12 ultimate abilities.
-- A `2560x1440` baseline layout. Other image sizes are scaled proportionally and can be corrected
-  manually in the UI.
+- Windows Tauri v2/WebView2 is the primary desktop target and the only continuous native E2E target. Core build checks pass, while native E2E and installed-package acceptance remain tracked validation work. macOS is supported for desktop builds, direct distribution, and release-candidate manual acceptance with WKWebView. The React/Vite browser build remains a basic HTTP-served fallback for core analysis and data pages.
+- A resource-projected 60-slot draft layout: 12 heroes, 36 abilities, and 12 ultimate abilities.
+- Runtime projection for the input resolution, with centered `4:3` letterboxing for narrower
+  screenshots and a committed `2560x1440` fixed-layout fallback.
 - Local runtime data: a bundled Windrun snapshot, icon signatures, hero templates, and cached icons.
 - The browser build must be served over HTTP. Direct `file://` usage is not supported.
 - The Tauri desktop build can open independent Tier and recommendation overlays. They stay above
@@ -81,9 +81,9 @@ npm run test:tauri
 ## Workflow
 
 1. Upload a screenshot that uses the supported OMG ability-draft layout.
-2. Align the 60 slot rectangles. The default layout is loaded from
-   `omg-layout-2560x1440.json`.
-3. Click `Re-slice` to crop the current slot regions and run recognition.
+2. The app projects all 60 slots from the input resolution and resource camera geometry.
+3. Review the projected slots. Load or adjust a fixed layout only when manual correction is needed,
+   then click `Re-slice` to run recognition again.
 4. Review the top candidates and confirm the ability for each slot. `Save layout` and `Load layout`
    store the complete layout document; browser calibration data is kept in `localStorage`.
 5. Use `Tier List` and `Ability Pairs` to inspect the current snapshot.
@@ -94,9 +94,12 @@ npm run test:tauri
 
 ## Recognition
 
-Each slot is cropped from the current layout. The matcher derives a `16x16` grayscale structure
-signature and color features, then ranks candidates within the slot category in a Web Worker.
-The UI shows the crop, coordinates, match mode, and top candidates for manual review.
+The Web Worker uses `projectAbilityDraftResourceSlots` by default, validates the 60 projected
+slots, and crops each projected `matchQuad` bounding box. Invalid projection geometry falls back
+to the scaled `omg-layout-2560x1440.json`; imported or manually adjusted layouts remain
+authoritative. The matcher derives a `16x16` grayscale structure signature and color features,
+then ranks candidates within the slot category. The UI shows the crop, coordinates, match mode,
+and top candidates for manual review.
 
 The standard runtime uses the committed template signature file and local icon assets. A color-only
 fallback is shown when the signature file cannot be loaded; fallback results should not be treated
@@ -211,7 +214,7 @@ tests/fixtures/          Approved screenshot fixtures and slot labels
 src-tauri/               Tauri v2 desktop shell and bundle assets
 docs/                    Maintained project documentation
 omg-layout-2560x1440.json
-                        Versioned default layout for the 60 draft slots
+                        Versioned fixed fallback for the 60 draft slots
 reports/                 Generated mapping, cache, and self-check reports
 ```
 
@@ -220,7 +223,8 @@ are intentionally excluded from version control.
 
 ## Limitations
 
-- Layout detection is manual and the current layout targets one OMG UI composition.
+- Projection assumes a complete, stable game viewport; unknown cropping or non-uniform scaling is
+  unsupported and should use a manually calibrated fixed layout.
 - Screenshot recognition still needs broader, independently labelled accuracy evaluation.
 - Draft Replay uses a deterministic 50-position strategy simulation with an up-to-20 candidate
   ranking at each position; it does not claim to predict the actual choices of the other players.

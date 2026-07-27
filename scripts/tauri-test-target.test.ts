@@ -1,4 +1,4 @@
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   readTauriTestTarget,
@@ -6,20 +6,16 @@ import {
 } from './tauri-test-target'
 
 describe('Tauri test binary target', () => {
+  const projectRoot = join('fixtures', 'project')
+
   it('uses the native release path for macOS builds', () => {
     expect(
       resolveTauriTestBinaryPath({
         platform: 'darwin',
-        projectRoot: '/workspace/app',
+        projectRoot,
       }),
     ).toBe(
-      join(
-        '/workspace/app',
-        'src-tauri',
-        'target',
-        'release',
-        'omg-draft-seer',
-      ),
+      resolve(projectRoot, 'src-tauri', 'target', 'release', 'omg-draft-seer'),
     )
   })
 
@@ -27,11 +23,11 @@ describe('Tauri test binary target', () => {
     expect(
       resolveTauriTestBinaryPath({
         platform: 'win32',
-        projectRoot: '/workspace/app',
+        projectRoot,
       }),
     ).toBe(
-      join(
-        '/workspace/app',
+      resolve(
+        projectRoot,
         'src-tauri',
         'target',
         'release',
@@ -44,12 +40,12 @@ describe('Tauri test binary target', () => {
     expect(
       resolveTauriTestBinaryPath({
         platform: 'darwin',
-        projectRoot: '/workspace/app',
+        projectRoot,
         target: 'x86_64-pc-windows-msvc',
       }),
     ).toBe(
-      join(
-        '/workspace/app',
+      resolve(
+        projectRoot,
         'src-tauri',
         'target',
         'x86_64-pc-windows-msvc',

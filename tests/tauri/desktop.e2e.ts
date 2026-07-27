@@ -42,7 +42,14 @@ describe('Tauri desktop application', () => {
   })
 
   it('switches pages through the native WebView navigation', async () => {
-    for (const page of ['analysis', 'layout', 'database', 'pairs', 'draft']) {
+    for (const page of [
+      'analysis',
+      'build',
+      'layout',
+      'database',
+      'pairs',
+      'draft',
+    ]) {
       const tab = await $(`[data-testid="nav-${page}"]`)
       await tab.click()
       await expect(tab).toHaveAttribute('aria-current', 'page')
@@ -50,21 +57,41 @@ describe('Tauri desktop application', () => {
   })
 
   it('persists the selected locale across a WebView refresh', async () => {
+    await (await $('[data-testid="open-settings"]')).click()
+    await expect($('[data-testid="settings-page"]')).toBeDisplayed()
     await (await $('[data-testid="locale-en"]')).click()
-    await expect($('[data-testid="nav-analysis"]')).toHaveText('Skill Analysis')
+    await expect($('[data-testid="locale-en"]')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
     await browser.refresh()
-    await expect($('[data-testid="nav-analysis"]')).toHaveText('Skill Analysis')
+    await browser.waitUntil(
+      async () => await $('[data-testid="app-shell"]').isDisplayed(),
+      {
+        timeoutMsg: 'OMG-Draft-Seer main window did not recover after refresh',
+      },
+    )
+    await expect($('[data-testid="nav-analysis"]')).toHaveAttribute(
+      'aria-label',
+      'Skill Analysis',
+    )
+    await (await $('[data-testid="open-settings"]')).click()
     await (await $('[data-testid="locale-zh-CN"]')).click()
+    await (await $('[data-testid="settings-back"]')).click()
+    await expect($('[data-testid="nav-analysis"]')).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
   })
 
   it('filters tier and pair data in the desktop window', async () => {
     await (await $('[data-testid="nav-database"]')).click()
     await (await $('[data-testid="tier-search"]')).setValue('no-such-ability')
-    await expect($('.tier-no-results')).toBeDisplayed()
+    await expect($('[data-testid="tier-no-results"]')).toBeDisplayed()
 
     await (await $('[data-testid="nav-pairs"]')).click()
     await (await $('[data-testid="pairs-search"]')).setValue('no-such-pair')
-    await expect($('.pairs-empty')).toBeDisplayed()
+    await expect($('[data-testid="pairs-empty"]')).toBeDisplayed()
     const toggle = await $('[data-testid="pairs-exclude-same-hero"]')
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-pressed', 'true')
@@ -73,7 +100,7 @@ describe('Tauri desktop application', () => {
   it('uploads a screenshot and exposes layout reset controls', async () => {
     await (await $('[data-testid="nav-analysis"]')).click()
     await setScreenshotInput()
-    await expect($('.screenshot-frame')).toBeDisplayed()
+    await expect($('[data-testid="screenshot-frame"]')).toBeDisplayed()
     await browser.waitUntil(
       async () => await $('[data-testid="accept-suggestions"]').isDisplayed(),
       {
@@ -84,9 +111,13 @@ describe('Tauri desktop application', () => {
     )
     await (await $('[data-testid="accept-suggestions"]')).click()
 
+    await (await $('[data-testid="nav-build"]')).click()
+    await expect(
+      $('[data-testid="build-recommendations-page"]'),
+    ).toBeDisplayed()
     await (await $('[data-testid="nav-layout"]')).click()
     await (await $('[data-testid="layout-reset"]')).click()
-    await expect($('.layout-reset-dialog')).toBeDisplayed()
+    await expect($('[data-testid="layout-reset-dialog"]')).toBeDisplayed()
   })
 
   it('changes draft strategy and opens a native overlay window', async () => {

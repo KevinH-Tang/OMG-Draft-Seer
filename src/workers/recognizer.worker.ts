@@ -1,5 +1,11 @@
 /// <reference lib="webworker" />
-import { clampRectToCanvas, cropCenter, type FixedSlot } from '../core/layout'
+import {
+  clampRectToCanvas,
+  cropCenter,
+  type FixedSlot,
+  type RuntimeSlot,
+} from '../core/layout'
+import { buildProjectedLayout, quadBounds } from '../core/projective-layout'
 import { rankByColor, type Rgb } from '../core/recognition'
 import {
   decodeTemplateSignatures,
@@ -11,7 +17,8 @@ import type { Ability, IconSignature, RecognizedSlot } from '../types'
 interface Request {
   image: ImageBitmap
   abilities: Ability[]
-  layout: FixedSlot[]
+  layout?: FixedSlot[]
+  fallbackLayout: FixedSlot[]
   signatures: IconSignature[]
 }
 
@@ -33,31 +40,45 @@ function meanColor(data: Uint8ClampedArray): Rgb {
 }
 
 self.onmessage = async (event: MessageEvent<Request>) => {
-  const { image, abilities, layout, signatures } = event.data
+  const { image, abilities, layout, fallbackLayout, signatures } = event.data
   const templates =
     signatures.length > 0 ? decodeTemplateSignatures(signatures) : undefined
   const canvas = new OffscreenCanvas(image.width, image.height)
   const context = canvas.getContext('2d', { willReadFrequently: true })
   if (!context) throw new Error('无法创建离屏画布')
   context.drawImage(image, 0, 0)
-  const slots: RecognizedSlot[] = layout.map(({ rect, category }, index) => {
-    const safeRect = clampRectToCanvas(rect, image.width, image.height)
-    const crop = cropCenter(safeRect)
+  const projectedLayout = layout
+    ? undefined
+    : buildProjectedLayout(image.width, image.height)
+  const activeLayout: RuntimeSlot[] =
+    layout ?? projectedLayout ?? fallbackLayout
+  const layoutSource = layout
+    ? 'manual'
+    : projectedLayout
+      ? 'projected'
+      : 'fixed-fallback'
+  const slots: RecognizedSlot[] = activeLayout.map((slot, index) => {
+    const safeRect = clampRectToCanvas(slot.rect, image.width, image.height)
+    const crop = slot.matchQuad
+      ? clampRectToCanvas(quadBounds(slot.matchQuad), image.width, image.height)
+      : cropCenter(safeRect)
     const pixels = context.getImageData(crop.x, crop.y, crop.width, crop.height)
     const cropSignature = signatureFromRgba(
       pixels.data,
-      crop.width,
-      crop.height,
+      pixels.width,
+      pixels.height,
     )
     return {
       index,
-      category,
+      category: slot.category,
       rect: safeRect,
       crop,
+      matchQuad: slot.matchQuad,
       candidates: templates
-        ? rankByTemplate(cropSignature, abilities, category, templates)
-        : rankByColor(meanColor(pixels.data), abilities, category),
+        ? rankByTemplate(cropSignature, abilities, slot.category, templates)
+        : rankByColor(meanColor(pixels.data), abilities, slot.category),
       matchMode: templates ? 'template' : 'color-fallback',
+      layoutSource,
     }
   })
   image.close()

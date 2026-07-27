@@ -1,7 +1,8 @@
 # Ability Draft 多玩家策略树
 
-> 状态：运行时实现中。本文记录共享卡池、10 人蛇形选取、全玩家策略排序、每步 Top20
-> 候选和完整 1/3/1 评分；它不改变 `recommendBuilds` 的五 Pick 评分口径。
+> 状态：运行时已实现。本文记录共享卡池、10 人蛇形选取、全玩家策略排序、每步 Top20
+> 候选和完整 1/3/1 评分；它不改变 `recommendBuilds` 的五 Pick 评分口径。真实牌池稳定性
+> 和启发式有效性仍待继续验证。
 
 ## 1. 问题边界
 
@@ -205,6 +206,7 @@ Pair，使用该玩家下一次选取时仍然可能存在的候选池建立同�
 ```text
 anchor(c) = top 1 Pair WR
             + top 2 / top 3 fallback options
+            + weighted top-3 profile
             + connected option count
 ```
 
@@ -212,9 +214,14 @@ anchor(c) = top 1 Pair WR
 选择应用直到该玩家下一次选取前的共享池 mask，再从剩余池中选择，不能把一个随后会被
 其他玩家抢走的 Pair 当作 anchor。比较顺序是：
 
-1. top-1 Pair WR（1 个百分点以内视为同一档）。
-2. top-2、top-3 fallback WR 和 option count，优先保留多方向候选。
-3. 单技能 raw WR 和 Tier 顺序。
+1. top-1 Pair WR；只有差值超过 `0.01`（1 个百分点）才直接决定顺序。
+2. top-2、top-3 fallback WR；每一档只有差值超过 `0.003`（0.3 个百分点）才直接决定
+   顺序，缺失 fallback 的候选排在有值的候选之后。
+3. 对现有 top-1/top-2/top-3 以 `0.55 / 0.30 / 0.15` 加权并按实际存在的权重归一化；
+   加权画像差值超过 `0.003` 时决定顺序。
+4. connected option count 降序，优先保留多方向候选。
+5. Tier、单技能 raw WR、sample count、avgPickPosition 和 ability ID 依次作为后续
+   tie-break。
 
 两种策略使用同一份候选特征和同一组 tie-break，只交换首要字段：
 
@@ -352,9 +359,9 @@ const pairScenario = Object.fromEntries(
 如果将来从“每个位置一个确定性路径”升级为“每个位置保留多个候选分支”，应先在五个
 个人决策点做 beam search，并保留全局位置 history，而不是复制 50 手全桌状态树。
 
-## 9. 推荐的代码落点
+## 9. 实际代码落点
 
-运行时实现保持核心逻辑纯函数，并按以下边界拆分：
+运行时实现保持核心逻辑纯函数，当前代码边界如下：
 
 | 模块                                             | 职责                                                                  |
 | ------------------------------------------------ | --------------------------------------------------------------------- |
@@ -365,14 +372,15 @@ const pairScenario = Object.fromEntries(
 | `src/types.ts`                                   | 对外的 draft 状态、策略、树节点和结果类型                             |
 | `src/core/recommendation.ts` 或独立 score helper | 暴露可复用的完整五 Pick 评分，不复制 Pair/Triple 公式                 |
 
-第一阶段不需要修改 Windrun snapshot schema。初始共享池来自已确认的 60 个截图格，统计
-仍来自现有 `Snapshot`。如果后续要把模拟从启发式升级为校准模型，数据同步脚本需要额外
+当前实现不修改 Windrun snapshot schema。初始共享池来自已确认的 60 个截图格，统计仍来自
+现有 `Snapshot`。如果后续要把模拟从启发式升级为校准模型，数据同步脚本需要额外
 提供每局的 draft 序列、玩家归属、选取位置和版本信息；仅增加 `avgPickPosition` 无法
 支持这个目标。
 
 ## 10. 测试和验收标准
 
-新增核心模块后，测试应覆盖行为而不是只覆盖某几个 ID：
+现有 `draft-turns.test.ts`、`draft-state.test.ts`、`draft-strategy.test.ts` 和
+`draft-tree.test.ts` 已覆盖核心行为；后续补测仍应覆盖行为而不是只覆盖某几个 ID：
 
 1. turn generator 的 50 个位置必须逐项匹配上面的十玩家 position table，包括 P1 的
    `[1, 20, 21, 40, 41]` 和 P10 的 `[10, 11, 30, 31, 50]`；round 只决定玩家和个人手数，

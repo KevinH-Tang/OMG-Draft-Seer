@@ -56,6 +56,18 @@ export interface Rect {
   height: number
 }
 
+export interface Point {
+  x: number
+  y: number
+}
+
+export interface Quad {
+  topLeft: Point
+  topRight: Point
+  bottomRight: Point
+  bottomLeft: Point
+}
+
 export type SlotCategory = 'hero' | 'ability' | 'ultimate'
 
 export interface IconCandidate {
@@ -75,10 +87,12 @@ export interface RecognizedSlot {
   category: SlotCategory
   rect: Rect
   crop: Rect
+  matchQuad?: Quad
   candidates: IconCandidate[]
   selectedAbilityId?: number
   preview?: Blob
   matchMode?: 'template' | 'color-fallback'
+  layoutSource?: 'projected' | 'fixed-fallback' | 'manual'
 }
 
 export interface RecommendationInteraction {

@@ -23,4 +23,9 @@ function heroSelectionAssets(): Plugin {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), heroSelectionAssets()],
+  server: {
+    watch: {
+      ignored: ['**/src-tauri/target/**'],
+    },
+  },
 })

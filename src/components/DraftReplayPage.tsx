@@ -31,6 +31,7 @@ import {
 import type { Ability, Recommendation, SlotCategory, Snapshot } from '../types'
 import { RecommendationInteractionsPopover } from './RecommendationInteractionsPopover'
 import { SkillIcon } from './SkillIcon'
+import { PageHeader } from './ui'
 
 function ui(key: string, options?: Record<string, unknown>): string {
   return i18n.t(key, options)
@@ -569,16 +570,17 @@ export function DraftReplayPage({
         className="mt-6 border-t border-border-subtle pt-5"
         aria-labelledby="draft-page-title"
       >
-        <div className="flex flex-col items-start justify-between gap-3 min-[601px]:flex-row">
-          <div>
-            <p className="eyebrow">{ui('draft.step')}</p>
-            <h2 id="draft-page-title">{ui('draft.title')}</h2>
-          </div>
-          <div className="inline-flex items-center gap-2 text-[11px] font-bold tracking-[0.08em] text-accent">
-            <Play size={21} aria-hidden="true" />
-            <span>{ui('draft.playersPicks')}</span>
-          </div>
-        </div>
+        <PageHeader
+          titleId="draft-page-title"
+          eyebrow={ui('draft.step')}
+          title={ui('draft.title')}
+          aside={
+            <>
+              <Play size={21} aria-hidden="true" />
+              <span>{ui('draft.playersPicks')}</span>
+            </>
+          }
+        />
         <div className="mt-[18px] grid min-h-[300px] place-items-center gap-2 rounded-md border border-dashed border-border-strong bg-surface px-6 text-center text-text-muted">
           <CircleAlert size={25} />
           <h3 className="m-0 text-[15px] text-text">
@@ -629,20 +631,23 @@ export function DraftReplayPage({
       className="mt-6 border-t border-border-subtle pt-5"
       aria-labelledby="draft-page-title"
     >
-      <div className="flex flex-col items-start justify-between gap-3 min-[601px]:flex-row">
-        <div>
-          <p className="eyebrow">{ui('draft.step')}</p>
-          <h2 id="draft-page-title">{ui('draft.title')}</h2>
-          <p className="mb-0 mt-2 text-xs text-text-muted">
+      <PageHeader
+        titleId="draft-page-title"
+        eyebrow={ui('draft.step')}
+        title={ui('draft.title')}
+        description={
+          <>
             {ui('common.patch')} {snapshot.patch} · {ui(poolSourceKey)} ·{' '}
             {ui('draft.finalLoadout')}
-          </p>
-        </div>
-        <div className="inline-flex items-center gap-2 text-[11px] font-bold tracking-[0.08em] text-accent">
-          <Users size={21} aria-hidden="true" />
-          <span>{ui('draft.playersPicks')}</span>
-        </div>
-      </div>
+          </>
+        }
+        aside={
+          <>
+            <Users size={21} aria-hidden="true" />
+            <span>{ui('draft.playersPicks')}</span>
+          </>
+        }
+      />
 
       <DraftFinalScoreTable
         scores={finalScores}
@@ -699,7 +704,7 @@ export function DraftReplayPage({
         </div>
       </div>
 
-      <div className="mt-[18px] grid gap-2 min-[1251px]:grid-cols-[minmax(310px,1fr)_600px_minmax(310px,1fr)] min-[1251px]:items-start">
+      <div className="mt-[18px] grid gap-2 xl:grid-cols-[minmax(310px,1fr)_600px_minmax(310px,1fr)] xl:items-start">
         <DraftTeamPanel
           side="radiant"
           state={state}
@@ -709,7 +714,7 @@ export function DraftReplayPage({
         />
 
         <section
-          className="w-full max-w-full overflow-x-auto rounded-sm border border-border bg-surface p-2.5 min-[1251px]:w-[600px]"
+          className="w-full max-w-full overflow-x-auto rounded-sm border border-border bg-surface p-2.5 xl:w-[600px]"
           aria-label={ui('analysis.abilityPool')}
         >
           <header className="flex items-start justify-between gap-2 border-b border-border px-0.5 pb-2">

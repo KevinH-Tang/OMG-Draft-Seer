@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises'
-import { basename, extname, resolve } from 'node:path'
+import { basename, dirname, extname, relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { decode } from 'jpeg-js'
 import { PNG } from 'pngjs'
@@ -9,6 +9,7 @@ import {
   cropCenter,
   parseLayoutDocument,
 } from '../src/core/layout'
+import { buildProjectedLayout, quadBounds } from '../src/core/projective-layout'
 import {
   decodeTemplateSignatures,
   rankByTemplate,
@@ -21,19 +22,16 @@ const layoutPath = resolve('omg-layout-2560x1440.json')
 const snapshotPath = resolve('public/data/snapshots/latest.json')
 const signaturesPath = resolve('public/data/icon-signatures.json')
 const FIXTURE_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg'])
+const PROJECTED_RECOGNITION_MISMATCH_BASELINE = [
+  '{882F0EEC-91F7-44F6-A38A-BB0A3EA169CD}.jpg:0 expected -64, received -40',
+  '{882F0EEC-91F7-44F6-A38A-BB0A3EA169CD}.jpg:16 expected 5585, received 5094',
+  '{92B7AFF0-DF76-4723-BA87-F86180827333}.jpg:8 expected -44, received -114',
+] as const
 
 interface FixtureImage {
   width: number
   height: number
   data: Uint8Array
-}
-
-function decodeFixtureImage(fileName: string, input: Buffer): FixtureImage {
-  const extension = extname(fileName).toLowerCase()
-  if (extension === '.png') return PNG.sync.read(input)
-  if (extension === '.jpg' || extension === '.jpeg')
-    return decode(input, { useTArray: true })
-  throw new Error(`Unsupported fixture format: ${fileName}`)
 }
 
 function cropPixels(
@@ -52,6 +50,30 @@ function cropPixels(
   return pixels
 }
 
+function decodeFixtureImage(fileName: string, input: Buffer): FixtureImage {
+  const extension = extname(fileName).toLowerCase()
+  if (extension === '.png') return PNG.sync.read(input)
+  if (extension === '.jpg' || extension === '.jpeg')
+    return decode(input, { useTArray: true })
+  throw new Error(`Unsupported fixture format: ${fileName}`)
+}
+
+async function listFixtureImages(
+  directory = fixtureDirectory,
+): Promise<string[]> {
+  const entries = await readdir(directory, { withFileTypes: true })
+  const names = await Promise.all(
+    entries.map(async (entry) => {
+      const path = resolve(directory, entry.name)
+      if (entry.isDirectory()) return listFixtureImages(path)
+      return FIXTURE_IMAGE_EXTENSIONS.has(extname(entry.name).toLowerCase())
+        ? [relative(fixtureDirectory, path)]
+        : []
+    }),
+  )
+  return names.flat().sort()
+}
+
 async function loadFixtureContext() {
   const layout = parseLayoutDocument(
     JSON.parse(await readFile(layoutPath, 'utf8')),
@@ -61,10 +83,12 @@ async function loadFixtureContext() {
   const signaturePayload = JSON.parse(
     await readFile(signaturesPath, 'utf8'),
   ) as { signatures?: IconSignature[] }
-  const fixtureNames = (await readdir(fixtureDirectory)).filter((fileName) =>
-    FIXTURE_IMAGE_EXTENSIONS.has(extname(fileName).toLowerCase()),
+  const allFixtureNames = await listFixtureImages()
+  const fixtureNames = allFixtureNames.filter(
+    (fileName) => dirname(fileName) === '.',
   )
   return {
+    allFixtureNames,
     layout,
     snapshot,
     templates: decodeTemplateSignatures(signaturePayload.signatures ?? []),
@@ -73,6 +97,35 @@ async function loadFixtureContext() {
 }
 
 describe('golden screenshot fixtures', () => {
+  it('decodes and projects every nested resolution and bad-case fixture', async () => {
+    const { allFixtureNames, fixtureNames } = await loadFixtureContext()
+    const nestedFixtureNames = allFixtureNames.filter(
+      (fileName) => !fixtureNames.includes(fileName),
+    )
+
+    expect(
+      new Set(nestedFixtureNames.map((fileName) => fileName.split(/[\\/]/)[0])),
+    ).toEqual(new Set(['badcase', 'resolution']))
+
+    for (const fixtureName of nestedFixtureNames) {
+      const image = decodeFixtureImage(
+        fixtureName,
+        await readFile(resolve(fixtureDirectory, fixtureName)),
+      )
+      const dimensions = basename(fixtureName).match(/^(\d+)x(\d+)/)
+      if (dimensions) {
+        expect([image.width, image.height], fixtureName).toEqual([
+          Number(dimensions[1]),
+          Number(dimensions[2]),
+        ])
+      }
+      expect(
+        buildProjectedLayout(image.width, image.height),
+        fixtureName,
+      ).toHaveLength(60)
+    }
+  })
+
   it('keeps every approved fixture at 2560x1440 with 60 labels', async () => {
     const { layout, snapshot, fixtureNames } = await loadFixtureContext()
     expect(fixtureNames.length).toBeGreaterThan(0)
@@ -114,7 +167,56 @@ describe('golden screenshot fixtures', () => {
     }
   })
 
-  it('matches every labelled fixture slot with the template recognizer', async () => {
+  it('keeps projected recognition within the approved fixture baseline', async () => {
+    const { snapshot, templates, fixtureNames } = await loadFixtureContext()
+    const mismatches: string[] = []
+
+    for (const fixtureName of fixtureNames) {
+      const image = decodeFixtureImage(
+        fixtureName,
+        await readFile(resolve(fixtureDirectory, fixtureName)),
+      )
+      const expected = JSON.parse(
+        await readFile(
+          resolve(
+            fixtureDirectory,
+            `${basename(fixtureName, extname(fixtureName))}.json`,
+          ),
+          'utf8',
+        ),
+      ) as Record<string, number>
+      const actual: Record<string, number> = {}
+      const projectedLayout = buildProjectedLayout(image.width, image.height)
+      expect(projectedLayout, fixtureName).toBeDefined()
+
+      for (const [index, slot] of projectedLayout!.entries()) {
+        const crop = clampRectToCanvas(
+          quadBounds(slot.matchQuad!),
+          image.width,
+          image.height,
+        )
+        const candidates = rankByTemplate(
+          signatureFromRgba(cropPixels(image, crop), crop.width, crop.height),
+          snapshot.abilities,
+          slot.category,
+          templates,
+        )
+        actual[String(index)] = candidates[0]?.abilityId ?? Number.NaN
+      }
+
+      for (const [slotIndex, expectedAbilityId] of Object.entries(expected)) {
+        if (actual[slotIndex] !== expectedAbilityId) {
+          mismatches.push(
+            `${fixtureName}:${slotIndex} expected ${expectedAbilityId}, received ${actual[slotIndex]}`,
+          )
+        }
+      }
+    }
+
+    expect(mismatches).toEqual(PROJECTED_RECOGNITION_MISMATCH_BASELINE)
+  })
+
+  it('matches every labelled slot with the fixed-layout fallback', async () => {
     const { layout, snapshot, templates, fixtureNames } =
       await loadFixtureContext()
 

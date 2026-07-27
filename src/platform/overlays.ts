@@ -1,9 +1,15 @@
 import type { BuildCandidatePools } from '../core/recommendation'
+import type { RuntimeSlot } from '../core/layout'
+import type { AbilityTier, TierCategory } from '../core/tiers'
 import type { AppLocale } from '../i18n'
-import type { TierCategory } from '../core/tiers'
 import type { Recommendation } from '../types'
 
-export type OverlayKind = 'recommendation' | 'tier'
+export type OverlayKind = 'recommendation' | 'tier' | 'layout'
+
+export interface OverlayViewport {
+  width: number
+  height: number
+}
 
 export interface OverlayState {
   candidatePools: BuildCandidatePools
@@ -12,6 +18,9 @@ export interface OverlayState {
   selectedIds: number[]
   tierCategory: TierCategory
   tierQuery: string
+  layout?: RuntimeSlot[]
+  layoutTiers?: Array<AbilityTier | null>
+  layoutViewport?: OverlayViewport
 }
 
 export type OverlayMessage =
@@ -37,7 +46,9 @@ function overlayStorageKey(kind: OverlayKind): string {
 export function overlayKindFromLocation(): OverlayKind | undefined {
   if (typeof window === 'undefined') return undefined
   const kind = new URLSearchParams(window.location.search).get('overlay')
-  return kind === 'recommendation' || kind === 'tier' ? kind : undefined
+  return kind === 'recommendation' || kind === 'tier' || kind === 'layout'
+    ? kind
+    : undefined
 }
 
 export function isDesktopRuntime(): boolean {
@@ -82,8 +93,16 @@ async function invokeOverlayCommand<T>(
   return internals.invoke<T>(command, args)
 }
 
-export function openNativeOverlay(kind: OverlayKind): Promise<void> {
-  return invokeOverlayCommand('open_overlay', { kind })
+export function openNativeOverlay(
+  kind: OverlayKind,
+  viewport?: OverlayViewport,
+): Promise<void> {
+  return invokeOverlayCommand('open_overlay', {
+    kind,
+    ...(viewport
+      ? { width: viewport.width, height: viewport.height }
+      : undefined),
+  })
 }
 
 export function closeNativeOverlay(kind: OverlayKind): Promise<void> {

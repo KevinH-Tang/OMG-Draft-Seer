@@ -17,9 +17,9 @@
         "label": "main",
         "title": "OMG-Draft-Seer",
         "width": 720,
-        "height": 920,
-        "minWidth": 640,
-        "minHeight": 720,
+        "height": 540,
+        "minWidth": 720,
+        "minHeight": 540,
         "resizable": true
       }
     ],

@@ -1,5 +1,4 @@
 import {
-  memo,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -9,16 +8,14 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import * as AlertDialog from '@radix-ui/react-alert-dialog'
-import * as Popover from '@radix-ui/react-popover'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTranslation } from 'react-i18next'
 import {
   Bug,
-  Check,
+  CircleCheck,
   CircleAlert,
   Download,
-  FileImage,
   FolderOpen,
   GitFork,
   Layers,
@@ -27,6 +24,7 @@ import {
   RefreshCw,
   RotateCcw,
   ScanSearch,
+  Settings,
   Settings2,
   Sparkles,
   Upload,
@@ -44,12 +42,12 @@ import {
   slotLabel,
   ULTIMATE_SLOT_ORDER,
   validateScreenshotDimensions,
-  type FixedSlot,
   type LayoutDocument,
+  type RuntimeSlot,
 } from './core/layout'
+import { buildProjectedLayout, quadBounds } from './core/projective-layout'
 import { buildAbilityPairList, type AbilityPairEntry } from './core/pairs'
 import {
-  BUILD_PICK_LIMITS,
   recommendBuilds,
   scoreDraftBuild,
   type BuildCandidatePools,
@@ -73,7 +71,6 @@ import {
   type TierCategory,
   type TierEntry,
 } from './core/tiers'
-import { isHeroAbility } from './core/ability-category'
 import {
   detectRuntimeCapabilities,
   missingRuntimeCapabilities,
@@ -96,29 +93,26 @@ import {
   readStoredJson,
   writeStoredJson,
 } from './platform/storage'
-import { LanguageSwitcher } from './components/LanguageSwitcher'
-import { DraftReplayPage } from './components/DraftReplayPage'
 import {
-  FloatingOverlay,
-  OverlayApp,
-  OverlayToggleButton,
-} from './components/OverlayViews'
+  BuildRecommendationsPage,
+  BUILD_PICK_GROUPS,
+} from './components/BuildRecommendationsPage'
+import { DraftReplayPage } from './components/DraftReplayPage'
+import { DebugCropPreview } from './components/DebugCropPreview'
+import { ManualAbilityPool } from './components/ManualAbilityPool'
+import { FloatingOverlay, OverlayApp } from './components/OverlayViews'
 import {
   PairsPage,
   type PairSortKey,
   type SortDirection,
 } from './components/PairsPage'
-import { RecommendationInteractionsPopover } from './components/RecommendationInteractionsPopover'
 import { SkillIcon } from './components/SkillIcon'
+import { SettingsPage, type LayoutMode } from './components/SettingsPage'
 import { TierListPage } from './components/TierListPage'
 import i18n, { toAppLocale } from './i18n'
 import { cn } from './lib/cn'
-import {
-  formatLogitDelta,
-  formatPairPercent,
-} from './lib/recommendation-format'
+import { TIER_TEXT_CLASSES } from './lib/tier-presentation'
 import type {
-  Ability,
   IconSignature,
   Recommendation,
   RecognizedSlot,
@@ -128,44 +122,32 @@ import type {
 } from './types'
 
 const goldenLabels: Record<number, number> = { 6: -41, 50: 5342 }
-type AppPage = 'analysis' | 'layout' | 'database' | 'pairs' | 'draft'
+type AppPage =
+  'analysis' | 'build' | 'layout' | 'database' | 'pairs' | 'draft' | 'settings'
 
 const appPages: Array<{
   id: AppPage
   labelKey:
-    'nav.analysis' | 'nav.layout' | 'nav.database' | 'nav.pairs' | 'nav.draft'
+    | 'nav.analysis'
+    | 'nav.build'
+    | 'nav.layout'
+    | 'nav.database'
+    | 'nav.pairs'
+    | 'nav.draft'
   icon: typeof ScanSearch
 }> = [
   { id: 'analysis', labelKey: 'nav.analysis', icon: ScanSearch },
+  { id: 'build', labelKey: 'nav.build', icon: Sparkles },
   { id: 'layout', labelKey: 'nav.layout', icon: LayoutPanelTop },
   { id: 'database', labelKey: 'nav.database', icon: Layers },
   { id: 'pairs', labelKey: 'nav.pairs', icon: GitFork },
   { id: 'draft', labelKey: 'nav.draft', icon: Play },
 ]
 
-const DEBUG_CONTEXT_PADDING = 12
-const DEBUG_PREVIEW_SIZE = 240
-const DEBUG_BORDER_WIDTH = 2
 const DEBUG_MATCH_CANDIDATES = 5
 const RECOGNITION_TIMEOUT_MS = 30_000
 const PAIR_ROW_HEIGHT = 52
-const BUILD_PICK_GROUPS: Array<{
-  key: keyof BuildCandidatePools
-  labelKey: 'common.hero' | 'common.ability' | 'common.ultimate'
-  limit: number
-}> = [
-  { key: 'heroIds', labelKey: 'common.hero', limit: BUILD_PICK_LIMITS.hero },
-  {
-    key: 'abilityIds',
-    labelKey: 'common.ability',
-    limit: BUILD_PICK_LIMITS.ability,
-  },
-  {
-    key: 'ultimateIds',
-    labelKey: 'common.ultimate',
-    limit: BUILD_PICK_LIMITS.ultimate,
-  },
-]
+const LAYOUT_MODE_STORAGE_KEY = 'omg-layout-mode-v1'
 
 type ImageSize = Pick<LayoutDocument, 'width' | 'height'>
 
@@ -186,7 +168,7 @@ function buildScaledLayout(
   document: LayoutDocument,
   overrides: Record<number, Rect>,
   imageSize: ImageSize,
-): FixedSlot[] {
+): RuntimeSlot[] {
   const sourceSlots = document.slots.map((slot, index) => ({
     ...slot,
     rect: overrides[index] ?? slot.rect,
@@ -198,6 +180,44 @@ function buildScaledLayout(
     imageSize.width,
     imageSize.height,
   )
+}
+
+function hasManualLayout(
+  importedLayout: LayoutDocument | undefined,
+  overrides: Record<number, Rect>,
+): boolean {
+  return importedLayout !== undefined || Object.keys(overrides).length > 0
+}
+
+function readLayoutMode(
+  storage: ReturnType<typeof getBrowserStorage>,
+): LayoutMode {
+  return readStoredJson<unknown>(storage, LAYOUT_MODE_STORAGE_KEY, 'auto') ===
+    'manual'
+    ? 'manual'
+    : 'auto'
+}
+
+function matchRect(slot: RuntimeSlot, imageSize: ImageSize): Rect {
+  return slot.matchQuad
+    ? clampRectToCanvas(
+        quadBounds(slot.matchQuad),
+        imageSize.width,
+        imageSize.height,
+      )
+    : cropCenter(slot.rect)
+}
+
+function quadPointList(slot: RuntimeSlot): string | undefined {
+  if (!slot.matchQuad) return undefined
+  return [
+    slot.matchQuad.topLeft,
+    slot.matchQuad.topRight,
+    slot.matchQuad.bottomRight,
+    slot.matchQuad.bottomLeft,
+  ]
+    .map((point) => `${point.x},${point.y}`)
+    .join(' ')
 }
 
 function updateSlotSelection(
@@ -214,205 +234,6 @@ function updateSlotSelection(
   })
   return changed ? next : slots
 }
-
-const ABILITY_POOL_GROUPS: Array<{
-  category: SlotCategory
-  labelKey: 'common.ultimates' | 'common.abilities' | 'common.heroes'
-}> = [
-  { category: 'ultimate', labelKey: 'common.ultimates' },
-  { category: 'ability', labelKey: 'common.abilities' },
-  { category: 'hero', labelKey: 'common.heroes' },
-]
-
-const MANUAL_POOL_SECTION_WIDTH: Record<SlotCategory, string> = {
-  hero: 'w-24 max-[560px]:w-full',
-  ability: 'w-80 max-w-full max-[560px]:w-full',
-  ultimate: 'w-24 max-[560px]:w-full',
-}
-
-const MANUAL_POOL_ITEM_SIZE: Record<SlotCategory, string> = {
-  hero: 'size-[38px] max-[560px]:size-full max-[560px]:max-w-[38px] max-[560px]:aspect-square [&_.skill-icon]:size-[38px] max-[560px]:[&_.skill-icon]:size-[min(38px,100%)]',
-  ability:
-    'size-12 max-[560px]:size-full max-[560px]:max-w-[38px] max-[560px]:aspect-square [&_.skill-icon]:size-11 max-[560px]:[&_.skill-icon]:size-[min(38px,100%)]',
-  ultimate:
-    'size-[38px] max-[560px]:size-full max-[560px]:max-w-[38px] max-[560px]:aspect-square [&_.skill-icon]:size-[38px] max-[560px]:[&_.skill-icon]:size-[min(38px,100%)]',
-}
-
-const PICK_TIER_CLASSES: Record<AbilityTier, string> = {
-  S: 'text-warning',
-  A: 'text-orange-400',
-  B: 'text-positive',
-  C: 'text-accent',
-  D: 'text-text-muted',
-  E: 'text-cyan-300',
-  F: 'text-violet-300',
-}
-
-const ManualAbilitySlot = memo(function ManualAbilitySlot({
-  slot,
-  abilities,
-  isOpen,
-  onOpenChange,
-  onSelect,
-}: {
-  slot: RecognizedSlot
-  abilities: ReadonlyMap<number, Ability>
-  isOpen: boolean
-  onOpenChange: (slotIndex: number, open: boolean) => void
-  onSelect: (slotIndex: number, abilityId: number) => void
-}) {
-  const { t } = useTranslation()
-  const best = slot.candidates[0]
-  const bestAbility =
-    best === undefined ? undefined : abilities.get(best.abilityId)
-  const selectedAbility =
-    slot.selectedAbilityId === undefined
-      ? undefined
-      : abilities.get(slot.selectedAbilityId)
-  const displayedAbility = selectedAbility ?? bestAbility
-  const confirmed = slot.selectedAbilityId !== undefined
-  const slotName = displayedAbility?.name ?? t('common.unknownAbility')
-
-  return (
-    <Popover.Root
-      open={isOpen}
-      onOpenChange={(open) => onOpenChange(slot.index, open)}
-    >
-      <Popover.Trigger asChild>
-        <button
-          type="button"
-          className={cn(
-            'relative inline-flex shrink-0 items-center justify-center rounded-sm border border-transparent p-0 text-inherit transition-[filter] hover:brightness-125 focus-visible:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&_.skill-icon]:shrink-0 [&_.skill-icon]:overflow-hidden [&_.skill-icon]:rounded-sm [&_.skill-icon]:border [&_.skill-icon]:border-border-strong',
-            MANUAL_POOL_ITEM_SIZE[slot.category],
-            confirmed &&
-              '[&_.skill-icon]:border-positive [&_.skill-icon]:shadow-[inset_0_0_0_1px_rgb(74_222_128_/_0.4)]',
-          )}
-          title={`${slotLabel(slot.index)} · ${slotName} · ${confirmed ? t('common.confirmed') : t('common.suggestion')}`}
-          aria-label={`${slotLabel(slot.index)}，${slotName}，${confirmed ? t('common.confirmed') : t('common.suggestion')}，${t('analysis.selectCandidate')}`}
-        >
-          <SkillIcon
-            abilityId={displayedAbility?.id}
-            shortName={displayedAbility?.shortName}
-            name={displayedAbility?.name}
-            isHero={displayedAbility?.isHero}
-          />
-          <span className="absolute -bottom-1 -right-0.5 z-2 grid size-[17px] place-items-center rounded-full border border-border-strong bg-canvas font-mono text-[8px] text-text-muted">
-            {slotLabel(slot.index)}
-          </span>
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          className="z-[80] grid w-[max(300px,var(--radix-popover-trigger-width))] max-w-[calc(100vw-16px)] max-h-[min(380px,var(--radix-popper-available-height))] gap-1 overflow-y-auto rounded-sm border border-border bg-surface p-1 shadow-panel"
-          side="bottom"
-          align="start"
-          sideOffset={5}
-          collisionPadding={8}
-        >
-          {slot.candidates.map((candidate, index) => {
-            const item = abilities.get(candidate.abilityId)
-            if (!item) return null
-            return (
-              <button
-                type="button"
-                className="flex min-w-0 items-center gap-2 border border-border bg-surface-raised px-1.5 py-1 text-left text-xs text-text transition-colors hover:border-accent hover:bg-accent-soft focus-visible:border-accent focus-visible:bg-accent-soft focus-visible:outline-hidden"
-                key={candidate.abilityId}
-                onClick={() => onSelect(slot.index, candidate.abilityId)}
-              >
-                <span className="w-4 shrink-0 text-center font-mono text-[11px] text-text-muted">
-                  {index + 1}
-                </span>
-                <SkillIcon
-                  abilityId={item.id}
-                  shortName={item.shortName}
-                  name={item.name}
-                  isHero={item.isHero}
-                />
-                <span className="min-w-0 truncate">{item.name}</span>
-              </button>
-            )
-          })}
-          {slot.candidates.length === 0 && (
-            <span className="p-2 text-xs text-text-muted">
-              {t('common.noCandidates')}
-            </span>
-          )}
-          <Popover.Arrow className="fill-surface" width={12} height={6} />
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
-  )
-})
-
-const ManualAbilityPool = memo(function ManualAbilityPool({
-  slots,
-  abilities,
-  manualSlotIndex,
-  onOpenChange,
-  onSelect,
-}: {
-  slots: readonly RecognizedSlot[]
-  abilities: ReadonlyMap<number, Ability>
-  manualSlotIndex?: number
-  onOpenChange: (slotIndex: number, open: boolean) => void
-  onSelect: (slotIndex: number, abilityId: number) => void
-}) {
-  const { t } = useTranslation()
-  return (
-    <div
-      className="mt-[17px] grid w-[524px] max-w-full grid-cols-[96px_320px_96px] items-start gap-1.5 max-[560px]:w-full max-[560px]:grid-cols-1"
-      aria-label={t('analysis.manualValidation')}
-    >
-      {ABILITY_POOL_GROUPS.map(({ category, labelKey }) => {
-        const categorySlots = slots.filter((slot) => slot.category === category)
-        const confirmedCount = categorySlots.filter(
-          (slot) => slot.selectedAbilityId !== undefined,
-        ).length
-        return (
-          <section
-            className={cn(
-              'min-w-0 rounded-sm border border-border bg-surface-raised p-1.5',
-              MANUAL_POOL_SECTION_WIDTH[category],
-            )}
-            key={category}
-            aria-labelledby={`manual-pool-${category}`}
-          >
-            <header className="mb-1 flex items-center justify-between gap-1.5 font-mono text-[9px] font-bold text-text">
-              <span id={`manual-pool-${category}`}>{t(labelKey)}</span>
-              <strong
-                aria-label={t('analysis.confirmedCount', {
-                  current: confirmedCount,
-                  total: categorySlots.length,
-                })}
-              >
-                {confirmedCount}/{categorySlots.length}
-              </strong>
-            </header>
-            <div
-              className={cn(
-                'grid min-w-0 justify-items-center gap-[3px]',
-                category === 'ability'
-                  ? 'flex w-[308px] max-w-full flex-wrap content-start justify-start gap-1 max-[560px]:grid max-[560px]:w-auto max-[560px]:grid-cols-6 max-[560px]:justify-items-stretch'
-                  : 'grid-cols-2 justify-between max-[560px]:grid-cols-6 max-[560px]:justify-items-stretch',
-              )}
-            >
-              {categorySlots.map((slot) => (
-                <ManualAbilitySlot
-                  key={slot.index}
-                  slot={slot}
-                  abilities={abilities}
-                  isOpen={manualSlotIndex === slot.index}
-                  onOpenChange={onOpenChange}
-                  onSelect={onSelect}
-                />
-              ))}
-            </div>
-          </section>
-        )
-      })}
-    </div>
-  )
-})
 
 function comparePairEntries(
   left: AbilityPairEntry,
@@ -435,109 +256,6 @@ function comparePairEntries(
   if (leftValue === undefined) return 1
   if (rightValue === undefined) return -1
   return 0
-}
-
-function pickRoleLabel(ability: Ability | undefined): string {
-  if (!ability) return ui('common.ability')
-  if (isHeroAbility(ability)) return ui('common.hero')
-  return ability.isUltimate ? ui('common.ultimate') : ui('common.ability')
-}
-
-function DebugCropPreview({
-  imageUrl,
-  crop,
-}: {
-  imageUrl: string
-  crop: Rect
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const imageRef = useRef<HTMLImageElement | null>(null)
-  const cropRef = useRef(crop)
-  cropRef.current = crop
-
-  useEffect(() => {
-    const image = new Image()
-    image.decoding = 'async'
-    image.onload = () => {
-      imageRef.current = image
-      drawPreview()
-    }
-    image.src = imageUrl
-    return () => {
-      image.onload = null
-      if (imageRef.current === image) imageRef.current = null
-    }
-  }, [imageUrl])
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => drawPreview())
-    return () => cancelAnimationFrame(frame)
-  }, [crop.x, crop.y, crop.width, crop.height])
-
-  function drawPreview() {
-    const image = imageRef.current
-    const canvas = canvasRef.current
-    if (!image || !canvas || !image.naturalWidth || !image.naturalHeight) return
-
-    const currentCrop = cropRef.current
-    const left = Math.max(0, Math.floor(currentCrop.x - DEBUG_CONTEXT_PADDING))
-    const top = Math.max(0, Math.floor(currentCrop.y - DEBUG_CONTEXT_PADDING))
-    const right = Math.min(
-      image.naturalWidth,
-      Math.ceil(currentCrop.x + currentCrop.width + DEBUG_CONTEXT_PADDING),
-    )
-    const bottom = Math.min(
-      image.naturalHeight,
-      Math.ceil(currentCrop.y + currentCrop.height + DEBUG_CONTEXT_PADDING),
-    )
-    const sourceWidth = Math.max(1, right - left)
-    const sourceHeight = Math.max(1, bottom - top)
-    const scale = Math.min(
-      DEBUG_PREVIEW_SIZE / sourceWidth,
-      DEBUG_PREVIEW_SIZE / sourceHeight,
-    )
-    const drawWidth = Math.max(1, Math.round(sourceWidth * scale))
-    const drawHeight = Math.max(1, Math.round(sourceHeight * scale))
-    const offsetX = Math.floor((DEBUG_PREVIEW_SIZE - drawWidth) / 2)
-    const offsetY = Math.floor((DEBUG_PREVIEW_SIZE - drawHeight) / 2)
-    canvas.width = DEBUG_PREVIEW_SIZE
-    canvas.height = DEBUG_PREVIEW_SIZE
-    const context = canvas.getContext('2d')
-    if (!context) return
-    context.imageSmoothingEnabled = false
-    context.fillStyle = '#050706'
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    context.fillRect(0, 0, canvas.width, canvas.height)
-    context.drawImage(
-      image,
-      left,
-      top,
-      sourceWidth,
-      sourceHeight,
-      offsetX,
-      offsetY,
-      drawWidth,
-      drawHeight,
-    )
-    context.strokeStyle = '#ffefad'
-    context.lineWidth = DEBUG_BORDER_WIDTH
-    context.strokeRect(
-      offsetX + (currentCrop.x - left) * scale + 0.5,
-      offsetY + (currentCrop.y - top) * scale + 0.5,
-      currentCrop.width * scale,
-      currentCrop.height * scale,
-    )
-  }
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="block size-60 max-w-full border border-border-strong [image-rendering:pixelated] max-[600px]:justify-self-center"
-      width={DEBUG_PREVIEW_SIZE}
-      height={DEBUG_PREVIEW_SIZE}
-      aria-label={ui('layout.cropPreview')}
-    />
-  )
 }
 
 function MainApp() {
@@ -565,7 +283,7 @@ function MainApp() {
   const [activePage, setActivePage] = useState<AppPage>('analysis')
   const [overlayVisibility, setOverlayVisibility] = useState<
     Record<OverlayKind, boolean>
-  >({ recommendation: false, tier: false })
+  >({ recommendation: false, tier: false, layout: false })
   const [draftStrategy, setDraftStrategy] =
     useState<DraftStrategyId>('tier-first')
   const [replayStep, setReplayStep] = useState(0)
@@ -575,6 +293,9 @@ function MainApp() {
   const [uploadedFile, setUploadedFile] = useState<File>()
   const [imageSize, setImageSize] = useState<ImageSize>(DEFAULT_IMAGE_SIZE)
   const [calibrationOpen, setCalibrationOpen] = useState(false)
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>(() =>
+    readLayoutMode(storage),
+  )
   const recognitionWorkerRef = useRef<Worker | undefined>(undefined)
   const recognitionRequestRef = useRef(0)
   const screenshotUrlRef = useRef<string | undefined>(undefined)
@@ -603,6 +324,7 @@ function MainApp() {
     const saved = readStoredJson<unknown>(storage, 'omg-layout-file-v1', null)
     return parseLayoutDocument(saved) ?? undefined
   })
+  const importedLayoutRef = useRef(importedLayout)
 
   useEffect(() => {
     fetch(appResourceUrl('/data/snapshots/latest.json'))
@@ -685,16 +407,6 @@ function MainApp() {
     }
   }, [abilitiesById, candidateTierInfo, slots])
   const deferredCandidatePools = useDeferredValue(candidatePools)
-  const candidateIds = useMemo(
-    () => [
-      ...new Set([
-        ...candidatePools.heroIds,
-        ...candidatePools.abilityIds,
-        ...candidatePools.ultimateIds,
-      ]),
-    ],
-    [candidatePools],
-  )
   useEffect(() => {
     setSelectedIds((current) => {
       const selectedCounts: Record<keyof BuildCandidatePools, number> = {
@@ -713,7 +425,7 @@ function MainApp() {
       return next.length === current.length ? current : next
     })
   }, [candidatePools])
-  const layout = useMemo(
+  const fixedLayout = useMemo(
     () =>
       buildScaledLayout(
         importedLayout ?? DEFAULT_LAYOUT_DOCUMENT,
@@ -721,6 +433,24 @@ function MainApp() {
         imageSize,
       ),
     [importedLayout, layoutOverrides, imageSize],
+  )
+  const layout = useMemo(
+    () =>
+      (layoutMode === 'auto' &&
+        buildProjectedLayout(imageSize.width, imageSize.height)) ||
+      fixedLayout,
+    [fixedLayout, imageSize, layoutMode],
+  )
+  const layoutOverlaySlots = layout
+  const layoutOverlayTiers = useMemo(
+    () =>
+      layoutOverlaySlots.map((_, index) => {
+        const abilityId = slots[index]?.selectedAbilityId
+        return abilityId === undefined
+          ? null
+          : (candidateTierInfo.get(abilityId)?.tier ?? null)
+      }),
+    [candidateTierInfo, layoutOverlaySlots, slots],
   )
   const recommendations = useMemo(
     () =>
@@ -735,6 +465,9 @@ function MainApp() {
       selectedIds,
       tierCategory,
       tierQuery,
+      layout: layoutOverlaySlots,
+      layoutTiers: layoutOverlayTiers,
+      layoutViewport: imageSize,
     }),
     [
       candidatePools,
@@ -743,6 +476,9 @@ function MainApp() {
       selectedIds,
       tierCategory,
       tierQuery,
+      imageSize,
+      layoutOverlaySlots,
+      layoutOverlayTiers,
     ],
   )
 
@@ -764,6 +500,7 @@ function MainApp() {
     }
     publish('recommendation')
     publish('tier')
+    publish('layout')
     return () => channel.close()
   }, [overlayState, overlayVisibility])
   const rankedDraftPoolInfo = useMemo(() => {
@@ -950,7 +687,7 @@ function MainApp() {
     return () => window.clearInterval(timer)
   }, [draftSimulation, replayPlaying])
 
-  async function handleUpload(file: File) {
+  async function handleUpload(file: File, mode: LayoutMode = layoutMode) {
     if (!isSupportedScreenshotFile(file)) {
       setError(t('errors.unsupportedScreenshot'))
       return
@@ -999,7 +736,7 @@ function MainApp() {
         return
       }
       const nextImageSize = { width: decoded.width, height: decoded.height }
-      const nextLayout = buildScaledLayout(
+      const fallbackLayout = buildScaledLayout(
         importedLayout ?? DEFAULT_LAYOUT_DOCUMENT,
         layoutOverrides,
         nextImageSize,
@@ -1044,7 +781,8 @@ function MainApp() {
         {
           image: decoded,
           abilities: snapshot.abilities,
-          layout: nextLayout,
+          layout: mode === 'manual' ? fallbackLayout : undefined,
+          fallbackLayout,
           signatures: iconSignatures,
         },
         [decoded],
@@ -1075,6 +813,7 @@ function MainApp() {
     setLayoutOverrides({})
     layoutOverridesRef.current = {}
     setImportedLayout(undefined)
+    importedLayoutRef.current = undefined
     toast.success(t('layout.restored'))
   }
 
@@ -1083,7 +822,7 @@ function MainApp() {
       version: 1,
       width: imageSize.width,
       height: imageSize.height,
-      slots: layout,
+      slots: layout.map(({ category, rect }) => ({ category, rect })),
     }
     fileAdapter.downloadText(
       `omg-layout-${imageSize.width}x${imageSize.height}.json`,
@@ -1100,6 +839,7 @@ function MainApp() {
       )
       if (!parsed) throw new Error('invalid layout')
       setImportedLayout(parsed)
+      importedLayoutRef.current = parsed
       setLayoutOverrides({})
       layoutOverridesRef.current = {}
       writeStoredJson(storage, 'omg-layout-file-v1', parsed)
@@ -1113,7 +853,9 @@ function MainApp() {
   }
 
   function imagePoint(
-    event: ReactPointerEvent<SVGSVGElement | SVGRectElement | SVGCircleElement>,
+    event: ReactPointerEvent<
+      SVGSVGElement | SVGRectElement | SVGPolygonElement | SVGCircleElement
+    >,
   ) {
     const bounds = overlayRef.current?.getBoundingClientRect()
     if (!bounds) return { x: 0, y: 0 }
@@ -1124,12 +866,31 @@ function MainApp() {
   }
 
   function startDrag(
-    event: ReactPointerEvent<SVGRectElement | SVGCircleElement>,
+    event: ReactPointerEvent<
+      SVGRectElement | SVGPolygonElement | SVGCircleElement
+    >,
     index: number,
     mode: 'move' | 'resize',
   ) {
     event.stopPropagation()
     event.currentTarget.setPointerCapture(event.pointerId)
+    if (layoutMode !== 'manual') {
+      setLayoutMode('manual')
+      writeStoredJson(storage, LAYOUT_MODE_STORAGE_KEY, 'manual')
+    }
+    if (
+      !hasManualLayout(importedLayoutRef.current, layoutOverridesRef.current)
+    ) {
+      const projectedBaseline: LayoutDocument = {
+        version: 1,
+        width: imageSize.width,
+        height: imageSize.height,
+        slots: layout.map(({ category, rect }) => ({ category, rect })),
+      }
+      importedLayoutRef.current = projectedBaseline
+      setImportedLayout(projectedBaseline)
+      writeStoredJson(storage, 'omg-layout-file-v1', projectedBaseline)
+    }
     const point = imagePoint(event)
     setDragState({
       index,
@@ -1180,7 +941,7 @@ function MainApp() {
       imageSize.width,
       imageSize.height,
     )
-    const sourceLayout = importedLayout ?? DEFAULT_LAYOUT_DOCUMENT
+    const sourceLayout = importedLayoutRef.current ?? DEFAULT_LAYOUT_DOCUMENT
     const next = {
       ...layoutOverridesRef.current,
       [dragState.index]: scaleRect(
@@ -1202,6 +963,12 @@ function MainApp() {
       layoutOverridesRef.current,
     )
     setDragState(undefined)
+  }
+
+  function updateLayoutMode(mode: LayoutMode) {
+    setLayoutMode(mode)
+    writeStoredJson(storage, LAYOUT_MODE_STORAGE_KEY, mode)
+    if (uploadedFile) void handleUpload(uploadedFile, mode)
   }
 
   function updateSlot(index: number, value: string) {
@@ -1276,9 +1043,10 @@ function MainApp() {
     return {
       ...recognized,
       rect: currentLayout.rect,
-      crop: cropCenter(currentLayout.rect),
+      crop: matchRect(currentLayout, imageSize),
+      matchQuad: currentLayout.matchQuad,
     }
-  }, [debugSlotIndex, layout, slots])
+  }, [debugSlotIndex, imageSize, layout, slots])
   const expectedAbilityId = debugSlot
     ? goldenLabels[debugSlot.index]
     : undefined
@@ -1326,7 +1094,11 @@ function MainApp() {
     try {
       if (isDesktopRuntime()) {
         if (isOpen) await closeNativeOverlay(kind)
-        else await openNativeOverlay(kind)
+        else
+          await openNativeOverlay(
+            kind,
+            kind === 'layout' ? imageSize : undefined,
+          )
       }
       setOverlayVisibility((current) => ({ ...current, [kind]: !isOpen }))
     } catch (overlayError) {
@@ -1341,61 +1113,100 @@ function MainApp() {
   return (
     <Tooltip.Provider delayDuration={250} skipDelayDuration={150}>
       <main
-        className="mx-auto w-[min(720px,calc(100vw-24px))] pb-10 pt-[22px] text-text"
+        className="mx-auto flex min-h-screen w-full max-w-full flex-col px-6 pb-6 pt-4 text-text"
         data-testid="app-shell"
       >
-        <header className="grid gap-x-5 gap-y-3 border-b border-border pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-          <div>
-            <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.08em] text-accent">
-              DOTA 2 / OMG
-            </p>
-            <h1 className="m-0 text-3xl font-semibold tracking-tight text-text">
-              OMG-Draft-Seer
-            </h1>
-          </div>
-          <nav
-            className="order-3 col-span-full flex max-w-full gap-1 overflow-x-auto rounded-md border border-border bg-surface p-1 sm:order-2"
-            aria-label={t('app.mainPages')}
-          >
-            {appPages.map((page) => {
-              const Icon = page.icon
-              const selected = activePage === page.id
-              return (
-                <button
-                  key={page.id}
-                  type="button"
-                  className={cn(
-                    'inline-flex shrink-0 items-center gap-1.5 rounded px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-                    selected &&
-                      'bg-accent text-canvas hover:bg-accent hover:text-canvas',
-                  )}
-                  aria-current={selected ? 'page' : undefined}
-                  data-testid={`nav-${page.id}`}
-                  onClick={() => setActivePage(page.id)}
-                >
-                  <Icon size={15} />
-                  {t(page.labelKey)}
-                </button>
-              )
-            })}
-          </nav>
-          <div className="order-2 inline-flex items-center gap-2 text-sm text-text-muted sm:order-3 sm:justify-self-end">
-            <span className="font-mono">
-              {t('common.patch')} {snapshot.patch}
-            </span>
-            <span className="size-1.5 rounded-full bg-positive" />
-            <span>{t('app.snapshot')}</span>
-            <LanguageSwitcher />
-          </div>
-        </header>
+        {activePage !== 'settings' && (
+          <header className="border-b border-border pb-3">
+            <div className="flex w-full items-center justify-between gap-8">
+              <div className="flex min-w-0 items-center gap-3">
+                <h1 className="m-0 text-[22px] font-semibold text-text">
+                  <a
+                    className="rounded-sm transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    href="https://github.com/KevinH-Tang/OMG-Draft-Seer"
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    OMG Draft Seer
+                  </a>
+                </h1>
+                <Tooltip.Root>
+                  <Tooltip.Trigger asChild>
+                    <button
+                      className="grid size-8 shrink-0 place-items-center rounded text-text-muted transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      type="button"
+                      aria-label={t('settings.title')}
+                      data-testid="open-settings"
+                      onClick={() => setActivePage('settings')}
+                    >
+                      <Settings aria-hidden="true" size={15} />
+                    </button>
+                  </Tooltip.Trigger>
+                  <Tooltip.Portal>
+                    <Tooltip.Content
+                      className="z-50 rounded-sm border border-border bg-surface px-2 py-1.5 text-[11px] text-text shadow-panel"
+                      side="bottom"
+                      sideOffset={7}
+                    >
+                      {t('settings.title')}
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                </Tooltip.Root>
+              </div>
+              <nav
+                className="flex w-fit shrink-0 gap-1 rounded-md border border-border bg-surface-raised p-1"
+                aria-label={t('app.mainPages')}
+              >
+                {appPages.map((page) => {
+                  const Icon = page.icon
+                  const selected = activePage === page.id
+                  return (
+                    <Tooltip.Root key={page.id}>
+                      <Tooltip.Trigger asChild>
+                        <button
+                          type="button"
+                          className={cn(
+                            'grid size-8 place-items-center rounded-sm text-text-muted transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                            selected &&
+                              'bg-surface-hover text-text shadow-[0_1px_2px_rgb(0_0_0_/_0.35)] hover:bg-surface-hover hover:text-text',
+                          )}
+                          aria-current={selected ? 'page' : undefined}
+                          aria-label={t(page.labelKey)}
+                          data-testid={`nav-${page.id}`}
+                          onClick={() => setActivePage(page.id)}
+                        >
+                          <Icon aria-hidden="true" size={15} />
+                        </button>
+                      </Tooltip.Trigger>
+                      <Tooltip.Portal>
+                        <Tooltip.Content
+                          className="z-50 rounded-sm border border-border bg-surface px-2 py-1.5 text-[11px] text-text shadow-panel"
+                          side="bottom"
+                          sideOffset={7}
+                        >
+                          {t(page.labelKey)}
+                        </Tooltip.Content>
+                      </Tooltip.Portal>
+                    </Tooltip.Root>
+                  )
+                })}
+              </nav>
+            </div>
+          </header>
+        )}
 
         {(activePage === 'analysis' || activePage === 'layout') && (
-          <section className="grid gap-5 pt-5">
+          <section
+            className={cn(
+              'grid gap-5 pt-5',
+              activePage === 'layout' &&
+                'xl:grid-cols-[minmax(0,1fr)_520px] xl:items-start',
+            )}
+          >
             <div className="min-w-0">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="eyebrow">{t('analysis.screenshotStep')}</p>
-                  <h2>{t('analysis.abilityPool')}</h2>
                 </div>
               </div>
               {activePage === 'layout' && (
@@ -1417,7 +1228,7 @@ function MainApp() {
               {!screenshotUrl ? (
                 activePage === 'analysis' ? (
                   <button
-                    className="mt-[18px] grid min-h-[245px] w-full place-content-center gap-2 rounded-md border border-dashed border-border-strong bg-surface text-text-muted transition-colors hover:border-accent hover:bg-surface-raised"
+                    className="mt-[18px] grid min-h-[245px] w-full place-content-center place-items-center gap-2 rounded-md border border-dashed border-border-strong bg-surface text-center text-text-muted transition-colors hover:border-accent hover:bg-surface-raised"
                     onClick={() => inputRef.current?.click()}
                   >
                     <Upload size={25} />
@@ -1433,65 +1244,146 @@ function MainApp() {
                   </div>
                 )
               ) : (
-                <div className="relative mt-[18px] overflow-hidden rounded-sm border border-border bg-canvas">
-                  <img
-                    className="block h-auto w-full"
-                    src={screenshotUrl}
-                    alt={t('analysis.uploadedScreenshotAlt')}
-                  />
-                  <svg
-                    ref={overlayRef}
-                    className={`layout-overlay ${activePage === 'layout' && calibrationOpen ? 'calibrating' : ''}`}
-                    viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
-                    aria-label={t('layout.calibration')}
-                    onPointerMove={dragLayout}
-                    onPointerUp={finishDrag}
-                    onPointerCancel={finishDrag}
+                <div className="mt-[18px] grid items-start gap-2 min-[600px]:grid-cols-[minmax(0,1fr)_auto]">
+                  <div
+                    className="relative min-w-0 overflow-hidden rounded-sm border border-border bg-canvas"
+                    data-testid="screenshot-frame"
                   >
-                    {layout.map((slot, index) => {
-                      const matchCrop = cropCenter(slot.rect)
-                      return (
-                        <g
-                          key={index}
-                          onClick={() => setDebugSlotIndex(index)}
-                          className={`${slot.category} ${debugSlotIndex === index ? 'active' : ''}`}
-                        >
-                          <rect
-                            className="match-frame"
-                            x={matchCrop.x}
-                            y={matchCrop.y}
-                            width={matchCrop.width}
-                            height={matchCrop.height}
-                            onPointerDown={(event) =>
-                              activePage === 'layout' &&
-                              calibrationOpen &&
-                              startDrag(event, index, 'move')
-                            }
-                          />
-                          <text x={matchCrop.x + 5} y={matchCrop.y + 15}>
-                            {slotLabel(index)}
-                          </text>
-                          {activePage === 'layout' && calibrationOpen && (
-                            <circle
-                              className="resize-handle"
-                              cx={matchCrop.x + matchCrop.width}
-                              cy={matchCrop.y + matchCrop.height}
-                              r="11"
-                              onPointerDown={(event) =>
-                                startDrag(event, index, 'resize')
+                    <img
+                      className="block h-auto w-full"
+                      src={screenshotUrl}
+                      alt={t('analysis.uploadedScreenshotAlt')}
+                    />
+                    <svg
+                      ref={overlayRef}
+                      className={cn(
+                        'layout-overlay',
+                        activePage === 'layout' &&
+                          calibrationOpen &&
+                          'calibrating',
+                        activePage !== 'layout' && 'pointer-events-none',
+                      )}
+                      viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
+                      aria-label={t('layout.calibration')}
+                      onPointerMove={dragLayout}
+                      onPointerUp={finishDrag}
+                      onPointerCancel={finishDrag}
+                    >
+                      {layout.map((slot, index) => {
+                        const matchCrop = matchRect(slot, imageSize)
+                        const matchPoints = quadPointList(slot)
+                        return (
+                          <g
+                            key={index}
+                            onClick={() => {
+                              if (activePage === 'layout') {
+                                setDebugSlotIndex(index)
                               }
+                            }}
+                            className={`${slot.category} ${debugSlotIndex === index ? 'active' : ''}`}
+                          >
+                            {matchPoints ? (
+                              <polygon
+                                className="match-frame"
+                                points={matchPoints}
+                                onPointerDown={(event) =>
+                                  activePage === 'layout' &&
+                                  calibrationOpen &&
+                                  startDrag(event, index, 'move')
+                                }
+                              />
+                            ) : (
+                              <rect
+                                className="match-frame"
+                                x={matchCrop.x}
+                                y={matchCrop.y}
+                                width={matchCrop.width}
+                                height={matchCrop.height}
+                                onPointerDown={(event) =>
+                                  activePage === 'layout' &&
+                                  calibrationOpen &&
+                                  startDrag(event, index, 'move')
+                                }
+                              />
+                            )}
+                            <text x={matchCrop.x + 5} y={matchCrop.y + 15}>
+                              {slotLabel(index)}
+                            </text>
+                            {activePage === 'layout' && calibrationOpen && (
+                              <circle
+                                className="resize-handle"
+                                cx={matchCrop.x + matchCrop.width}
+                                cy={matchCrop.y + matchCrop.height}
+                                r="11"
+                                onPointerDown={(event) =>
+                                  startDrag(event, index, 'resize')
+                                }
+                              />
+                            )}
+                          </g>
+                        )
+                      })}
+                    </svg>
+                  </div>
+                  <div className="grid shrink-0 content-start gap-2 min-[600px]:justify-items-end">
+                    <Tooltip.Root>
+                      <Tooltip.Trigger asChild>
+                        <button
+                          className="grid size-8 place-items-center self-start rounded-sm border border-border-strong bg-surface-raised text-text hover:border-accent hover:bg-accent-soft min-[600px]:justify-self-end"
+                          type="button"
+                          title={t('analysis.replaceScreenshot')}
+                          aria-label={t('analysis.replaceScreenshot')}
+                          onClick={() => inputRef.current?.click()}
+                        >
+                          <RefreshCw size={17} />
+                        </button>
+                      </Tooltip.Trigger>
+                      <Tooltip.Portal>
+                        <Tooltip.Content
+                          className="z-50 rounded-sm border border-border bg-surface px-2 py-1.5 text-[11px] text-text shadow-panel"
+                          side="right"
+                          sideOffset={7}
+                        >
+                          {t('analysis.replaceScreenshot')}
+                          <Tooltip.Arrow
+                            className="fill-surface"
+                            width={12}
+                            height={6}
+                          />
+                        </Tooltip.Content>
+                      </Tooltip.Portal>
+                    </Tooltip.Root>
+                    {activePage === 'analysis' && slots.length > 0 && (
+                      <Tooltip.Root>
+                        <Tooltip.Trigger asChild>
+                          <button
+                            className="grid size-8 place-items-center self-start rounded-sm border border-border-strong bg-surface-raised text-text hover:border-accent hover:bg-accent-soft min-[600px]:justify-self-end"
+                            data-testid="accept-suggestions"
+                            type="button"
+                            title={t('analysis.confirm')}
+                            aria-label={t('analysis.confirm')}
+                            onClick={acceptSuggestions}
+                          >
+                            <CircleCheck size={17} />
+                          </button>
+                        </Tooltip.Trigger>
+                        <Tooltip.Portal>
+                          <Tooltip.Content
+                            className="z-50 rounded-sm border border-border bg-surface px-2 py-1.5 text-[11px] text-text shadow-panel"
+                            side="right"
+                            sideOffset={7}
+                          >
+                            {t('analysis.confirm')}
+                            <Tooltip.Arrow
+                              className="fill-surface"
+                              width={12}
+                              height={6}
                             />
-                          )}
-                        </g>
-                      )
-                    })}
-                  </svg>
-                  <button
-                    className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-sm border border-border-strong bg-surface/95 px-2 py-1.5 text-xs text-text hover:bg-surface-raised"
-                    onClick={() => inputRef.current?.click()}
-                  >
-                    <RefreshCw size={15} /> {t('analysis.replaceScreenshot')}
-                  </button>
+                          </Tooltip.Content>
+                        </Tooltip.Portal>
+                      </Tooltip.Root>
+                    )}
+                  </div>
                 </div>
               )}
               {activePage === 'layout' && screenshotUrl && (
@@ -1569,7 +1461,10 @@ function MainApp() {
                           </AlertDialog.Trigger>
                           <AlertDialog.Portal>
                             <AlertDialog.Overlay className="fixed inset-0 z-[90] bg-canvas/75" />
-                            <AlertDialog.Content className="fixed left-1/2 top-1/2 z-[91] w-[min(420px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-surface p-[18px] text-text shadow-panel">
+                            <AlertDialog.Content
+                              className="fixed left-1/2 top-1/2 z-[91] w-[min(420px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-surface p-[18px] text-text shadow-panel"
+                              data-testid="layout-reset-dialog"
+                            >
                               <AlertDialog.Title className="m-0 text-[17px] font-semibold">
                                 {t('layout.resetTitle')}
                               </AlertDialog.Title>
@@ -1724,268 +1619,22 @@ function MainApp() {
                 </section>
               </aside>
             )}
-
-            {activePage === 'analysis' && (
-              <aside className="min-w-0 border-t border-border-subtle pt-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="eyebrow">{t('analysis.buildStep')}</p>
-                    <h2>{t('analysis.recommendations')}</h2>
-                  </div>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    {slots.length > 0 && (
-                      <button
-                        className="grid size-8 place-items-center rounded-sm border border-border-strong bg-surface-raised text-text hover:border-accent hover:bg-accent-soft"
-                        data-testid="accept-suggestions"
-                        title={t('analysis.acceptSuggestions')}
-                        aria-label={t('analysis.acceptSuggestions')}
-                        onClick={acceptSuggestions}
-                      >
-                        <Check size={17} />
-                      </button>
-                    )}
-                    <OverlayToggleButton
-                      kind="recommendation"
-                      open={overlayVisibility.recommendation}
-                      onToggle={toggleOverlay}
-                    />
-                    <OverlayToggleButton
-                      kind="tier"
-                      open={overlayVisibility.tier}
-                      onToggle={toggleOverlay}
-                    />
-                    <Sparkles size={19} className="text-accent" />
-                  </div>
-                </div>
-
-                <fieldset className="mt-[22px] border-0 p-0">
-                  <legend className="mb-2 text-sm text-text">
-                    {t('analysis.lockPick')}{' '}
-                    <span className="text-text-muted">
-                      {selectedIds.length}/5
-                    </span>
-                  </legend>
-                  <div className="grid gap-3">
-                    {BUILD_PICK_GROUPS.map((group) => {
-                      const ids = candidatePools[group.key]
-                      const selectedCount = selectedIds.filter((id) =>
-                        ids.includes(id),
-                      ).length
-                      return (
-                        <section className="grid gap-1.5" key={group.key}>
-                          <header className="flex items-center justify-between text-xs font-bold text-text">
-                            <span>{t(group.labelKey)}</span>
-                            <small className="font-mono font-normal text-text-muted">
-                              {selectedCount}/{group.limit}
-                            </small>
-                          </header>
-                          <div className="flex flex-wrap gap-1.5">
-                            {ids.map((id) => {
-                              const item = ability(id)
-                              if (!item) return null
-                              const tier = candidateTierInfo.get(id)?.tier
-                              return (
-                                <button
-                                  key={id}
-                                  className={cn(
-                                    'inline-flex min-w-0 items-center gap-1.5 rounded-sm border border-border bg-surface-raised px-2 py-1.5 text-[13px] text-text hover:border-accent hover:bg-accent-soft [&>span:not(.skill-icon)]:max-w-[130px] [&>span:not(.skill-icon)]:truncate',
-                                    selectedIds.includes(id) &&
-                                      'border-accent bg-accent-soft',
-                                  )}
-                                  onClick={() => toggleSelected(id)}
-                                >
-                                  <SkillIcon
-                                    compact
-                                    abilityId={id}
-                                    shortName={item.shortName}
-                                    name={item.name}
-                                    isHero={item.isHero}
-                                  />
-                                  <span>{item.name}</span>
-                                  {tier && (
-                                    <small
-                                      className={cn(
-                                        'grid size-4 place-items-center border border-current font-mono text-[10px] font-bold',
-                                        PICK_TIER_CLASSES[tier],
-                                      )}
-                                    >
-                                      {tier}
-                                    </small>
-                                  )}
-                                </button>
-                              )
-                            })}
-                            {ids.length === 0 && (
-                              <p className="my-1 text-[13px] text-text-muted">
-                                {t('analysis.noConfirmedCandidates')}
-                              </p>
-                            )}
-                          </div>
-                        </section>
-                      )
-                    })}
-                    {candidateIds.length === 0 && (
-                      <p className="my-1 text-[13px] text-text-muted">
-                        {t('analysis.confirmForBuild')}
-                      </p>
-                    )}
-                  </div>
-                </fieldset>
-
-                {recommendations.length > 0 ? (
-                  <div className="mt-5">
-                    <div className="border-l-[3px] border-accent bg-accent-soft p-4">
-                      <span className="mb-1 block text-[13px] text-text-muted">
-                        {t('analysis.nextPick')}
-                      </span>
-                      <strong className="text-[19px] text-text-strong">
-                        {
-                          ability(
-                            recommendations[0].pickOrderIds.find(
-                              (id) => !selectedIds.includes(id),
-                            ) ?? recommendations[0].pickOrderIds[0],
-                          )?.name
-                        }
-                      </strong>
-                    </div>
-                    {recommendations.map((recommendation, index) => (
-                      <article
-                        className="border-b border-border-subtle py-[18px]"
-                        key={recommendation.abilityIds.join('-')}
-                      >
-                        <div className="grid items-center gap-4 min-[761px]:grid-cols-[minmax(0,1fr)_auto]">
-                          <div>
-                            <div className="flex items-center gap-2 text-xs text-text-muted">
-                              <span>
-                                {t('analysis.plan', { number: index + 1 })}
-                              </span>
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {recommendation.pickOrderIds.map(
-                                (id, pickIndex) => {
-                                  const item = ability(id)
-                                  return (
-                                    <span
-                                      className="relative inline-flex min-h-[52px] items-center gap-1.5 bg-surface px-2 pb-1 pt-4 text-xs text-text"
-                                      key={id}
-                                      title={item?.name}
-                                    >
-                                      <small className="absolute left-2 top-0.5 text-[9px] text-text-muted">
-                                        {t('analysis.pick', {
-                                          number: pickIndex + 1,
-                                        })}{' '}
-                                        · {pickRoleLabel(item)}
-                                      </small>
-                                      <SkillIcon
-                                        compact
-                                        abilityId={id}
-                                        shortName={item?.shortName}
-                                        name={item?.name}
-                                        isHero={item?.isHero}
-                                      />
-                                      <b className="max-w-[132px] truncate font-medium">
-                                        {item?.name}
-                                      </b>
-                                    </span>
-                                  )
-                                },
-                              )}
-                            </div>
-                          </div>
-                          <dl className="m-0 grid grid-cols-2 gap-3 min-[601px]:grid-cols-4 min-[761px]:grid-cols-4">
-                            <div className="grid min-w-16 gap-1">
-                              <dt className="whitespace-nowrap text-[11px] text-text-muted">
-                                {t('common.score')}
-                              </dt>
-                              <dd className="m-0 grid gap-0.5 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
-                                {recommendation.score.toFixed(1)}%
-                              </dd>
-                            </div>
-                            <div className="grid min-w-16 gap-1">
-                              <dt className="whitespace-nowrap text-[11px] text-text-muted">
-                                {t('common.baseWinRate')}
-                              </dt>
-                              <dd className="m-0 grid gap-0.5 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
-                                {(recommendation.abilityWinRate * 100).toFixed(
-                                  1,
-                                )}
-                                %
-                              </dd>
-                            </div>
-                            <div
-                              className="group relative grid min-w-16 cursor-help gap-1 rounded-sm focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-2"
-                              tabIndex={0}
-                              aria-label={t('analysis.synergyAria', {
-                                synergy: formatPairPercent(
-                                  recommendation.synergy,
-                                  true,
-                                ),
-                                delta: formatLogitDelta(
-                                  recommendation.logitSynergy,
-                                ),
-                                interactions:
-                                  recommendation.effectiveInteractionCount,
-                                partial:
-                                  recommendation.partialInteractions.length,
-                              })}
-                            >
-                              <dt className="whitespace-nowrap text-[11px] text-text-muted">
-                                {t('common.synergy')}
-                              </dt>
-                              <dd className="m-0 grid gap-0.5 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
-                                {formatPairPercent(
-                                  recommendation.synergy,
-                                  true,
-                                )}
-                                <small className="text-[10px] font-normal text-text-muted">
-                                  {t('common.logitDelta')}{' '}
-                                  {formatLogitDelta(
-                                    recommendation.logitSynergy,
-                                  )}{' '}
-                                  ·{' '}
-                                  {t('draft.interactionGroups', {
-                                    count:
-                                      recommendation.effectiveInteractionCount,
-                                  })}
-                                  {recommendation.partialInteractions.length > 0
-                                    ? ` · ${t('analysis.partialInteractions')} ${recommendation.partialInteractions.length}`
-                                    : ''}
-                                </small>
-                              </dd>
-                              <RecommendationInteractionsPopover
-                                interactions={
-                                  recommendation.effectiveInteractions
-                                }
-                                partialInteractions={
-                                  recommendation.partialInteractions
-                                }
-                                abilities={abilitiesById}
-                              />
-                            </div>
-                            <div className="grid min-w-16 gap-1">
-                              <dt className="whitespace-nowrap text-[11px] text-text-muted">
-                                {t('common.averagePick')}
-                              </dt>
-                              <dd className="m-0 grid gap-0.5 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
-                                {recommendation.averagePickPosition.toFixed(1)}
-                              </dd>
-                            </div>
-                          </dl>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-[26px] grid min-h-[190px] place-content-center justify-items-center rounded-md border border-dashed border-border-strong bg-surface text-center text-text-muted">
-                    <FileImage size={24} />
-                    <p className="mb-0 mt-2.5 max-w-[220px] text-[13px]">
-                      {t('analysis.buildRequirement')}
-                    </p>
-                  </div>
-                )}
-              </aside>
-            )}
           </section>
+        )}
+
+        {activePage === 'build' && (
+          <BuildRecommendationsPage
+            candidatePools={candidatePools}
+            candidateTierInfo={candidateTierInfo}
+            selectedIds={selectedIds}
+            recommendations={recommendations}
+            abilities={abilitiesById}
+            recommendationOverlayOpen={overlayVisibility.recommendation}
+            tierOverlayOpen={overlayVisibility.tier}
+            layoutOverlayOpen={overlayVisibility.layout}
+            onToggleSelected={toggleSelected}
+            onToggleOverlay={toggleOverlay}
+          />
         )}
 
         {activePage === 'draft' && (
@@ -2050,6 +1699,14 @@ function MainApp() {
           />
         )}
 
+        {activePage === 'settings' && (
+          <SettingsPage
+            layoutMode={layoutMode}
+            onBack={() => setActivePage('analysis')}
+            onLayoutModeChange={updateLayoutMode}
+          />
+        )}
+
         {!isDesktopRuntime() && overlayVisibility.recommendation && (
           <FloatingOverlay
             kind="recommendation"
@@ -2061,6 +1718,14 @@ function MainApp() {
         {!isDesktopRuntime() && overlayVisibility.tier && (
           <FloatingOverlay
             kind="tier"
+            state={overlayState}
+            snapshot={snapshot}
+            abilities={abilitiesById}
+          />
+        )}
+        {!isDesktopRuntime() && overlayVisibility.layout && (
+          <FloatingOverlay
+            kind="layout"
             state={overlayState}
             snapshot={snapshot}
             abilities={abilitiesById}

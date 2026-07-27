@@ -26,12 +26,18 @@ afterEach(async () => {
 
 describe('macOS bundle verifier', () => {
   it('resolves explicit bundle directories and arm64 requirements', () => {
-    const root = '/workspace/app'
+    const root = join('fixtures', 'project')
 
     expect(
       parseMacosBundleOptions(['--require-arm64', '--require-dmg'], root),
     ).toEqual({
-      bundleDirectory: join(root, 'src-tauri', 'target', 'release', 'bundle'),
+      bundleDirectory: resolve(
+        root,
+        'src-tauri',
+        'target',
+        'release',
+        'bundle',
+      ),
       requireArm64: true,
       requireDmg: true,
       requireRuntimeAssets: false,

@@ -10,11 +10,24 @@ const resources = {
   'zh-CN': {
     translation: {
       nav: {
+        build: '构筑推荐',
         analysis: '技能分析',
         layout: '布局校准',
         database: '技能梯度',
         pairs: '技能组合',
         draft: '选秀回放',
+      },
+      settings: {
+        title: '设置',
+        back: '返回',
+        layoutMode: '矩形布局方式',
+        layoutModeHint: '选择截图识别和布局浮层使用的矩形定位方式。',
+        layoutModeOptions: {
+          auto: '自动矩形投影 (auto)',
+          manual: '人工矩形布局 (manual)',
+        },
+        language: '界面语言',
+        languageHint: '切换后立即应用于界面。',
       },
       language: { zh: '中文', en: 'EN' },
       app: {
@@ -56,12 +69,13 @@ const resources = {
         screenshotStep: '01 / 截图',
         abilityPool: '技能池',
         uploadScreenshot: '导入截图',
-        uploadHint: 'PNG / JPG，默认布局会按图片分辨率缩放',
+        uploadHint: 'PNG / JPG，默认使用资源投影布局',
         replaceScreenshot: '更换',
         uploadedScreenshotAlt: '已上传的 Dota 2 选技截图',
         buildStep: '02 / 构筑',
         recommendations: '推荐方案',
         acceptSuggestions: '采用当前第一候选',
+        confirm: '确认',
         lockPick: '锁定选择',
         noConfirmedCandidates: '暂无已确认候选',
         confirmForBuild: '确认截图候选后生成完整五选构筑。',
@@ -83,13 +97,13 @@ const resources = {
           '协同提升 {{synergy}}，Logit 增量 {{delta}}，{{interactions}} 个计分互动，{{partial}} 个未计分三技能组',
       },
       layout: {
-        step: '02 / 布局',
+        step: '03 / 布局',
         title: '布局分析',
         empty: '请先在技能分析中上传截图，再校准布局。',
         calibration: '布局校准',
         toggleCalibration: '切换布局校准',
         instructions:
-          '拖动框体可移动，拖动右下角圆点可调整大小。所有框体对齐后重新切分。版本化 JSON 布局会按上传图片的尺寸缩放。',
+          '资源投影为默认布局；手工校准使用按截图尺寸保存的版本化 JSON 布局。',
         load: '载入布局',
         save: '保存布局',
         reset: '恢复默认',
@@ -102,7 +116,7 @@ const resources = {
         templateMatch: '模板匹配',
         colorFallback: '颜色回退',
         layout: '布局',
-        centerCrop: '中心裁剪',
+        centerCrop: '匹配裁剪',
         cropPreview: '裁剪框及外扩像素预览',
         goldenCandidate: '标准候选：{{name}} {{result}}',
         goldenTop: '前 {{rank}} 名',
@@ -113,7 +127,7 @@ const resources = {
         invalidFile: '布局文件无效',
       },
       tiers: {
-        step: '03 / 技能梯度',
+        step: '04 / 技能梯度',
         title: '技能梯度列表',
         rankedEntries: '{{count}} 个已排名条目',
         percentile: '胜率百分位',
@@ -129,7 +143,7 @@ const resources = {
         tierLabel: '{{tier}} 级',
       },
       pairs: {
-        step: '04 / 技能组合',
+        step: '05 / 技能组合',
         title: '技能组合',
         visiblePairs: '{{visible}} / {{total}} 组组合',
         synergy: '组合协同',
@@ -153,6 +167,7 @@ const resources = {
       overlay: {
         tier: '梯度参考',
         recommendation: '构筑推荐',
+        layout: '布局框浮层',
         passThrough: '鼠标穿透',
         pinnedTier: '置顶梯度',
         pinnedRecommendation: '置顶推荐',
@@ -165,14 +180,15 @@ const resources = {
         noBuilds: '锁定至少 1 个英雄、3 个技能和 1 个终极',
       },
       draft: {
-        step: '05 / 选秀回放',
+        step: '06 / 选秀回放',
         title: '选秀回放',
         playersPicks: '10 名玩家 / 50 次选择',
         poolUnavailable: '选秀池不可用',
         finalLoadout: '最终配置 1 英雄 / 3 技能 / 1 终极',
         finalScore: '最终构筑评分',
         completeBuilds: '完整 1 / 3 / 1 构筑',
-        sameMetrics: '使用与第一页相同的评分、基础胜率、协同和平均选择位指标。',
+        sameMetrics:
+          '使用与构筑推荐相同的评分、基础胜率、协同和平均选择位指标。',
         scored: '{{count}} / 10 已评分',
         player: '玩家',
         build: '构筑',
@@ -233,10 +249,24 @@ const resources = {
     translation: {
       nav: {
         analysis: 'Skill Analysis',
+        build: 'Build Recommendations',
         layout: 'Layout',
         database: 'Ability Tiers',
         pairs: 'Ability Pairs',
         draft: 'Draft Replay',
+      },
+      settings: {
+        title: 'Settings',
+        back: 'Back',
+        layoutMode: 'Rectangle layout mode',
+        layoutModeHint:
+          'Choose how rectangles are positioned for screenshot recognition and the layout overlay.',
+        layoutModeOptions: {
+          auto: 'Auto · Projection',
+          manual: 'Manual · Layout',
+        },
+        language: 'Interface language',
+        languageHint: 'Changes apply to the interface immediately.',
       },
       language: { zh: '中文', en: 'EN' },
       app: {
@@ -278,13 +308,13 @@ const resources = {
         screenshotStep: '01 / Screenshot',
         abilityPool: 'Ability Pool',
         uploadScreenshot: 'Import screenshot',
-        uploadHint:
-          'PNG / JPG. The default layout scales to the image resolution.',
+        uploadHint: 'PNG / JPG. Resource projection is used by default.',
         replaceScreenshot: 'Replace',
         uploadedScreenshotAlt: 'Uploaded Dota 2 ability draft screenshot',
         buildStep: '02 / Build',
         recommendations: 'Recommendations',
         acceptSuggestions: 'Accept current top candidates',
+        confirm: 'confirm',
         lockPick: 'Lock picks',
         noConfirmedCandidates: 'No confirmed candidates yet.',
         confirmForBuild:
@@ -308,14 +338,14 @@ const resources = {
           'Synergy lift {{synergy}}, logit delta {{delta}}, {{interactions}} scoring interactions, {{partial}} unscored triples',
       },
       layout: {
-        step: '02 / Layout',
+        step: '03 / Layout',
         title: 'Layout Analysis',
         empty:
           'Upload a screenshot in Skill Analysis before calibrating the layout.',
         calibration: 'Layout calibration',
         toggleCalibration: 'Toggle layout calibration',
         instructions:
-          'Drag a frame to move it. Drag its bottom-right dot to resize it. Re-slice when all frames align. The versioned JSON layout is scaled to the uploaded image dimensions.',
+          'Resource projection is the default; manual calibration uses a versioned JSON layout saved at the screenshot dimensions.',
         load: 'Load layout',
         save: 'Save layout',
         reset: 'Reset',
@@ -328,7 +358,7 @@ const resources = {
         templateMatch: 'Template match',
         colorFallback: 'Color fallback',
         layout: 'Layout',
-        centerCrop: 'Center crop',
+        centerCrop: 'Match crop',
         cropPreview: 'Crop frame and surrounding-pixel preview',
         goldenCandidate: 'Golden: {{name}} {{result}}',
         goldenTop: 'top {{rank}}',
@@ -339,7 +369,7 @@ const resources = {
         invalidFile: 'Invalid layout file',
       },
       tiers: {
-        step: '03 / Ability Tiers',
+        step: '04 / Ability Tiers',
         title: 'Ability Tier List',
         rankedEntries: '{{count}} ranked entries',
         percentile: 'Win rate percentile',
@@ -355,7 +385,7 @@ const resources = {
         tierLabel: '{{tier}} tier',
       },
       pairs: {
-        step: '04 / Ability Pairs',
+        step: '05 / Ability Pairs',
         title: 'Ability Pairs',
         visiblePairs: '{{visible}} of {{total}} pairs',
         synergy: 'Combination synergy',
@@ -379,6 +409,7 @@ const resources = {
       overlay: {
         tier: 'Tier Reference',
         recommendation: 'Build Recommendation',
+        layout: 'Layout Frame Overlay',
         passThrough: 'Click-through',
         pinnedTier: 'Pinned Tiers',
         pinnedRecommendation: 'Pinned Recommendation',
@@ -391,7 +422,7 @@ const resources = {
         noBuilds: 'Lock at least 1 hero, 3 abilities, and 1 ultimate',
       },
       draft: {
-        step: '05 / Draft Replay',
+        step: '06 / Draft Replay',
         title: 'Draft Replay',
         playersPicks: '10 Players / 50 Picks',
         poolUnavailable: 'Draft pool unavailable',
@@ -399,7 +430,7 @@ const resources = {
         finalScore: 'Final build score',
         completeBuilds: 'Complete 1 / 3 / 1 builds',
         sameMetrics:
-          'Uses the same Score, Base WR, Synergy, and Avg Pick metrics as page one.',
+          'Uses the same Score, Base WR, Synergy, and Avg Pick metrics as Build Recommendations.',
         scored: '{{count}} / 10 scored',
         player: 'Player',
         build: 'Build',

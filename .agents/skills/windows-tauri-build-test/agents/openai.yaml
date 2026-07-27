@@ -1,0 +1,4 @@
+interface:
+  display_name: "Windows Tauri Build and Test"
+  short_description: "Run Windows debug, release, and native E2E workflows"
+  default_prompt: "Use $windows-tauri-build-test to run the requested Windows debug, release, or native E2E workflow."

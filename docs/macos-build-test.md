@@ -109,8 +109,8 @@ enabled. On an Apple Silicon Mac, download the final DMG outside a development d
 its SHA-256 with the published value, and check it. Record the result in the
 [release acceptance template](macos-release-acceptance-template.md):
 
-- The main window starts near 720 x 920 logical points. Navigation remains compact, toolbars can
-  wrap, tables scroll horizontally, and the Draft layout stacks vertically where necessary.
+- The resizable main window starts near 720 x 540 logical points without a native minimum-size lock.
+  Navigation and toolbars wrap, tables scroll horizontally, and wider windows enable parallel layouts.
 - A supported screenshot yields 60 slots. Re-slice, candidate confirmation, layout save/load, and
   restart persistence work.
 - Analysis, Layout, Tier List, Ability Pairs, recommendations, and Draft Replay remain usable.

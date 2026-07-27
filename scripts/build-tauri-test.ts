@@ -12,7 +12,15 @@ function run(
   env = process.env,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const useWindowsCommandShell =
+      process.platform === 'win32' && command.endsWith('.cmd')
+    const spawnCommand = useWindowsCommandShell
+      ? (process.env.ComSpec ?? 'cmd.exe')
+      : command
+    const spawnArgs = useWindowsCommandShell
+      ? ['/d', '/s', '/c', command, ...args]
+      : args
+    const child = spawn(spawnCommand, spawnArgs, {
       cwd: process.cwd(),
       env,
       stdio: 'inherit',

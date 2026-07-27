@@ -37,6 +37,12 @@ Other npm commands, data refreshes, publishing, deployment, signing, notarizatio
 
 Use TypeScript/TSX with two-space indentation, single quotes, and no semicolons, enforced by Prettier. Rust uses four spaces and Rustfmt. Name React components and types in `PascalCase`, functions and variables in `camelCase`, and fixed configuration constants in `UPPER_SNAKE_CASE`. Prefer small typed helpers and existing core abstractions. Use `npm run build` as the TypeScript type check.
 
+## Path Portability
+
+- Do not hard-code absolute filesystem paths in source, tests, configuration, or documentation examples. This includes drive-rooted Windows paths, user-home roots, and synthetic workspace roots.
+- Build paths from repository-relative segments or runtime sources such as `process.cwd()`, `import.meta.url`, `tmpdir()`, `mkdtemp()`, environment variables, or explicit user input. Resolve them with the host platform's `node:path` semantics.
+- Tests must use relative or temporary fixture roots and compare paths with the same `join`/`resolve` semantics as the implementation. A target platform may determine file names or build triples, but it must not change the host filesystem path flavor.
+
 ## Testing Guidelines
 
 Vitest tests live beside the implementation in `src/core/` and use descriptive `describe` blocks with behavior-focused `it` names. Add or update tests for matching, layout, recognition, and recommendation behavior when changing those areas. Screenshot fixtures must be `2560x1440` PNGs with a matching JSON label map; keep them out of the repository unless redistribution and licensing have been reviewed.

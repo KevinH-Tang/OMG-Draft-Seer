@@ -1,5 +1,5 @@
 import defaultLayoutJson from '../../omg-layout-2560x1440.json'
-import type { Rect, SlotCategory } from '../types'
+import type { Quad, Rect, SlotCategory } from '../types'
 
 export const SUPPORTED_WIDTH = 2560
 export const SUPPORTED_HEIGHT = 1440
@@ -8,6 +8,10 @@ export const MATCH_CROP_RATIO = 0.76
 export interface FixedSlot {
   category: SlotCategory
   rect: Rect
+}
+
+export interface RuntimeSlot extends FixedSlot {
+  matchQuad?: Quad
 }
 
 export interface LayoutDocument {

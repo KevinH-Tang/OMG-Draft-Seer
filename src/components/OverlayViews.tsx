@@ -4,6 +4,7 @@ import { MousePointer2Off, PanelTop, Pin, PinOff, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { demoSnapshot } from '../data/demoSnapshot'
 import { isHeroAbility } from '../core/ability-category'
+import { cropCenter, FIXED_SLOT_LAYOUT, type RuntimeSlot } from '../core/layout'
 import {
   buildAbilityTierList,
   filterTierEntries,
@@ -23,6 +24,8 @@ import {
 import { appResourceUrl } from '../platform/resources'
 import type { Ability, Snapshot } from '../types'
 import { cn } from '../lib/cn'
+import { formatPairPercent } from '../lib/recommendation-format'
+import { TIER_STROKE_COLORS, TIER_TEXT_CLASSES } from '../lib/tier-presentation'
 import { SkillIcon } from './SkillIcon'
 
 const EMPTY_OVERLAY_STATE: OverlayState = {
@@ -32,26 +35,13 @@ const EMPTY_OVERLAY_STATE: OverlayState = {
   selectedIds: [],
   tierCategory: 'all',
   tierQuery: '',
-}
-
-const PICK_TIER_CLASSES: Record<AbilityTier, string> = {
-  S: 'text-warning',
-  A: 'text-orange-400',
-  B: 'text-positive',
-  C: 'text-accent',
-  D: 'text-text-muted',
-  E: 'text-cyan-300',
-  F: 'text-violet-300',
+  layout: [...FIXED_SLOT_LAYOUT],
+  layoutTiers: [],
+  layoutViewport: { width: 2560, height: 1440 },
 }
 
 function ui(key: string, options?: Record<string, unknown>): string {
   return i18n.t(key, options)
-}
-
-function formatPairPercent(value: number | undefined, signed = false): string {
-  if (value === undefined || !Number.isFinite(value)) return '—'
-  const percent = value * 100
-  return `${signed && percent > 0 ? '+' : ''}${percent.toFixed(1)}%`
 }
 
 export function OverlayToggleButton({
@@ -65,7 +55,12 @@ export function OverlayToggleButton({
 }) {
   const { t } = useTranslation()
   const isTier = kind === 'tier'
-  const label = isTier ? t('overlay.tier') : t('overlay.recommendation')
+  const isLayout = kind === 'layout'
+  const label = isTier
+    ? t('overlay.tier')
+    : isLayout
+      ? t('overlay.layout')
+      : t('overlay.recommendation')
   const Icon = open ? PinOff : Pin
 
   return (
@@ -83,6 +78,69 @@ export function OverlayToggleButton({
     >
       <Icon size={15} aria-hidden="true" />
     </button>
+  )
+}
+
+function LayoutOverlayView({ state }: { state: OverlayState }) {
+  const { t } = useTranslation()
+  const layout: readonly RuntimeSlot[] = state.layout ?? FIXED_SLOT_LAYOUT
+  const layoutTiers = state.layoutTiers ?? []
+  const viewport = state.layoutViewport ?? { width: 2560, height: 1440 }
+
+  return (
+    <svg
+      className="layout-overlay-screen"
+      viewBox={`0 0 ${viewport.width} ${viewport.height}`}
+      preserveAspectRatio="none"
+      aria-label={t('overlay.layout')}
+      data-testid="layout-overlay"
+    >
+      {layout.map((slot, index) => {
+        const tier = layoutTiers[index]
+        const stroke = tier
+          ? TIER_STROKE_COLORS[tier]
+          : 'var(--color-border-strong)'
+        const matchCrop = cropCenter(slot.rect)
+        const matchPoints = slot.matchQuad
+          ? [
+              slot.matchQuad.topLeft,
+              slot.matchQuad.topRight,
+              slot.matchQuad.bottomRight,
+              slot.matchQuad.bottomLeft,
+            ]
+              .map((point) => `${point.x},${point.y}`)
+              .join(' ')
+          : undefined
+
+        return (
+          <g key={index} className="layout-overlay-slot">
+            <rect
+              className="layout-overlay-inner-frame"
+              x={slot.rect.x}
+              y={slot.rect.y}
+              width={slot.rect.width}
+              height={slot.rect.height}
+            />
+            {matchPoints ? (
+              <polygon
+                className="layout-overlay-outer-frame"
+                points={matchPoints}
+                stroke={stroke}
+              />
+            ) : (
+              <rect
+                className="layout-overlay-outer-frame"
+                x={matchCrop.x}
+                y={matchCrop.y}
+                width={matchCrop.width}
+                height={matchCrop.height}
+                stroke={stroke}
+              />
+            )}
+          </g>
+        )
+      })}
+    </svg>
   )
 }
 
@@ -178,7 +236,7 @@ function OverlayTierContent({
                 <span
                   className={cn(
                     'grid size-[22px] place-items-center border border-current bg-accent-soft font-mono text-[13px] font-bold',
-                    PICK_TIER_CLASSES[tier],
+                    TIER_TEXT_CLASSES[tier],
                   )}
                 >
                   {tier}
@@ -311,6 +369,13 @@ export function FloatingOverlay({
   abilities: ReadonlyMap<number, Ability>
 }) {
   const { t } = useTranslation()
+  if (kind === 'layout') {
+    return (
+      <div className="layout-overlay-layer" aria-label={t('overlay.layout')}>
+        <LayoutOverlayView state={state} />
+      </div>
+    )
+  }
   const isTier = kind === 'tier'
   const nativeOverlay = overlayKindFromLocation() !== undefined
 
