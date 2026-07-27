@@ -18,7 +18,11 @@ statistics, and generate a data-backed recommendation.
 - The browser build must be served over HTTP. Direct `file://` usage is not supported.
 - The Tauri desktop build can open independent Tier and recommendation overlays. They stay above
   other windows and ignore cursor events; the browser build uses fixed, mouse-transparent panels.
-- The app does not capture the game window or provide global hotkeys.
+- Page two's assistant overlay combines the Tier box, candidate Tier list, Pair/Triple recommendations,
+  and the five-pick build score. Its `Tab` shortcut supports `Trigger` and `Hold` modes configured in
+  Settings. The desktop build registers `Tab` as an OS-global hotkey, while the browser build listens
+  only when its window is focused.
+- The app does not capture the game window or provide tray integration.
 - Static interface text supports 简体中文 and English. Chinese is the first-run default; the header selector persists the choice locally and synchronizes open desktop overlays.
 
 ## Quick Start
@@ -87,10 +91,11 @@ npm run test:tauri
 4. Review the top candidates and confirm the ability for each slot. `Save layout` and `Load layout`
    store the complete layout document; browser calibration data is kept in `localStorage`.
 5. Use `Tier List` and `Ability Pairs` to inspect the current snapshot.
-6. Lock confirmed picks and review recommendations for one hero, three abilities, and one
-   ultimate.
-7. From page one, use `置顶推荐` or `置顶Tier` to keep either view visible while the game is open.
-   Desktop overlays are independent native windows; browser overlays remain inside the browser window.
+6. Open page two to review Pair/Triple combinations from the current candidate pool, then lock
+   confirmed picks and review the five-pick score for one hero, three abilities, and one ultimate.
+7. In Settings, choose whether `Tab` toggles the assistant overlay (`Trigger`) or shows it only
+   while held (`Hold`). The page-two overlay includes Tier reference and recommendation content.
+8. Desktop overlays are independent native windows; browser overlays remain inside the browser window.
 
 ## Recognition
 
@@ -117,6 +122,10 @@ The recommender evaluates complete builds with this shape:
 or Triple with at least 50 picks contributes its signed logit effect when the Triple has all three
 eligible component Pairs. Incomplete Triples are diagnostics only. Tier rank and average pick position
 affect candidate ordering and display, but do not enter the final `Score` formula.
+
+Page two separately ranks eligible Pair and Triple records from the current recognized candidate pool.
+Their displayed combination score is the observed group win rate, with the individual logit base,
+synergy lift, and sample count shown alongside it. This does not replace the five-pick score above.
 
 See [Recommendation metrics](docs/recommendation-metrics.md) for the formulas, thresholds, and
 test coverage.
@@ -228,7 +237,8 @@ are intentionally excluded from version control.
 - Screenshot recognition still needs broader, independently labelled accuracy evaluation.
 - Draft Replay uses a deterministic 50-position strategy simulation with an up-to-20 candidate
   ranking at each position; it does not claim to predict the actual choices of the other players.
-- There is no game-window capture, tray integration, or global shortcut support. Overlays are
+- There is no game-window capture or tray integration. The desktop page-two `Tab` shortcut is an
+  OS-global hotkey; the browser shortcut is limited to the focused browser window. Overlays are
   information-only and do not interact with the game window.
 - Windrun data, DatDota icons, the local VPK-derived hero images, and the desktop favicon require
   source and redistribution licence review before release.

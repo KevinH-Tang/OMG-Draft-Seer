@@ -41,6 +41,10 @@ const TRIPLET_STATS_MAP_CACHE = new WeakMap<
   Map<string, TripletStats>
 >()
 const PAIR_LIST_CACHE = new WeakMap<Snapshot, Map<string, AbilityPairEntry[]>>()
+const ABILITY_STATS_MAP_CACHE = new WeakMap<
+  AbilityStats[],
+  Map<number, AbilityStats>
+>()
 
 export function abilityPairKey(leftId: number, rightId: number): string {
   return leftId < rightId ? `${leftId}-${rightId}` : `${rightId}-${leftId}`
@@ -128,6 +132,23 @@ export function calculateLogitBase(winRates: number[]): number | undefined {
   return combinedLogit === undefined
     ? undefined
     : calculateSigmoid(combinedLogit)
+}
+
+export function buildAbilityStatsMap(
+  abilityStats: AbilityStats[],
+): Map<number, AbilityStats> {
+  const cached = ABILITY_STATS_MAP_CACHE.get(abilityStats)
+  if (cached) return cached
+
+  const stats = new Map<number, AbilityStats>()
+  for (const stat of abilityStats) {
+    if (calculateWinRate(stat.picks, stat.wins) === undefined) continue
+    const previous = stats.get(stat.abilityId)
+    if (!previous || stat.picks > previous.picks)
+      stats.set(stat.abilityId, stat)
+  }
+  ABILITY_STATS_MAP_CACHE.set(abilityStats, stats)
+  return stats
 }
 
 export function buildPairStatsMap(

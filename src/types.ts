@@ -92,7 +92,7 @@ export interface RecognizedSlot {
   selectedAbilityId?: number
   preview?: Blob
   matchMode?: 'template' | 'color-fallback'
-  layoutSource?: 'projected' | 'fixed-fallback' | 'manual'
+  layoutSource?: 'projected' | 'manual'
 }
 
 export interface RecommendationInteraction {
@@ -112,6 +112,20 @@ export interface PartialRecommendationInteraction {
   picks: number
   pairCoverage: number
   missingPairIds: number[][]
+}
+
+export type CombinationType = 'pair' | 'triple'
+
+export interface CombinationRecommendation {
+  type: CombinationType
+  abilityIds: number[]
+  score: number
+  winRate: number
+  baseWinRate: number
+  synergy: number
+  logitSynergy: number
+  picks: number
+  selectedCount: number
 }
 
 export interface Recommendation {

@@ -21,3 +21,6 @@ tauri-build = { version = "2.6.3", features = [] }
 tauri = { version = "2.11.5", features = ["macos-private-api"] }
 tauri-plugin-wdio = { version = "1", optional = true }
 tauri-plugin-wdio-webdriver = { version = "1", optional = true }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-global-shortcut = "2.3.2"

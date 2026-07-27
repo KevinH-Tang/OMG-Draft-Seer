@@ -22,7 +22,7 @@ export function LanguageSwitcher({
       {(['zh-CN', 'en'] as const).map((option) => (
         <button
           className={cn(
-            'rounded px-2 py-1 font-mono text-[11px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent',
+            'min-w-0 whitespace-nowrap rounded px-2 py-1 font-mono text-[11px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent',
             fullWidth && 'min-h-9',
             option === locale
               ? 'bg-accent text-canvas'

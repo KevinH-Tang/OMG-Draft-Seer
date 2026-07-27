@@ -47,6 +47,7 @@ import {
 } from './core/layout'
 import { buildProjectedLayout, quadBounds } from './core/projective-layout'
 import { buildAbilityPairList, type AbilityPairEntry } from './core/pairs'
+import { recommendAbilityCombinations } from './core/combinations'
 import {
   recommendBuilds,
   scoreDraftBuild,
@@ -82,6 +83,7 @@ import {
   isDesktopRuntime,
   openNativeOverlay,
   overlayKindFromLocation,
+  setNativeOverlayShortcut,
   writeOverlayState,
   type OverlayKind,
   type OverlayMessage,
@@ -93,6 +95,18 @@ import {
   readStoredJson,
   writeStoredJson,
 } from './platform/storage'
+import {
+  DEFAULT_OVERLAY_SHORTCUT,
+  isEditableEventTarget,
+  isOverlayShortcutEvent,
+  isOverlayShortcutKeyEvent,
+  listenOverlayShortcut,
+  readOverlayShortcut,
+  readOverlayShortcutMode,
+  writeOverlayShortcut,
+  writeOverlayShortcutMode,
+  type OverlayShortcutMode,
+} from './platform/shortcuts'
 import {
   BuildRecommendationsPage,
   BUILD_PICK_GROUPS,
@@ -296,6 +310,15 @@ function MainApp() {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>(() =>
     readLayoutMode(storage),
   )
+  const [overlayShortcutMode, setOverlayShortcutMode] =
+    useState<OverlayShortcutMode>(() => readOverlayShortcutMode(storage))
+  const [overlayShortcut, setOverlayShortcut] = useState(() =>
+    readOverlayShortcut(storage),
+  )
+  const overlayShortcutHoldRef = useRef(false)
+  const overlayShortcutOpenRef = useRef<Promise<boolean> | undefined>(undefined)
+  const overlayShortcutRequestRef = useRef(0)
+  const recommendationVisibleRef = useRef(false)
   const recognitionWorkerRef = useRef<Worker | undefined>(undefined)
   const recognitionRequestRef = useRef(0)
   const screenshotUrlRef = useRef<string | undefined>(undefined)
@@ -358,6 +381,21 @@ function MainApp() {
     [],
   )
 
+  useEffect(() => {
+    if (!isDesktopRuntime()) return
+    const enabled = activePage === 'build'
+    const requestId = ++overlayShortcutRequestRef.current
+    void setNativeOverlayShortcut(overlayShortcut, enabled).catch(
+      (shortcutError) => {
+        if (overlayShortcutRequestRef.current !== requestId) return
+        if (!enabled) return
+        setOverlayShortcut(DEFAULT_OVERLAY_SHORTCUT)
+        writeOverlayShortcut(storage, DEFAULT_OVERLAY_SHORTCUT)
+        reportShortcutError(shortcutError)
+      },
+    )
+  }, [activePage, overlayShortcut, storage])
+
   const abilitiesById = useMemo(
     () => new Map(snapshot.abilities.map((ability) => [ability.id, ability])),
     [snapshot],
@@ -407,6 +445,22 @@ function MainApp() {
     }
   }, [abilitiesById, candidateTierInfo, slots])
   const deferredCandidatePools = useDeferredValue(candidatePools)
+  const combinationCandidateIds = useMemo(
+    () => [
+      ...new Set([
+        ...candidatePools.heroIds,
+        ...candidatePools.abilityIds,
+        ...candidatePools.ultimateIds,
+        ...slots.flatMap((slot) =>
+          slot.candidates.slice(0, 3).map((candidate) => candidate.abilityId),
+        ),
+      ]),
+    ],
+    [candidatePools, slots],
+  )
+  const deferredCombinationCandidateIds = useDeferredValue(
+    combinationCandidateIds,
+  )
   useEffect(() => {
     setSelectedIds((current) => {
       const selectedCounts: Record<keyof BuildCandidatePools, number> = {
@@ -457,9 +511,19 @@ function MainApp() {
       recommendBuilds(deferredCandidatePools, deferredSelectedIds, snapshot),
     [deferredCandidatePools, deferredSelectedIds, snapshot],
   )
+  const combinationRecommendations = useMemo(
+    () =>
+      recommendAbilityCombinations(
+        deferredCombinationCandidateIds,
+        deferredSelectedIds,
+        snapshot,
+      ),
+    [deferredCombinationCandidateIds, deferredSelectedIds, snapshot],
+  )
   const overlayState = useMemo<OverlayState>(
     () => ({
       candidatePools,
+      combinationRecommendations,
       locale,
       recommendations,
       selectedIds,
@@ -471,6 +535,7 @@ function MainApp() {
     }),
     [
       candidatePools,
+      combinationRecommendations,
       locale,
       recommendations,
       selectedIds,
@@ -736,7 +801,7 @@ function MainApp() {
         return
       }
       const nextImageSize = { width: decoded.width, height: decoded.height }
-      const fallbackLayout = buildScaledLayout(
+      const manualLayout = buildScaledLayout(
         importedLayout ?? DEFAULT_LAYOUT_DOCUMENT,
         layoutOverrides,
         nextImageSize,
@@ -781,8 +846,7 @@ function MainApp() {
         {
           image: decoded,
           abilities: snapshot.abilities,
-          layout: mode === 'manual' ? fallbackLayout : undefined,
-          fallbackLayout,
+          layout: mode === 'manual' ? manualLayout : undefined,
           signatures: iconSignatures,
         },
         [decoded],
@@ -971,6 +1035,35 @@ function MainApp() {
     if (uploadedFile) void handleUpload(uploadedFile, mode)
   }
 
+  function updateOverlayShortcutMode(mode: OverlayShortcutMode) {
+    setOverlayShortcutMode(mode)
+    writeOverlayShortcutMode(storage, mode)
+  }
+
+  function reportShortcutError(shortcutError: unknown) {
+    const message =
+      shortcutError instanceof Error
+        ? shortcutError.message
+        : t('errors.overlayShortcutUnavailable')
+    toast.error(message)
+  }
+
+  async function updateOverlayShortcut(shortcut: string) {
+    const normalized = shortcut.trim()
+    if (!normalized || normalized === overlayShortcut) return
+    const requestId = ++overlayShortcutRequestRef.current
+    try {
+      if (isDesktopRuntime())
+        await setNativeOverlayShortcut(normalized, activePage === 'build')
+      if (overlayShortcutRequestRef.current !== requestId) return
+      setOverlayShortcut(normalized)
+      writeOverlayShortcut(storage, normalized)
+    } catch (shortcutError) {
+      if (overlayShortcutRequestRef.current !== requestId) return
+      reportShortcutError(shortcutError)
+    }
+  }
+
   function updateSlot(index: number, value: string) {
     const normalized = value.trim()
     const selectedAbilityId = /^-?\d+$/.test(normalized)
@@ -1089,26 +1182,152 @@ function MainApp() {
     if (nextStep >= maxStep) setReplayPlaying(false)
   }
 
-  async function toggleOverlay(kind: OverlayKind) {
-    const isOpen = overlayVisibility[kind]
+  async function setOverlayOpen(kind: OverlayKind, open: boolean) {
     try {
       if (isDesktopRuntime()) {
-        if (isOpen) await closeNativeOverlay(kind)
-        else
+        if (open) {
+          writeOverlayState(kind, overlayState)
           await openNativeOverlay(
             kind,
             kind === 'layout' ? imageSize : undefined,
           )
+        } else await closeNativeOverlay(kind)
       }
-      setOverlayVisibility((current) => ({ ...current, [kind]: !isOpen }))
+      setOverlayVisibility((current) =>
+        current[kind] === open ? current : { ...current, [kind]: open },
+      )
+      return true
     } catch (overlayError) {
       const message =
         overlayError instanceof Error
           ? overlayError.message
           : t('errors.overlayOpen')
       toast.error(message)
+      return false
     }
   }
+
+  async function toggleOverlay(kind: OverlayKind) {
+    return setOverlayOpen(kind, !overlayVisibility[kind])
+  }
+
+  function releaseHeldRecommendationOverlay() {
+    if (!overlayShortcutHoldRef.current) return
+    overlayShortcutHoldRef.current = false
+    const pendingOpen = overlayShortcutOpenRef.current
+    if (pendingOpen) {
+      void pendingOpen.then((opened) => {
+        if (opened && !overlayShortcutHoldRef.current)
+          void setOverlayOpen('recommendation', false)
+      })
+      return
+    }
+    void setOverlayOpen('recommendation', false)
+  }
+
+  function trackHeldRecommendationOpen(opening: Promise<boolean>) {
+    overlayShortcutOpenRef.current = opening
+    void opening.then(() => {
+      if (overlayShortcutOpenRef.current === opening)
+        overlayShortcutOpenRef.current = undefined
+    })
+  }
+
+  useEffect(() => {
+    recommendationVisibleRef.current = overlayVisibility.recommendation
+  }, [overlayVisibility.recommendation])
+
+  useEffect(() => {
+    if (activePage !== 'build' || overlayShortcutMode !== 'hold')
+      releaseHeldRecommendationOverlay()
+    if (activePage !== 'build') return
+
+    const desktopRuntime = isDesktopRuntime()
+
+    const handleShortcutState = (state: 'pressed' | 'released') => {
+      if (state === 'released') {
+        if (overlayShortcutMode !== 'hold') return
+        if (!overlayShortcutHoldRef.current) return
+        releaseHeldRecommendationOverlay()
+        return
+      }
+
+      if (overlayShortcutMode === 'hold') {
+        if (recommendationVisibleRef.current) return
+        if (overlayShortcutHoldRef.current) return
+        if (overlayShortcutOpenRef.current) {
+          overlayShortcutHoldRef.current = true
+          return
+        }
+        overlayShortcutHoldRef.current = true
+        trackHeldRecommendationOpen(setOverlayOpen('recommendation', true))
+        return
+      }
+      void setOverlayOpen('recommendation', !recommendationVisibleRef.current)
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        !isOverlayShortcutEvent(event, overlayShortcut) ||
+        event.repeat ||
+        event.defaultPrevented ||
+        isEditableEventTarget(event.target)
+      )
+        return
+      event.preventDefault()
+      handleShortcutState('pressed')
+    }
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (
+        overlayShortcutMode !== 'hold' ||
+        !overlayShortcutHoldRef.current ||
+        !isOverlayShortcutKeyEvent(event, overlayShortcut)
+      )
+        return
+      event.preventDefault()
+      handleShortcutState('released')
+    }
+
+    let unlistenDesktopShortcut: (() => void) | undefined
+    let effectActive = true
+    const handleFocusLoss = () => {
+      if (overlayShortcutMode === 'hold') releaseHeldRecommendationOverlay()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') handleFocusLoss()
+    }
+
+    if (desktopRuntime) {
+      void listenOverlayShortcut(handleShortcutState)
+        .then((unlisten) => {
+          if (effectActive) unlistenDesktopShortcut = unlisten
+          else unlisten()
+        })
+        .catch(() => undefined)
+    } else {
+      window.addEventListener('keydown', handleKeyDown)
+      window.addEventListener('keyup', handleKeyUp)
+      window.addEventListener('blur', handleFocusLoss)
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+    }
+    return () => {
+      effectActive = false
+      unlistenDesktopShortcut?.()
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', handleFocusLoss)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [activePage, overlayShortcut, overlayShortcutMode])
+
+  useEffect(
+    () => () => {
+      releaseHeldRecommendationOverlay()
+    },
+    [],
+  )
 
   return (
     <Tooltip.Provider delayDuration={250} skipDelayDuration={150}>
@@ -1627,6 +1846,7 @@ function MainApp() {
             candidatePools={candidatePools}
             candidateTierInfo={candidateTierInfo}
             selectedIds={selectedIds}
+            combinationRecommendations={combinationRecommendations}
             recommendations={recommendations}
             abilities={abilitiesById}
             recommendationOverlayOpen={overlayVisibility.recommendation}
@@ -1702,8 +1922,12 @@ function MainApp() {
         {activePage === 'settings' && (
           <SettingsPage
             layoutMode={layoutMode}
+            overlayShortcut={overlayShortcut}
+            overlayShortcutMode={overlayShortcutMode}
             onBack={() => setActivePage('analysis')}
             onLayoutModeChange={updateLayoutMode}
+            onOverlayShortcutChange={updateOverlayShortcut}
+            onOverlayShortcutModeChange={updateOverlayShortcutMode}
           />
         )}
 

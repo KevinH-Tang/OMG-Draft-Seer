@@ -1,4 +1,4 @@
-import { FileImage, Sparkles } from 'lucide-react'
+import { FileImage, GitFork, Sparkles } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -13,7 +13,12 @@ import {
 } from '../lib/recommendation-format'
 import { TIER_TEXT_CLASSES } from '../lib/tier-presentation'
 import type { OverlayKind } from '../platform/overlays'
-import type { Ability, Recommendation } from '../types'
+import type {
+  Ability,
+  CombinationRecommendation,
+  Recommendation,
+} from '../types'
+import { CombinationAbilityIcons } from './CombinationAbilityIcons'
 import { OverlayToggleButton } from './OverlayViews'
 import { RecommendationInteractionsPopover } from './RecommendationInteractionsPopover'
 import { SkillIcon } from './SkillIcon'
@@ -49,6 +54,7 @@ export interface BuildRecommendationsPageProps {
   candidatePools: BuildCandidatePools
   candidateTierInfo: ReadonlyMap<number, { tier: AbilityTier }>
   selectedIds: readonly number[]
+  combinationRecommendations: readonly CombinationRecommendation[]
   recommendations: readonly Recommendation[]
   abilities: ReadonlyMap<number, Ability>
   recommendationOverlayOpen: boolean
@@ -62,6 +68,7 @@ export function BuildRecommendationsPage({
   candidatePools,
   candidateTierInfo,
   selectedIds,
+  combinationRecommendations,
   recommendations,
   abilities,
   recommendationOverlayOpen,
@@ -90,7 +97,7 @@ export function BuildRecommendationsPage({
       <PageHeader
         titleId="build-recommendations-page-title"
         eyebrow={t('analysis.buildStep')}
-        title={t('analysis.recommendations')}
+        title={t('analysis.combinationRecommendations')}
         aside={
           <div className="flex flex-wrap justify-end gap-2">
             <OverlayToggleButton
@@ -186,130 +193,245 @@ export function BuildRecommendationsPage({
         </div>
       </fieldset>
 
-      {recommendations.length > 0 ? (
-        <div className="mt-5">
-          <div className="border-l-[3px] border-accent bg-accent-soft p-4">
-            <span className="mb-1 block text-[13px] text-text-muted">
-              {t('analysis.nextPick')}
-            </span>
-            <strong className="text-[19px] text-text-strong">
-              {
-                abilities.get(
-                  recommendations[0].pickOrderIds.find(
-                    (id) => !selectedIds.includes(id),
-                  ) ?? recommendations[0].pickOrderIds[0],
-                )?.name
-              }
-            </strong>
-          </div>
-          {recommendations.map((recommendation, index) => (
-            <article
-              className="border-b border-border-subtle py-[18px]"
-              key={recommendation.abilityIds.join('-')}
+      <section
+        className="mt-6 border-t border-border-subtle pt-5"
+        aria-labelledby="combination-recommendations-title"
+        data-testid="combination-recommendations"
+      >
+        <header className="flex items-start justify-between gap-3">
+          <div>
+            <h2
+              id="combination-recommendations-title"
+              className="inline-flex items-center gap-2 text-base"
             >
-              <div className="grid items-center gap-4 min-[761px]:grid-cols-[minmax(0,1fr)_auto]">
-                <div>
-                  <div className="flex items-center gap-2 text-xs text-text-muted">
-                    <span>{t('analysis.plan', { number: index + 1 })}</span>
+              <GitFork size={17} aria-hidden="true" />
+              {t('analysis.combinationRecommendations')}
+            </h2>
+            <p className="mb-0 mt-1 text-xs text-text-muted">
+              {t('analysis.combinationHint')}
+            </p>
+          </div>
+        </header>
+        {combinationRecommendations.length > 0 ? (
+          <div className="mt-3">
+            {combinationRecommendations.map((recommendation, index) => (
+              <article
+                className="border-b border-border-subtle py-3 first:border-t"
+                key={`${recommendation.type}-${recommendation.abilityIds.join('-')}`}
+              >
+                <div className="grid items-center gap-3 min-[761px]:grid-cols-[minmax(0,1fr)_auto]">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-xs text-text-muted">
+                      <span>{t('analysis.plan', { number: index + 1 })}</span>
+                      <span className="border border-border-strong bg-surface-raised px-1.5 py-0.5 font-mono text-[10px] uppercase">
+                        {t(`common.${recommendation.type}`)}
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <CombinationAbilityIcons
+                        recommendation={recommendation}
+                        abilities={abilities}
+                      />
+                    </div>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {recommendation.pickOrderIds.map((id, pickIndex) => {
-                      const item = abilities.get(id)
-                      return (
-                        <span
-                          className="relative inline-flex min-h-[52px] items-center gap-1.5 bg-surface px-2 pb-1 pt-4 text-xs text-text"
-                          key={id}
-                          title={item?.name}
-                        >
-                          <small className="absolute left-2 top-0.5 text-[9px] text-text-muted">
-                            {t('analysis.pick', { number: pickIndex + 1 })} ·{' '}
-                            {t(pickRoleKey(item))}
-                          </small>
-                          <SkillIcon
-                            compact
-                            abilityId={id}
-                            shortName={item?.shortName}
-                            name={item?.name}
-                            isHero={item?.isHero}
-                          />
-                          <b className="max-w-[132px] truncate font-medium">
-                            {item?.name}
-                          </b>
-                        </span>
-                      )
-                    })}
-                  </div>
+                  <dl className="m-0 grid grid-cols-2 gap-3 min-[601px]:grid-cols-4">
+                    <div className="grid min-w-16 gap-1">
+                      <dt className="whitespace-nowrap text-[11px] text-text-muted">
+                        {t('common.score')}
+                      </dt>
+                      <dd className="m-0 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
+                        {recommendation.score.toFixed(1)}%
+                      </dd>
+                    </div>
+                    <div className="grid min-w-16 gap-1">
+                      <dt className="whitespace-nowrap text-[11px] text-text-muted">
+                        {t('common.baseWinRate')}
+                      </dt>
+                      <dd className="m-0 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
+                        {(recommendation.baseWinRate * 100).toFixed(1)}%
+                      </dd>
+                    </div>
+                    <div
+                      className="grid min-w-16 gap-1"
+                      title={t('analysis.combinationSynergyHint')}
+                    >
+                      <dt className="whitespace-nowrap text-[11px] text-text-muted">
+                        {t('common.synergy')}
+                      </dt>
+                      <dd
+                        className={cn(
+                          'm-0 whitespace-nowrap font-mono text-[15px] font-bold',
+                          recommendation.synergy >= 0
+                            ? 'text-positive'
+                            : 'text-negative',
+                        )}
+                      >
+                        {formatPairPercent(recommendation.synergy, true)}
+                      </dd>
+                    </div>
+                    <div className="grid min-w-16 gap-1">
+                      <dt className="whitespace-nowrap text-[11px] text-text-muted">
+                        {t('common.games')}
+                      </dt>
+                      <dd className="m-0 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
+                        {recommendation.picks.toLocaleString()}
+                      </dd>
+                    </div>
+                  </dl>
                 </div>
-                <dl className="m-0 grid grid-cols-2 gap-3 min-[601px]:grid-cols-4">
-                  <div className="grid min-w-16 gap-1">
-                    <dt className="whitespace-nowrap text-[11px] text-text-muted">
-                      {t('common.score')}
-                    </dt>
-                    <dd className="m-0 grid gap-0.5 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
-                      {recommendation.score.toFixed(1)}%
-                    </dd>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-3 grid min-h-24 place-content-center justify-items-center border border-dashed border-border-strong bg-surface text-center text-[13px] text-text-muted">
+            {t('analysis.noCombinations')}
+          </div>
+        )}
+      </section>
+
+      <section
+        className="mt-6 border-t border-border-subtle pt-5"
+        aria-labelledby="five-pick-score-title"
+        data-testid="five-pick-recommendations"
+      >
+        <header className="flex items-start justify-between gap-3">
+          <div>
+            <h2 id="five-pick-score-title" className="text-base">
+              {t('analysis.fivePickScore')}
+            </h2>
+            <p className="mb-0 mt-1 text-xs text-text-muted">
+              {t('analysis.fivePickScoreHint')}
+            </p>
+          </div>
+        </header>
+        {recommendations.length > 0 ? (
+          <div className="mt-3">
+            <div className="border-l-[3px] border-accent bg-accent-soft p-4">
+              <span className="mb-1 block text-[13px] text-text-muted">
+                {t('analysis.nextPick')}
+              </span>
+              <strong className="text-[19px] text-text-strong">
+                {
+                  abilities.get(
+                    recommendations[0].pickOrderIds.find(
+                      (id) => !selectedIds.includes(id),
+                    ) ?? recommendations[0].pickOrderIds[0],
+                  )?.name
+                }
+              </strong>
+            </div>
+            {recommendations.map((recommendation, index) => (
+              <article
+                className="border-b border-border-subtle py-[18px]"
+                key={recommendation.abilityIds.join('-')}
+              >
+                <div className="grid items-center gap-4 min-[761px]:grid-cols-[minmax(0,1fr)_auto]">
+                  <div>
+                    <div className="flex items-center gap-2 text-xs text-text-muted">
+                      <span>{t('analysis.plan', { number: index + 1 })}</span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {recommendation.pickOrderIds.map((id, pickIndex) => {
+                        const item = abilities.get(id)
+                        return (
+                          <span
+                            className="relative inline-flex min-h-[52px] items-center gap-1.5 bg-surface px-2 pb-1 pt-4 text-xs text-text"
+                            key={id}
+                            title={item?.name}
+                          >
+                            <small className="absolute left-2 top-0.5 text-[9px] text-text-muted">
+                              {t('analysis.pick', { number: pickIndex + 1 })} ·{' '}
+                              {t(pickRoleKey(item))}
+                            </small>
+                            <SkillIcon
+                              compact
+                              abilityId={id}
+                              shortName={item?.shortName}
+                              name={item?.name}
+                              isHero={item?.isHero}
+                            />
+                            <b className="max-w-[132px] truncate font-medium">
+                              {item?.name}
+                            </b>
+                          </span>
+                        )
+                      })}
+                    </div>
                   </div>
-                  <div className="grid min-w-16 gap-1">
-                    <dt className="whitespace-nowrap text-[11px] text-text-muted">
-                      {t('common.baseWinRate')}
-                    </dt>
-                    <dd className="m-0 grid gap-0.5 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
-                      {(recommendation.abilityWinRate * 100).toFixed(1)}%
-                    </dd>
-                  </div>
-                  <div
-                    className="group relative grid min-w-16 cursor-help gap-1 rounded-sm focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-2"
-                    tabIndex={0}
-                    aria-label={t('analysis.synergyAria', {
-                      synergy: formatPairPercent(recommendation.synergy, true),
-                      delta: formatLogitDelta(recommendation.logitSynergy),
-                      interactions: recommendation.effectiveInteractionCount,
-                      partial: recommendation.partialInteractions.length,
-                    })}
-                  >
-                    <dt className="whitespace-nowrap text-[11px] text-text-muted">
-                      {t('common.synergy')}
-                    </dt>
-                    <dd className="m-0 grid gap-0.5 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
-                      {formatPairPercent(recommendation.synergy, true)}
-                      <small className="text-[10px] font-normal text-text-muted">
-                        {t('common.logitDelta')}{' '}
-                        {formatLogitDelta(recommendation.logitSynergy)} ·{' '}
-                        {t('draft.interactionGroups', {
-                          count: recommendation.effectiveInteractionCount,
-                        })}
-                        {recommendation.partialInteractions.length > 0
-                          ? ` · ${t('analysis.partialInteractions')} ${recommendation.partialInteractions.length}`
-                          : ''}
-                      </small>
-                    </dd>
-                    <RecommendationInteractionsPopover
-                      interactions={recommendation.effectiveInteractions}
-                      partialInteractions={recommendation.partialInteractions}
-                      abilities={abilities}
-                    />
-                  </div>
-                  <div className="grid min-w-16 gap-1">
-                    <dt className="whitespace-nowrap text-[11px] text-text-muted">
-                      {t('common.averagePick')}
-                    </dt>
-                    <dd className="m-0 grid gap-0.5 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
-                      {recommendation.averagePickPosition.toFixed(1)}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <div className="mt-[26px] grid min-h-[190px] place-content-center justify-items-center rounded-md border border-dashed border-border-strong bg-surface text-center text-text-muted">
-          <FileImage size={24} />
-          <p className="mb-0 mt-2.5 max-w-[220px] text-[13px]">
-            {t('analysis.buildRequirement')}
-          </p>
-        </div>
-      )}
+                  <dl className="m-0 grid grid-cols-2 gap-3 min-[601px]:grid-cols-4">
+                    <div className="grid min-w-16 gap-1">
+                      <dt className="whitespace-nowrap text-[11px] text-text-muted">
+                        {t('common.score')}
+                      </dt>
+                      <dd className="m-0 grid gap-0.5 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
+                        {recommendation.score.toFixed(1)}%
+                      </dd>
+                    </div>
+                    <div className="grid min-w-16 gap-1">
+                      <dt className="whitespace-nowrap text-[11px] text-text-muted">
+                        {t('common.baseWinRate')}
+                      </dt>
+                      <dd className="m-0 grid gap-0.5 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
+                        {(recommendation.abilityWinRate * 100).toFixed(1)}%
+                      </dd>
+                    </div>
+                    <div
+                      className="group relative grid min-w-16 cursor-help gap-1 rounded-sm focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-2"
+                      tabIndex={0}
+                      aria-label={t('analysis.synergyAria', {
+                        synergy: formatPairPercent(
+                          recommendation.synergy,
+                          true,
+                        ),
+                        delta: formatLogitDelta(recommendation.logitSynergy),
+                        interactions: recommendation.effectiveInteractionCount,
+                        partial: recommendation.partialInteractions.length,
+                      })}
+                    >
+                      <dt className="whitespace-nowrap text-[11px] text-text-muted">
+                        {t('common.synergy')}
+                      </dt>
+                      <dd className="m-0 grid gap-0.5 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
+                        {formatPairPercent(recommendation.synergy, true)}
+                        <small className="text-[10px] font-normal text-text-muted">
+                          {t('common.logitDelta')}{' '}
+                          {formatLogitDelta(recommendation.logitSynergy)} ·{' '}
+                          {t('draft.interactionGroups', {
+                            count: recommendation.effectiveInteractionCount,
+                          })}
+                          {recommendation.partialInteractions.length > 0
+                            ? ` · ${t('analysis.partialInteractions')} ${recommendation.partialInteractions.length}`
+                            : ''}
+                        </small>
+                      </dd>
+                      <RecommendationInteractionsPopover
+                        interactions={recommendation.effectiveInteractions}
+                        partialInteractions={recommendation.partialInteractions}
+                        abilities={abilities}
+                      />
+                    </div>
+                    <div className="grid min-w-16 gap-1">
+                      <dt className="whitespace-nowrap text-[11px] text-text-muted">
+                        {t('common.averagePick')}
+                      </dt>
+                      <dd className="m-0 grid gap-0.5 whitespace-nowrap font-mono text-[15px] font-bold text-text-strong">
+                        {recommendation.averagePickPosition.toFixed(1)}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-3 grid min-h-[190px] place-content-center justify-items-center border border-dashed border-border-strong bg-surface text-center text-text-muted">
+            <FileImage size={24} />
+            <p className="mb-0 mt-2.5 max-w-[220px] text-[13px]">
+              {t('analysis.buildRequirement')}
+            </p>
+          </div>
+        )}
+      </section>
     </section>
   )
 }

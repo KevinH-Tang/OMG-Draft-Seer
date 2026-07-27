@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { MousePointer2Off, PanelTop, Pin, PinOff, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -15,21 +15,28 @@ import {
 import i18n from '../i18n'
 import {
   createOverlayChannel,
+  isDesktopRuntime,
   overlayKindFromLocation,
   readOverlayState,
+  resizeNativeOverlay,
   type OverlayKind,
   type OverlayMessage,
   type OverlayState,
 } from '../platform/overlays'
 import { appResourceUrl } from '../platform/resources'
-import type { Ability, Snapshot } from '../types'
+import type { Ability, CombinationRecommendation, Snapshot } from '../types'
 import { cn } from '../lib/cn'
-import { formatPairPercent } from '../lib/recommendation-format'
+import {
+  formatLogitDelta,
+  formatPairPercent,
+} from '../lib/recommendation-format'
 import { TIER_STROKE_COLORS, TIER_TEXT_CLASSES } from '../lib/tier-presentation'
+import { CombinationAbilityIcons } from './CombinationAbilityIcons'
 import { SkillIcon } from './SkillIcon'
 
 const EMPTY_OVERLAY_STATE: OverlayState = {
   candidatePools: { heroIds: [], abilityIds: [], ultimateIds: [] },
+  combinationRecommendations: [],
   locale: 'zh-CN',
   recommendations: [],
   selectedIds: [],
@@ -38,6 +45,20 @@ const EMPTY_OVERLAY_STATE: OverlayState = {
   layout: [...FIXED_SLOT_LAYOUT],
   layoutTiers: [],
   layoutViewport: { width: 2560, height: 1440 },
+}
+
+function normalizeOverlayState(state: OverlayState | undefined): OverlayState {
+  return state
+    ? {
+        ...EMPTY_OVERLAY_STATE,
+        ...state,
+        combinationRecommendations: state.combinationRecommendations ?? [],
+      }
+    : EMPTY_OVERLAY_STATE
+}
+
+function restoreOverlayState(kind: OverlayKind): OverlayState {
+  return normalizeOverlayState(readOverlayState(kind))
 }
 
 function ui(key: string, options?: Record<string, unknown>): string {
@@ -60,7 +81,7 @@ export function OverlayToggleButton({
     ? t('overlay.tier')
     : isLayout
       ? t('overlay.layout')
-      : t('overlay.recommendation')
+      : t('overlay.assistant')
   const Icon = open ? PinOff : Pin
 
   return (
@@ -165,9 +186,11 @@ function OverlayTierCard({ entry }: { entry: TierEntry }) {
 function OverlayTierContent({
   state,
   snapshot,
+  compact = false,
 }: {
   state: OverlayState
   snapshot: Snapshot
+  compact?: boolean
 }) {
   const entries = useMemo(
     () =>
@@ -191,12 +214,16 @@ function OverlayTierContent({
     ],
     [state.candidatePools],
   )
-  const visibleEntries = useMemo(() => {
-    const candidates = candidateIds
+  const candidates = useMemo(() => {
+    const matched = candidateIds
       .map((id) => entriesById.get(id))
       .filter((entry): entry is TierEntry => entry !== undefined)
-    return candidates.length > 0 ? candidates : entries.slice(0, 36)
+    return matched.length > 0 ? matched : entries
   }, [candidateIds, entries, entriesById])
+  const visibleEntries = useMemo(() => {
+    const maxEntries = compact ? 7 : 36
+    return candidates.slice(0, maxEntries)
+  }, [candidates, compact])
   const groups = useMemo(() => {
     const grouped: Record<AbilityTier, TierEntry[]> = {
       S: [],
@@ -212,10 +239,45 @@ function OverlayTierContent({
   }, [visibleEntries])
   const sourceLabel = candidateIds.some((id) => entriesById.has(id))
     ? ui('overlay.currentCandidates')
-    : ui('overlay.globalTop')
+    : ui(compact ? 'overlay.globalTopCompact' : 'overlay.globalTop')
+  const bestEntry = useMemo(
+    () => [...candidates].sort((left, right) => left.rank - right.rank)[0],
+    [candidates],
+  )
 
   return (
     <>
+      <div
+        className="mt-2 grid grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 border-l-[3px] border-accent bg-accent-soft px-2 py-2"
+        data-testid="overlay-tier-box"
+      >
+        <strong
+          className={cn(
+            'grid size-9 place-items-center border border-current bg-surface font-mono text-xl leading-none',
+            bestEntry ? TIER_TEXT_CLASSES[bestEntry.tier] : 'text-text-muted',
+          )}
+        >
+          {bestEntry?.tier ?? '—'}
+        </strong>
+        <div className="grid min-w-0 gap-0.5">
+          <span className="text-[10px] text-text-muted">
+            {ui('overlay.tierBox')}
+          </span>
+          <strong className="truncate text-sm text-text">
+            {bestEntry?.ability.name ?? ui('common.noCandidates')}
+          </strong>
+        </div>
+        <div className="grid justify-items-end gap-0.5 font-mono text-[9px] text-text-muted">
+          <span>{ui('overlay.tierCandidates')}</span>
+          <span className="flex gap-1">
+            {TIER_ORDER.map((tier) => (
+              <span className={TIER_TEXT_CLASSES[tier]} key={tier}>
+                {tier}:{groups[tier].length}
+              </span>
+            ))}
+          </span>
+        </div>
+      </div>
       <div className="flex items-center gap-2 py-1.5 font-mono text-[10px] text-text-muted">
         <span>{sourceLabel}</span>
         <strong className="text-text">
@@ -271,6 +333,15 @@ function OverlayRecommendationContent({
 
   return (
     <>
+      <header className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-text">
+          <Sparkles size={13} aria-hidden="true" />
+          {ui('overlay.fivePickScore')}
+        </span>
+        <span className="font-mono text-[10px] text-text-muted">
+          {ui('common.score')}
+        </span>
+      </header>
       <div className="mt-2 grid gap-0.5 border-l-[3px] border-accent bg-accent-soft px-2.5 py-2">
         <span className="text-xs text-text-muted">
           {ui('overlay.nextPick')}
@@ -357,6 +428,78 @@ function OverlayRecommendationContent({
   )
 }
 
+function OverlayCombinationContent({
+  recommendations,
+  abilities,
+}: {
+  recommendations: readonly CombinationRecommendation[]
+  abilities: ReadonlyMap<number, Ability>
+}) {
+  return (
+    <section
+      className="mt-3 border-t border-border pt-2"
+      data-testid="overlay-combination-recommendations"
+    >
+      <header className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-text">
+          {ui('overlay.combinationRecommendations')}
+        </span>
+        <span className="font-mono text-[10px] text-text-muted">
+          {ui('common.score')}
+        </span>
+      </header>
+      {recommendations.length > 0 ? (
+        <div className="grid gap-1.5 pt-1.5">
+          {recommendations.slice(0, 4).map((recommendation, index) => (
+            <article
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border-subtle pb-1.5 last:border-b-0 last:pb-0"
+              key={`${recommendation.type}-${recommendation.abilityIds.join('-')}`}
+            >
+              <div className="grid min-w-0 gap-1">
+                <span className="font-mono text-[9px] text-text-muted">
+                  {index + 1} · {ui(`common.${recommendation.type}`)} ·{' '}
+                  {recommendation.picks.toLocaleString()} {ui('common.games')}
+                </span>
+                <span
+                  className="truncate"
+                  title={recommendation.abilityIds
+                    .map((id) => abilities.get(id)?.name ?? id)
+                    .join(' + ')}
+                >
+                  <CombinationAbilityIcons
+                    recommendation={recommendation}
+                    abilities={abilities}
+                    variant="compact"
+                  />
+                </span>
+              </div>
+              <div className="grid justify-items-end gap-0.5 font-mono text-[11px]">
+                <strong className="text-text">
+                  {recommendation.score.toFixed(1)}%
+                </strong>
+                <span
+                  className={
+                    recommendation.synergy >= 0
+                      ? 'text-positive'
+                      : 'text-negative'
+                  }
+                  title={`${ui('analysis.combinationSynergyHint')} — ${ui('common.logitDelta')} ${formatLogitDelta(recommendation.logitSynergy)}`}
+                >
+                  {formatPairPercent(recommendation.synergy, true)}
+                </span>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="mb-0 mt-2 text-[11px] text-text-muted">
+          {ui('overlay.combinationEmpty')}
+        </p>
+      )}
+    </section>
+  )
+}
+
 export function FloatingOverlay({
   kind,
   state,
@@ -377,7 +520,8 @@ export function FloatingOverlay({
     )
   }
   const isTier = kind === 'tier'
-  const nativeOverlay = overlayKindFromLocation() !== undefined
+  const nativeOverlay =
+    isDesktopRuntime() && overlayKindFromLocation() !== undefined
 
   return (
     <aside
@@ -392,19 +536,28 @@ export function FloatingOverlay({
                 : 'right-4 max-[760px]:bottom-3',
             ),
       )}
-      aria-label={isTier ? t('overlay.tier') : t('overlay.recommendation')}
+      aria-label={isTier ? t('overlay.tier') : t('overlay.assistant')}
     >
-      <div className="max-h-[min(720px,calc(100vh-32px))] overflow-hidden rounded-md border border-border/75 bg-surface/85 p-2.5 text-text shadow-panel">
+      <div
+        className={cn(
+          'rounded-md border border-border/75 bg-surface/85 p-2.5 text-text shadow-panel',
+          !nativeOverlay &&
+            cn(
+              'max-h-[min(720px,calc(100vh-32px))] overflow-y-auto',
+              kind === 'recommendation' &&
+                'max-[760px]:max-h-[calc(50vh-16px)]',
+            ),
+        )}
+        data-overlay-panel
+      >
         <header className="flex items-start justify-between gap-2 border-b border-border pb-2">
           <div>
             <p className="eyebrow mb-1 flex items-center gap-1 text-[10px]">
               <PanelTop size={13} aria-hidden="true" />{' '}
-              {isTier
-                ? t('overlay.pinnedTier')
-                : t('overlay.pinnedRecommendation')}
+              {isTier ? t('overlay.pinnedTier') : t('overlay.pinnedAssistant')}
             </p>
             <h2 className="text-[19px]">
-              {isTier ? t('overlay.tier') : t('overlay.recommendation')}
+              {isTier ? t('overlay.tier') : t('overlay.assistant')}
             </h2>
           </div>
           <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-mono text-[10px] text-text-muted">
@@ -415,7 +568,18 @@ export function FloatingOverlay({
         {isTier ? (
           <OverlayTierContent state={state} snapshot={snapshot} />
         ) : (
-          <OverlayRecommendationContent state={state} abilities={abilities} />
+          <>
+            <OverlayTierContent
+              compact={!nativeOverlay}
+              state={state}
+              snapshot={snapshot}
+            />
+            <OverlayCombinationContent
+              recommendations={state.combinationRecommendations}
+              abilities={abilities}
+            />
+            <OverlayRecommendationContent state={state} abilities={abilities} />
+          </>
         )}
       </div>
     </aside>
@@ -425,8 +589,8 @@ export function FloatingOverlay({
 export function OverlayApp({ kind }: { kind: OverlayKind }) {
   const { i18n: instance } = useTranslation()
   const [snapshot, setSnapshot] = useState<Snapshot>(demoSnapshot)
-  const [state, setState] = useState<OverlayState>(
-    () => readOverlayState(kind) ?? EMPTY_OVERLAY_STATE,
+  const [state, setState] = useState<OverlayState>(() =>
+    restoreOverlayState(kind),
   )
 
   useEffect(() => {
@@ -451,7 +615,7 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
     channel.onmessage = (event: MessageEvent<OverlayMessage>) => {
       const message = event.data
       if (message?.type === 'overlay-state' && message.kind === kind)
-        setState(message.state)
+        setState(normalizeOverlayState(message.state))
     }
     channel.postMessage({
       type: 'overlay-ready',
@@ -463,6 +627,34 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
   useEffect(() => {
     void instance.changeLanguage(state.locale)
   }, [instance, state.locale])
+
+  useEffect(() => {
+    if (
+      !isDesktopRuntime() ||
+      kind === 'layout' ||
+      typeof ResizeObserver === 'undefined'
+    )
+      return
+    const panel = document.querySelector<HTMLElement>('[data-overlay-panel]')
+    if (!panel) return
+
+    let frame: number | undefined
+    const resize = () => {
+      if (frame !== undefined) window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        frame = undefined
+        const height = Math.max(1, Math.ceil(panel.scrollHeight + 24))
+        void resizeNativeOverlay(kind, height).catch(() => undefined)
+      })
+    }
+    const observer = new ResizeObserver(resize)
+    observer.observe(panel)
+    resize()
+    return () => {
+      observer.disconnect()
+      if (frame !== undefined) window.cancelAnimationFrame(frame)
+    }
+  }, [kind])
 
   const abilitiesById = useMemo(
     () => new Map(snapshot.abilities.map((ability) => [ability.id, ability])),

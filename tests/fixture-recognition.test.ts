@@ -13,6 +13,7 @@ import { buildProjectedLayout, quadBounds } from '../src/core/projective-layout'
 import {
   decodeTemplateSignatures,
   rankByTemplate,
+  signatureFromQuad,
   signatureFromRgba,
 } from '../src/core/template-matching'
 import type { IconSignature, Snapshot } from '../src/types'
@@ -23,9 +24,9 @@ const snapshotPath = resolve('public/data/snapshots/latest.json')
 const signaturesPath = resolve('public/data/icon-signatures.json')
 const FIXTURE_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg'])
 const PROJECTED_RECOGNITION_MISMATCH_BASELINE = [
-  '{882F0EEC-91F7-44F6-A38A-BB0A3EA169CD}.jpg:0 expected -64, received -40',
-  '{882F0EEC-91F7-44F6-A38A-BB0A3EA169CD}.jpg:16 expected 5585, received 5094',
-  '{92B7AFF0-DF76-4723-BA87-F86180827333}.jpg:8 expected -44, received -114',
+  '{241DAD27-9A37-4364-BF08-68998F993992}.jpg:6 expected -91, received -28',
+  '{882F0EEC-91F7-44F6-A38A-BB0A3EA169CD}.jpg:16 expected 5585, received 5582',
+  '{9743DEFE-A22D-431A-B9C6-C514A127174F}.png:28 expected 5471, received 5582',
 ] as const
 
 interface FixtureImage {
@@ -167,7 +168,7 @@ describe('golden screenshot fixtures', () => {
     }
   })
 
-  it('keeps projected recognition within the approved fixture baseline', async () => {
+  it('keeps projective recognition within the approved fixture baseline', async () => {
     const { snapshot, templates, fixtureNames } = await loadFixtureContext()
     const mismatches: string[] = []
 
@@ -195,13 +196,20 @@ describe('golden screenshot fixtures', () => {
           image.width,
           image.height,
         )
-        const candidates = rankByTemplate(
-          signatureFromRgba(cropPixels(image, crop), crop.width, crop.height),
+        const projectedCandidates = rankByTemplate(
+          signatureFromQuad(
+            cropPixels(image, crop),
+            crop.width,
+            crop.height,
+            slot.matchQuad!,
+            crop.x,
+            crop.y,
+          ),
           snapshot.abilities,
           slot.category,
           templates,
         )
-        actual[String(index)] = candidates[0]?.abilityId ?? Number.NaN
+        actual[String(index)] = projectedCandidates[0]?.abilityId ?? Number.NaN
       }
 
       for (const [slotIndex, expectedAbilityId] of Object.entries(expected)) {
@@ -214,9 +222,12 @@ describe('golden screenshot fixtures', () => {
     }
 
     expect(mismatches).toEqual(PROJECTED_RECOGNITION_MISMATCH_BASELINE)
+    expect(mismatches.some((mismatch) => mismatch.includes('.jpg:0 '))).toBe(
+      false,
+    )
   })
 
-  it('matches every labelled slot with the fixed-layout fallback', async () => {
+  it('matches every labelled slot with the manual calibration layout', async () => {
     const { layout, snapshot, templates, fixtureNames } =
       await loadFixtureContext()
 

@@ -2,6 +2,7 @@ import type {
   Ability,
   IconCandidate,
   IconSignature,
+  Quad,
   SlotCategory,
 } from '../types'
 import { matchesSlotCategory } from './ability-category'
@@ -12,6 +13,17 @@ export const TEMPLATE_SIZE = 16
 export interface CropSignature {
   luma: Uint8Array
   meanRgb: [number, number, number]
+}
+
+interface Homography {
+  x0: number
+  x1: number
+  x2: number
+  y0: number
+  y1: number
+  y2: number
+  denominatorX: number
+  denominatorY: number
 }
 
 export interface ImageTransform {
@@ -79,6 +91,163 @@ export function signatureFromRgba(
       blue += b
     }
   }
+  const samples = TEMPLATE_SIZE * TEMPLATE_SIZE
+  return {
+    luma,
+    meanRgb: [
+      Math.round(red / samples),
+      Math.round(green / samples),
+      Math.round(blue / samples),
+    ],
+  }
+}
+
+function solveQuadHomography(quad: Quad): Homography {
+  const points = [
+    quad.topLeft,
+    quad.topRight,
+    quad.bottomRight,
+    quad.bottomLeft,
+  ]
+  const destinations: [number, number][] = [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1],
+  ]
+  const matrix: number[][] = []
+  const values: number[] = []
+
+  points.forEach((point, index) => {
+    const [u, v] = destinations[index]
+    matrix.push([u, v, 1, 0, 0, 0, -point.x * u, -point.x * v])
+    values.push(point.x)
+    matrix.push([0, 0, 0, u, v, 1, -point.y * u, -point.y * v])
+    values.push(point.y)
+  })
+
+  for (let column = 0; column < 8; column += 1) {
+    let pivot = column
+    for (let row = column + 1; row < 8; row += 1) {
+      if (Math.abs(matrix[row][column]) > Math.abs(matrix[pivot][column]))
+        pivot = row
+    }
+    if (Math.abs(matrix[pivot][column]) < 1e-8)
+      throw new Error('Invalid quadrilateral')
+
+    ;[matrix[column], matrix[pivot]] = [matrix[pivot], matrix[column]]
+    ;[values[column], values[pivot]] = [values[pivot], values[column]]
+    const divisor = matrix[column][column]
+    for (let index = column; index < 8; index += 1)
+      matrix[column][index] /= divisor
+    values[column] /= divisor
+
+    for (let row = 0; row < 8; row += 1) {
+      if (row === column) continue
+      const factor = matrix[row][column]
+      for (let index = column; index < 8; index += 1)
+        matrix[row][index] -= factor * matrix[column][index]
+      values[row] -= factor * values[column]
+    }
+  }
+
+  return {
+    x0: values[0],
+    x1: values[1],
+    x2: values[2],
+    y0: values[3],
+    y1: values[4],
+    y2: values[5],
+    denominatorX: values[6],
+    denominatorY: values[7],
+  }
+}
+
+function sampleBilinear(
+  data: Uint8ClampedArray | Uint8Array,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+): [number, number, number] {
+  const clampedX = Math.min(width - 1, Math.max(0, x))
+  const clampedY = Math.min(height - 1, Math.max(0, y))
+  const left = Math.floor(clampedX)
+  const top = Math.floor(clampedY)
+  const right = Math.min(width - 1, left + 1)
+  const bottom = Math.min(height - 1, top + 1)
+  const horizontal = clampedX - left
+  const vertical = clampedY - top
+  const topLeft = (top * width + left) * 4
+  const topRight = (top * width + right) * 4
+  const bottomLeft = (bottom * width + left) * 4
+  const bottomRight = (bottom * width + right) * 4
+  const inverseHorizontal = 1 - horizontal
+  const inverseVertical = 1 - vertical
+
+  const red =
+    (data[topLeft] * inverseHorizontal + data[topRight] * horizontal) *
+      inverseVertical +
+    (data[bottomLeft] * inverseHorizontal + data[bottomRight] * horizontal) *
+      vertical
+  const green =
+    (data[topLeft + 1] * inverseHorizontal + data[topRight + 1] * horizontal) *
+      inverseVertical +
+    (data[bottomLeft + 1] * inverseHorizontal +
+      data[bottomRight + 1] * horizontal) *
+      vertical
+  const blue =
+    (data[topLeft + 2] * inverseHorizontal + data[topRight + 2] * horizontal) *
+      inverseVertical +
+    (data[bottomLeft + 2] * inverseHorizontal +
+      data[bottomRight + 2] * horizontal) *
+      vertical
+
+  return [red, green, blue]
+}
+
+export function signatureFromQuad(
+  data: Uint8ClampedArray | Uint8Array,
+  width: number,
+  height: number,
+  quad: Quad,
+  offsetX = 0,
+  offsetY = 0,
+): CropSignature {
+  const homography = solveQuadHomography(quad)
+  const luma = new Uint8Array(TEMPLATE_SIZE * TEMPLATE_SIZE)
+  let red = 0
+  let green = 0
+  let blue = 0
+
+  for (let y = 0; y < TEMPLATE_SIZE; y += 1) {
+    for (let x = 0; x < TEMPLATE_SIZE; x += 1) {
+      const u = (x + 0.5) / TEMPLATE_SIZE
+      const v = (y + 0.5) / TEMPLATE_SIZE
+      const denominator =
+        homography.denominatorX * u + homography.denominatorY * v + 1
+      const sourceX =
+        (homography.x0 * u + homography.x1 * v + homography.x2) / denominator -
+        offsetX
+      const sourceY =
+        (homography.y0 * u + homography.y1 * v + homography.y2) / denominator -
+        offsetY
+      const [sampleRed, sampleGreen, sampleBlue] = sampleBilinear(
+        data,
+        width,
+        height,
+        sourceX,
+        sourceY,
+      )
+      luma[y * TEMPLATE_SIZE + x] = Math.round(
+        sampleRed * 0.2126 + sampleGreen * 0.7152 + sampleBlue * 0.0722,
+      )
+      red += sampleRed
+      green += sampleGreen
+      blue += sampleBlue
+    }
+  }
+
   const samples = TEMPLATE_SIZE * TEMPLATE_SIZE
   return {
     luma,

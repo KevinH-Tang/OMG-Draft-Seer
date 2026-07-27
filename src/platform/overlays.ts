@@ -2,7 +2,7 @@ import type { BuildCandidatePools } from '../core/recommendation'
 import type { RuntimeSlot } from '../core/layout'
 import type { AbilityTier, TierCategory } from '../core/tiers'
 import type { AppLocale } from '../i18n'
-import type { Recommendation } from '../types'
+import type { CombinationRecommendation, Recommendation } from '../types'
 
 export type OverlayKind = 'recommendation' | 'tier' | 'layout'
 
@@ -13,6 +13,7 @@ export interface OverlayViewport {
 
 export interface OverlayState {
   candidatePools: BuildCandidatePools
+  combinationRecommendations: CombinationRecommendation[]
   locale: AppLocale
   recommendations: Recommendation[]
   selectedIds: number[]
@@ -107,4 +108,18 @@ export function openNativeOverlay(
 
 export function closeNativeOverlay(kind: OverlayKind): Promise<void> {
   return invokeOverlayCommand('close_overlay', { kind })
+}
+
+export function setNativeOverlayShortcut(
+  shortcut: string,
+  enabled: boolean,
+): Promise<void> {
+  return invokeOverlayCommand('set_overlay_shortcut', { shortcut, enabled })
+}
+
+export function resizeNativeOverlay(
+  kind: OverlayKind,
+  height: number,
+): Promise<void> {
+  return invokeOverlayCommand('resize_overlay', { kind, height })
 }

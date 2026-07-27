@@ -13,6 +13,7 @@ import { matchesSlotCategory } from './ability-category'
 import {
   abilityPairKey,
   abilityTripletKey,
+  buildAbilityStatsMap,
   buildPairStatsMap,
   buildTripletStatsMap,
   calculateCombinedLogit,
@@ -120,26 +121,6 @@ function createTierMetrics(snapshot: Snapshot): Map<number, TierMetric> {
     }
   }
   return metrics
-}
-
-function buildAbilityStatsMap(
-  stats: AbilityStats[],
-): Map<number, AbilityStats> {
-  const entries = new Map<number, AbilityStats>()
-  for (const stat of stats) {
-    if (
-      !Number.isFinite(stat.picks) ||
-      !Number.isFinite(stat.wins) ||
-      stat.picks <= 0 ||
-      stat.wins < 0 ||
-      stat.wins > stat.picks
-    )
-      continue
-    const previous = entries.get(stat.abilityId)
-    if (!previous || stat.picks > previous.picks)
-      entries.set(stat.abilityId, stat)
-  }
-  return entries
 }
 
 function createScoreContext(snapshot: Snapshot): ScoreContext {

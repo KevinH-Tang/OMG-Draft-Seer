@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   decodeTemplateSignatures,
   rankByTemplate,
+  signatureFromQuad,
   signatureFromRgba,
   structuralSimilarity,
   TEMPLATE_TRANSFORMS,
@@ -57,6 +58,33 @@ describe('template matching', () => {
 
     const signature = signatureFromRgba(source, width, height)
     expect(signature.meanRgb).toEqual([0, 255, 0])
+  })
+
+  it('rectifies a projected quadrilateral into canonical samples', () => {
+    const width = 80
+    const height = 80
+    const quad = {
+      topLeft: { x: 10, y: 10 },
+      topRight: { x: 50, y: 10 },
+      bottomRight: { x: 60, y: 50 },
+      bottomLeft: { x: 20, y: 50 },
+    }
+    const source = new Uint8ClampedArray(width * height * 4)
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const v = (y - 10) / 40
+        const left = 10 + v * 10
+        const u = (x - left) / 40
+        const offset = (y * width + x) * 4
+        source[offset] = Math.max(0, Math.min(255, Math.round(u * 255)))
+        source[offset + 1] = Math.max(0, Math.min(255, Math.round(v * 255)))
+        source[offset + 3] = 255
+      }
+    }
+
+    const signature = signatureFromQuad(source, width, height, quad)
+
+    expect(signature.meanRgb).toEqual([128, 128, 0])
   })
 
   it('ranks an identical template above a structurally different template', () => {

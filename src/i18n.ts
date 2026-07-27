@@ -26,6 +26,17 @@ const resources = {
           auto: '自动矩形投影 (auto)',
           manual: '人工矩形布局 (manual)',
         },
+        overlayShortcut: '辅助浮窗快捷键',
+        overlayShortcutHint:
+          '桌面版在“构筑推荐”页面注册 OS 全局 Tab；浏览器版仅在窗口聚焦时响应。Trigger 切换显示，Hold 按住显示。',
+        overlayShortcutKeyHint:
+          '点击按键框后按下新的按键或组合键；Esc 取消。默认快捷键为 Tab。',
+        overlayShortcutRecording: '请按下快捷键...',
+        overlayShortcutReset: '恢复默认快捷键 Tab',
+        overlayShortcutOptions: {
+          trigger: 'Trigger · 按一下切换',
+          hold: 'Hold · 按住显示',
+        },
         language: '界面语言',
         languageHint: '切换后立即应用于界面。',
       },
@@ -74,6 +85,13 @@ const resources = {
         uploadedScreenshotAlt: '已上传的 Dota 2 选技截图',
         buildStep: '02 / 构筑',
         recommendations: '推荐方案',
+        combinationRecommendations: 'Pair / Triple 组合推荐',
+        combinationHint: '按当前候选统计排序；保留 5 选构筑评分。',
+        combinationSynergyHint:
+          '相对组合内各技能各自胜率的观测提升，未扣除已知 Pair 协同；与下方 5 选构筑评分中的净剩余协同计算方式不同。',
+        fivePickScore: '5 选构筑评分',
+        fivePickScoreHint: '完整 1 英雄 / 3 技能 / 1 终极评分',
+        noCombinations: '当前候选没有达到 50 场门槛的 Pair / Triple 组合。',
         acceptSuggestions: '采用当前第一候选',
         confirm: '确认',
         lockPick: '锁定选择',
@@ -165,14 +183,22 @@ const resources = {
         trueSynergyHint: '组合胜率 - sigmoid(logit(胜率 1) + logit(胜率 2))',
       },
       overlay: {
+        assistant: '选技辅助浮窗',
         tier: '梯度参考',
         recommendation: '构筑推荐',
         layout: '布局框浮层',
         passThrough: '鼠标穿透',
+        pinnedAssistant: '选技辅助',
         pinnedTier: '置顶梯度',
         pinnedRecommendation: '置顶推荐',
+        tierBox: '当前最佳梯度',
+        tierCandidates: '候选梯度',
+        combinationRecommendations: 'Pair / Triple 组合',
+        fivePickScore: '5 选构筑评分',
+        combinationEmpty: '暂无达到 50 场门槛的组合统计',
         currentCandidates: '当前截图候选',
         globalTop: '全局 Top 36',
+        globalTopCompact: '全局 Top 7',
         items: '{{count}} 项',
         nextPick: '建议下一手',
         missingBuild: '确认 1 / 3 / 1 候选后生成',
@@ -242,6 +268,7 @@ const resources = {
         invalidLayout:
           '布局文件无效：需要正数尺寸、60 格且包含英雄、技能和终极类别。',
         overlayOpen: '无法打开置顶浮层',
+        overlayShortcutUnavailable: '无法注册该快捷键，请尝试其他按键。',
       },
     },
   },
@@ -264,6 +291,17 @@ const resources = {
         layoutModeOptions: {
           auto: 'Auto · Projection',
           manual: 'Manual · Layout',
+        },
+        overlayShortcut: 'Assistant overlay shortcut',
+        overlayShortcutHint:
+          'The desktop build registers OS-global Tab on Build Recommendations; the browser build responds only while focused. Trigger toggles it; Hold shows it while pressed.',
+        overlayShortcutKeyHint:
+          'Click the key field, then press a key or key combination; Esc cancels. The default is Tab.',
+        overlayShortcutRecording: 'Press a shortcut...',
+        overlayShortcutReset: 'Restore default shortcut Tab',
+        overlayShortcutOptions: {
+          trigger: 'Trigger · Toggle',
+          hold: 'Hold · While pressed',
         },
         language: 'Interface language',
         languageHint: 'Changes apply to the interface immediately.',
@@ -313,6 +351,15 @@ const resources = {
         uploadedScreenshotAlt: 'Uploaded Dota 2 ability draft screenshot',
         buildStep: '02 / Build',
         recommendations: 'Recommendations',
+        combinationRecommendations: 'Pair / Triple Recommendations',
+        combinationHint:
+          'Ranked from current candidate statistics; the five-pick build score remains available.',
+        combinationSynergyHint:
+          "Observed lift over each ability's own individual win rate, not net of any known Pair synergy; this differs from the residual synergy shown in the five-pick score below.",
+        fivePickScore: 'Five-pick build score',
+        fivePickScoreHint: 'Complete 1 Hero / 3 Ability / 1 Ultimate score',
+        noCombinations:
+          'No current Pair / Triple combination meets the 50-pick threshold.',
         acceptSuggestions: 'Accept current top candidates',
         confirm: 'confirm',
         lockPick: 'Lock picks',
@@ -407,14 +454,22 @@ const resources = {
         trueSynergyHint: 'Pair WR - sigmoid(logit(WR 1) + logit(WR 2))',
       },
       overlay: {
+        assistant: 'Draft Assistant Overlay',
         tier: 'Tier Reference',
         recommendation: 'Build Recommendation',
         layout: 'Layout Frame Overlay',
         passThrough: 'Click-through',
+        pinnedAssistant: 'Draft Assistant',
         pinnedTier: 'Pinned Tiers',
         pinnedRecommendation: 'Pinned Recommendation',
+        tierBox: 'Best current tier',
+        tierCandidates: 'Candidate tiers',
+        combinationRecommendations: 'Pair / Triple combinations',
+        fivePickScore: 'Five-pick build score',
+        combinationEmpty: 'No combination stats meet the 50-pick threshold',
         currentCandidates: 'Current screenshot candidates',
         globalTop: 'Global Top 36',
+        globalTopCompact: 'Global Top 7',
         items: '{{count}} items',
         nextPick: 'Recommended next pick',
         missingBuild: 'Confirm 1 / 3 / 1 candidates to generate',
@@ -490,6 +545,8 @@ const resources = {
         invalidLayout:
           'Invalid layout file: it needs positive dimensions, 60 slots, and hero / ability / ultimate categories.',
         overlayOpen: 'Unable to open the pinned overlay',
+        overlayShortcutUnavailable:
+          'That shortcut could not be registered. Try another key.',
       },
     },
   },
@@ -505,14 +562,27 @@ export function toAppLocale(value: string | undefined): AppLocale {
   return value === 'en' ? 'en' : 'zh-CN'
 }
 
+function syncDocumentLocale(locale: AppLocale): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.lang = locale
+  document.documentElement.dataset.locale = locale
+}
+
 export function setAppLocale(locale: AppLocale): Promise<unknown> {
   getBrowserStorage().setItem(APP_LOCALE_STORAGE_KEY, locale)
+  syncDocumentLocale(locale)
   return i18n.changeLanguage(locale)
 }
 
+const initialLocale = readLocale()
+syncDocumentLocale(initialLocale)
+i18n.on('languageChanged', (language) => {
+  syncDocumentLocale(toAppLocale(language))
+})
+
 void i18n.use(initReactI18next).init({
   resources,
-  lng: readLocale(),
+  lng: initialLocale,
   fallbackLng: 'zh-CN',
   interpolation: { escapeValue: false },
 })

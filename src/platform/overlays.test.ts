@@ -6,12 +6,15 @@ import {
   openNativeOverlay,
   overlayKindFromLocation,
   readOverlayState,
+  resizeNativeOverlay,
+  setNativeOverlayShortcut,
   writeOverlayState,
   type OverlayState,
 } from './overlays'
 
 const overlayState: OverlayState = {
   candidatePools: { heroIds: [], abilityIds: [], ultimateIds: [] },
+  combinationRecommendations: [],
   locale: 'zh-CN',
   recommendations: [],
   selectedIds: [],
@@ -77,6 +80,8 @@ describe('overlay platform bridge', () => {
     await openNativeOverlay('tier')
     await openNativeOverlay('layout', { width: 1920, height: 1080 })
     await closeNativeOverlay('recommendation')
+    await resizeNativeOverlay('recommendation', 940)
+    await setNativeOverlayShortcut('F8', true)
 
     expect(invoke).toHaveBeenNthCalledWith(1, 'open_overlay', { kind: 'tier' })
     expect(invoke).toHaveBeenNthCalledWith(2, 'open_overlay', {
@@ -86,6 +91,14 @@ describe('overlay platform bridge', () => {
     })
     expect(invoke).toHaveBeenNthCalledWith(3, 'close_overlay', {
       kind: 'recommendation',
+    })
+    expect(invoke).toHaveBeenNthCalledWith(4, 'resize_overlay', {
+      kind: 'recommendation',
+      height: 940,
+    })
+    expect(invoke).toHaveBeenNthCalledWith(5, 'set_overlay_shortcut', {
+      shortcut: 'F8',
+      enabled: true,
     })
   })
 

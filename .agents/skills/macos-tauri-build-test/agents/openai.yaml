@@ -1,0 +1,4 @@
+interface:
+  display_name: "macOS Tauri Build and Test"
+  short_description: "Run macOS app, DMG, and release validation workflows"
+  default_prompt: "Use $macos-tauri-build-test to run the requested macOS build, bundle verification, or release-candidate validation workflow."
