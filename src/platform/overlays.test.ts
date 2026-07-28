@@ -7,12 +7,14 @@ import {
   overlayKindFromLocation,
   readOverlayState,
   resizeNativeOverlay,
+  setNativeOverlayInteractionRegion,
   setNativeOverlayShortcut,
   writeOverlayState,
   type OverlayState,
 } from './overlays'
 
 const overlayState: OverlayState = {
+  recognitionStatus: 'idle',
   candidatePools: { heroIds: [], abilityIds: [], ultimateIds: [] },
   combinationRecommendations: [],
   locale: 'zh-CN',
@@ -73,14 +75,17 @@ describe('overlay platform bridge', () => {
   })
 
   it('uses the desktop bridge only when Tauri internals are present', async () => {
-    const invoke = vi.fn().mockResolvedValue(undefined)
+    const invoke = vi.fn().mockResolvedValue(true)
     vi.stubGlobal('window', { __TAURI_INTERNALS__: { invoke } })
 
     expect(isDesktopRuntime()).toBe(true)
-    await openNativeOverlay('tier')
-    await openNativeOverlay('layout', { width: 1920, height: 1080 })
+    await expect(openNativeOverlay('tier')).resolves.toBe(true)
+    await expect(
+      openNativeOverlay('layout', { width: 1920, height: 1080 }),
+    ).resolves.toBe(true)
     await closeNativeOverlay('recommendation')
     await resizeNativeOverlay('recommendation', 940)
+    await setNativeOverlayInteractionRegion('recommendation', 372, 720)
     await setNativeOverlayShortcut('F8', true)
 
     expect(invoke).toHaveBeenNthCalledWith(1, 'open_overlay', { kind: 'tier' })
@@ -96,7 +101,16 @@ describe('overlay platform bridge', () => {
       kind: 'recommendation',
       height: 940,
     })
-    expect(invoke).toHaveBeenNthCalledWith(5, 'set_overlay_shortcut', {
+    expect(invoke).toHaveBeenNthCalledWith(
+      5,
+      'set_overlay_interaction_region',
+      {
+        kind: 'recommendation',
+        width: 372,
+        height: 720,
+      },
+    )
+    expect(invoke).toHaveBeenNthCalledWith(6, 'set_overlay_shortcut', {
       shortcut: 'F8',
       enabled: true,
     })

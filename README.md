@@ -22,7 +22,9 @@ statistics, and generate a data-backed recommendation.
   and the five-pick build score. Its `Tab` shortcut supports `Trigger` and `Hold` modes configured in
   Settings. The desktop build registers `Tab` as an OS-global hotkey, while the browser build listens
   only when its window is focused.
-- The app does not capture the game window or provide tray integration.
+- Closing the desktop main window hides it to the system tray. Use the tray icon to restore it or
+  the tray menu to quit; an optional setting starts the app minimized after sign-in.
+- The app does not capture the game window.
 - Static interface text supports 简体中文 and English. Chinese is the first-run default; the header selector persists the choice locally and synchronizes open desktop overlays.
 
 ## Quick Start
@@ -237,9 +239,10 @@ are intentionally excluded from version control.
 - Screenshot recognition still needs broader, independently labelled accuracy evaluation.
 - Draft Replay uses a deterministic 50-position strategy simulation with an up-to-20 candidate
   ranking at each position; it does not claim to predict the actual choices of the other players.
-- There is no game-window capture or tray integration. The desktop page-two `Tab` shortcut is an
-  OS-global hotkey; the browser shortcut is limited to the focused browser window. Overlays are
-  information-only and do not interact with the game window.
+- There is no game-window capture. Closing the desktop main window keeps the process and global
+  shortcut available in the system tray until the user chooses Quit. The browser shortcut is
+  limited to the focused browser window. Overlays are information-only and do not interact with
+  the game window.
 - Windrun data, DatDota icons, the local VPK-derived hero images, and the desktop favicon require
   source and redistribution licence review before release.
 - Tauri bundles build on the validated platforms, but full installer, target-WebView, DPI, and

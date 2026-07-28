@@ -56,6 +56,16 @@ describe('Tauri desktop application', () => {
     }
   })
 
+  it('exposes the native autostart setting without changing it', async () => {
+    await (await $('[data-testid="open-settings"]')).click()
+    const toggle = await $('[data-testid="autostart-toggle"]')
+
+    await expect(toggle).toBeDisplayed()
+    await expect(toggle).toBeEnabled()
+    await expect(toggle).toHaveAttribute('role', 'switch')
+    await (await $('[data-testid="settings-back"]')).click()
+  })
+
   it('persists the selected locale across a WebView refresh', async () => {
     await (await $('[data-testid="open-settings"]')).click()
     await expect($('[data-testid="settings-page"]')).toBeDisplayed()
@@ -99,6 +109,14 @@ describe('Tauri desktop application', () => {
 
   it('uploads a screenshot and exposes layout reset controls', async () => {
     await (await $('[data-testid="nav-analysis"]')).click()
+    const handles = await browser.getWindowHandles()
+    await browser.keys(['Tab'])
+    await browser.waitUntil(
+      async () => (await browser.getWindowHandles()).length > handles.length,
+      {
+        timeoutMsg: 'Tab shortcut did not open the assistant overlay',
+      },
+    )
     await setScreenshotInput()
     await expect($('[data-testid="screenshot-frame"]')).toBeDisplayed()
     await browser.waitUntil(
@@ -120,20 +138,37 @@ describe('Tauri desktop application', () => {
     await expect($('[data-testid="layout-reset-dialog"]')).toBeDisplayed()
   })
 
-  it('changes draft strategy and opens a native overlay window', async () => {
+  it('changes draft strategy in the native window', async () => {
     await (await $('[data-testid="nav-draft"]')).click()
     const strategy = await $('[data-testid="draft-strategy-pair-first"]')
     await strategy.click()
     await expect(strategy).toHaveAttribute('aria-selected', 'true')
+  })
 
-    await (await $('[data-testid="nav-database"]')).click()
-    const handles = await browser.getWindowHandles()
-    await (await $('[data-testid="overlay-toggle-tier"]')).click()
+  it('registers and restores the native assistant shortcut', async () => {
+    await (await $('[data-testid="nav-analysis"]')).click()
+    await (await $('[data-testid="open-settings"]')).click()
+    await (await $('[data-testid="overlay-shortcut-capture"]')).click()
+    await browser.keys(['F8'])
     await browser.waitUntil(
-      async () => (await browser.getWindowHandles()).length > handles.length,
-      {
-        timeoutMsg: 'Tier overlay window did not open',
-      },
+      async () =>
+        (
+          await $('[data-testid="overlay-shortcut-capture"]').getText()
+        ).includes('F8'),
+      { timeoutMsg: 'F8 shortcut was not saved in Settings' },
+    )
+    await (await $('[data-testid="overlay-shortcut-reset"]')).click()
+    await browser.waitUntil(
+      async () =>
+        (
+          await $('[data-testid="overlay-shortcut-capture"]').getText()
+        ).includes('Tab'),
+      { timeoutMsg: 'Default Tab shortcut was not restored' },
+    )
+    await (await $('[data-testid="settings-back"]')).click()
+    await expect($('[data-testid="nav-analysis"]')).toHaveAttribute(
+      'aria-current',
+      'page',
     )
   })
 })

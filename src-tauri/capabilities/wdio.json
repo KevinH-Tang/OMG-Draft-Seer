@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "Test-only WebDriver capability for the main window and Tauri overlay windows.",
   "windows": ["main", "overlay-*"],
-  "permissions": ["core:default", "wdio:default", "wdio-webdriver:default"]
+  "permissions": [
+    "core:default",
+    "autostart:default",
+    "wdio:default",
+    "wdio-webdriver:default"
+  ]
 }

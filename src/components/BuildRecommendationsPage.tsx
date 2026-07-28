@@ -57,9 +57,7 @@ export interface BuildRecommendationsPageProps {
   combinationRecommendations: readonly CombinationRecommendation[]
   recommendations: readonly Recommendation[]
   abilities: ReadonlyMap<number, Ability>
-  recommendationOverlayOpen: boolean
-  tierOverlayOpen: boolean
-  layoutOverlayOpen: boolean
+  assistantOverlayOpen: boolean
   onToggleSelected: (id: number) => void
   onToggleOverlay: (kind: OverlayKind) => void
 }
@@ -71,9 +69,7 @@ export function BuildRecommendationsPage({
   combinationRecommendations,
   recommendations,
   abilities,
-  recommendationOverlayOpen,
-  tierOverlayOpen,
-  layoutOverlayOpen,
+  assistantOverlayOpen,
   onToggleSelected,
   onToggleOverlay,
 }: BuildRecommendationsPageProps) {
@@ -102,17 +98,7 @@ export function BuildRecommendationsPage({
           <div className="flex flex-wrap justify-end gap-2">
             <OverlayToggleButton
               kind="recommendation"
-              open={recommendationOverlayOpen}
-              onToggle={onToggleOverlay}
-            />
-            <OverlayToggleButton
-              kind="tier"
-              open={tierOverlayOpen}
-              onToggle={onToggleOverlay}
-            />
-            <OverlayToggleButton
-              kind="layout"
-              open={layoutOverlayOpen}
+              open={assistantOverlayOpen}
               onToggle={onToggleOverlay}
             />
             <Sparkles size={19} aria-hidden="true" />

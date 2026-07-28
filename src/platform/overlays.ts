@@ -1,3 +1,4 @@
+import { listen } from '@tauri-apps/api/event'
 import type { BuildCandidatePools } from '../core/recommendation'
 import type { RuntimeSlot } from '../core/layout'
 import type { AbilityTier, TierCategory } from '../core/tiers'
@@ -5,6 +6,8 @@ import type { AppLocale } from '../i18n'
 import type { CombinationRecommendation, Recommendation } from '../types'
 
 export type OverlayKind = 'recommendation' | 'tier' | 'layout'
+export type OverlayRecognitionStatus =
+  'idle' | 'recognizing' | 'ready' | 'error'
 
 export interface OverlayViewport {
   width: number
@@ -12,8 +15,10 @@ export interface OverlayViewport {
 }
 
 export interface OverlayState {
+  recognitionStatus: OverlayRecognitionStatus
   candidatePools: BuildCandidatePools
   combinationRecommendations: CombinationRecommendation[]
+  pairRecommendations?: CombinationRecommendation[]
   locale: AppLocale
   recommendations: Recommendation[]
   selectedIds: number[]
@@ -39,6 +44,7 @@ declare global {
 }
 
 export const OVERLAY_CHANNEL_NAME = 'omg-draft-seer-overlay-v1'
+export const MAIN_WINDOW_HIDDEN_EVENT = 'omg-draft-seer-main-window-hidden'
 
 function overlayStorageKey(kind: OverlayKind): string {
   return `${OVERLAY_CHANNEL_NAME}:${kind}`
@@ -97,7 +103,7 @@ async function invokeOverlayCommand<T>(
 export function openNativeOverlay(
   kind: OverlayKind,
   viewport?: OverlayViewport,
-): Promise<void> {
+): Promise<boolean> {
   return invokeOverlayCommand('open_overlay', {
     kind,
     ...(viewport
@@ -122,4 +128,22 @@ export function resizeNativeOverlay(
   height: number,
 ): Promise<void> {
   return invokeOverlayCommand('resize_overlay', { kind, height })
+}
+
+export function setNativeOverlayInteractionRegion(
+  kind: OverlayKind,
+  width: number,
+  height: number,
+): Promise<void> {
+  return invokeOverlayCommand('set_overlay_interaction_region', {
+    kind,
+    width,
+    height,
+  })
+}
+
+export async function listenMainWindowHidden(
+  handler: () => void,
+): Promise<() => void> {
+  return listen(MAIN_WINDOW_HIDDEN_EVENT, handler)
 }

@@ -47,7 +47,10 @@ import {
 } from './core/layout'
 import { buildProjectedLayout, quadBounds } from './core/projective-layout'
 import { buildAbilityPairList, type AbilityPairEntry } from './core/pairs'
-import { recommendAbilityCombinations } from './core/combinations'
+import {
+  recommendAbilityCombinations,
+  recommendAbilityPairs,
+} from './core/combinations'
 import {
   recommendBuilds,
   scoreDraftBuild,
@@ -81,12 +84,14 @@ import {
   closeNativeOverlay,
   createOverlayChannel,
   isDesktopRuntime,
+  listenMainWindowHidden,
   openNativeOverlay,
   overlayKindFromLocation,
   setNativeOverlayShortcut,
   writeOverlayState,
   type OverlayKind,
   type OverlayMessage,
+  type OverlayRecognitionStatus,
   type OverlayState,
 } from './platform/overlays'
 import { appResourceUrl } from './platform/resources'
@@ -249,6 +254,43 @@ function updateSlotSelection(
   return changed ? next : slots
 }
 
+function collectCandidatePools(
+  slots: readonly RecognizedSlot[],
+  tierInfo: ReadonlyMap<number, { rank: number }>,
+  abilitiesById: ReadonlyMap<number, { name: string }>,
+  includeTopSuggestion = false,
+): BuildCandidatePools {
+  const pools: Record<keyof BuildCandidatePools, number[]> = {
+    heroIds: [],
+    abilityIds: [],
+    ultimateIds: [],
+  }
+  for (const slot of slots) {
+    const abilityId =
+      slot.selectedAbilityId ??
+      (includeTopSuggestion ? slot.candidates[0]?.abilityId : undefined)
+    if (abilityId === undefined) continue
+    if (slot.category === 'hero') pools.heroIds.push(abilityId)
+    else if (slot.category === 'ability') pools.abilityIds.push(abilityId)
+    else pools.ultimateIds.push(abilityId)
+  }
+  const sortByTier = (ids: number[]) =>
+    [...new Set(ids)].sort((left, right) => {
+      const rankDifference =
+        (tierInfo.get(left)?.rank ?? Number.POSITIVE_INFINITY) -
+        (tierInfo.get(right)?.rank ?? Number.POSITIVE_INFINITY)
+      if (rankDifference !== 0) return rankDifference
+      return (abilitiesById.get(left)?.name ?? '').localeCompare(
+        abilitiesById.get(right)?.name ?? '',
+      )
+    })
+  return {
+    heroIds: sortByTier(pools.heroIds),
+    abilityIds: sortByTier(pools.abilityIds),
+    ultimateIds: sortByTier(pools.ultimateIds),
+  }
+}
+
 function comparePairEntries(
   left: AbilityPairEntry,
   right: AbilityPairEntry,
@@ -283,6 +325,8 @@ function MainApp() {
   const [slots, setSlots] = useState<RecognizedSlot[]>([])
   const [error, setError] = useState<string>()
   const [loading, setLoading] = useState(false)
+  const [overlayRecognitionStatus, setOverlayRecognitionStatus] =
+    useState<OverlayRecognitionStatus>('idle')
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [snapshot, setSnapshot] = useState<Snapshot>(demoSnapshot)
   const [iconSignatures, setIconSignatures] = useState<IconSignature[]>([])
@@ -318,6 +362,16 @@ function MainApp() {
   const overlayShortcutHoldRef = useRef(false)
   const overlayShortcutOpenRef = useRef<Promise<boolean> | undefined>(undefined)
   const overlayShortcutRequestRef = useRef(0)
+  const overlayRequestRef = useRef<Record<OverlayKind, number>>({
+    recommendation: 0,
+    tier: 0,
+    layout: 0,
+  })
+  const overlayDesiredRef = useRef<Record<OverlayKind, boolean>>({
+    recommendation: false,
+    tier: false,
+    layout: false,
+  })
   const recommendationVisibleRef = useRef(false)
   const recognitionWorkerRef = useRef<Worker | undefined>(undefined)
   const recognitionRequestRef = useRef(0)
@@ -383,18 +437,59 @@ function MainApp() {
 
   useEffect(() => {
     if (!isDesktopRuntime()) return
-    const enabled = activePage === 'build'
+    const requested = overlayShortcut
     const requestId = ++overlayShortcutRequestRef.current
-    void setNativeOverlayShortcut(overlayShortcut, enabled).catch(
-      (shortcutError) => {
+    void setNativeOverlayShortcut(requested, true).catch(
+      async (shortcutError) => {
         if (overlayShortcutRequestRef.current !== requestId) return
-        if (!enabled) return
-        setOverlayShortcut(DEFAULT_OVERLAY_SHORTCUT)
-        writeOverlayShortcut(storage, DEFAULT_OVERLAY_SHORTCUT)
+        if (requested !== DEFAULT_OVERLAY_SHORTCUT) {
+          try {
+            await setNativeOverlayShortcut(DEFAULT_OVERLAY_SHORTCUT, true)
+          } catch (fallbackError) {
+            if (overlayShortcutRequestRef.current === requestId)
+              reportShortcutError(fallbackError)
+            return
+          }
+          if (overlayShortcutRequestRef.current !== requestId) return
+          setOverlayShortcut(DEFAULT_OVERLAY_SHORTCUT)
+          writeOverlayShortcut(storage, DEFAULT_OVERLAY_SHORTCUT)
+        }
         reportShortcutError(shortcutError)
       },
     )
-  }, [activePage, overlayShortcut, storage])
+    // User-initiated changes register directly in updateOverlayShortcut.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storage])
+
+  useEffect(() => {
+    if (!isDesktopRuntime()) return
+    let disposed = false
+    let unlisten: (() => void) | undefined
+    void listenMainWindowHidden(() => {
+      for (const kind of ['recommendation', 'tier', 'layout'] as const) {
+        overlayRequestRef.current[kind] += 1
+        overlayDesiredRef.current[kind] = false
+      }
+      overlayShortcutHoldRef.current = false
+      overlayShortcutOpenRef.current = undefined
+      setOverlayVisibility({
+        recommendation: false,
+        tier: false,
+        layout: false,
+      })
+    })
+      .then((nextUnlisten) => {
+        if (disposed) nextUnlisten()
+        else unlisten = nextUnlisten
+      })
+      .catch(() => {
+        // The desktop shell remains usable if this optional synchronization fails.
+      })
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [])
 
   const abilitiesById = useMemo(
     () => new Map(snapshot.abilities.map((ability) => [ability.id, ability])),
@@ -415,35 +510,23 @@ function MainApp() {
     }
     return tiers
   }, [snapshot])
+  const overlayTierInfo = useMemo(
+    () =>
+      new Map(
+        buildAbilityTierList(snapshot, 'all').map((entry) => [
+          entry.ability.id,
+          entry,
+        ]),
+      ),
+    [snapshot],
+  )
   const candidatePools = useMemo<BuildCandidatePools>(() => {
-    const pools = {
-      heroIds: [] as number[],
-      abilityIds: [] as number[],
-      ultimateIds: [] as number[],
-    }
-    for (const slot of slots) {
-      if (slot.selectedAbilityId === undefined) continue
-      if (slot.category === 'hero') pools.heroIds.push(slot.selectedAbilityId)
-      else if (slot.category === 'ability')
-        pools.abilityIds.push(slot.selectedAbilityId)
-      else pools.ultimateIds.push(slot.selectedAbilityId)
-    }
-    const sortByTier = (ids: number[]) =>
-      [...new Set(ids)].sort((left, right) => {
-        const rankDifference =
-          (candidateTierInfo.get(left)?.rank ?? Number.POSITIVE_INFINITY) -
-          (candidateTierInfo.get(right)?.rank ?? Number.POSITIVE_INFINITY)
-        if (rankDifference !== 0) return rankDifference
-        return (abilitiesById.get(left)?.name ?? '').localeCompare(
-          abilitiesById.get(right)?.name ?? '',
-        )
-      })
-    return {
-      heroIds: sortByTier(pools.heroIds),
-      abilityIds: sortByTier(pools.abilityIds),
-      ultimateIds: sortByTier(pools.ultimateIds),
-    }
+    return collectCandidatePools(slots, candidateTierInfo, abilitiesById)
   }, [abilitiesById, candidateTierInfo, slots])
+  const overlayCandidatePools = useMemo(
+    () => collectCandidatePools(slots, candidateTierInfo, abilitiesById, true),
+    [abilitiesById, candidateTierInfo, slots],
+  )
   const deferredCandidatePools = useDeferredValue(candidatePools)
   const combinationCandidateIds = useMemo(
     () => [
@@ -496,15 +579,35 @@ function MainApp() {
     [fixedLayout, imageSize, layoutMode],
   )
   const layoutOverlaySlots = layout
+  const overlayTopTenIds = useMemo(
+    () =>
+      new Set(
+        [
+          ...new Set([
+            ...overlayCandidatePools.heroIds,
+            ...overlayCandidatePools.abilityIds,
+            ...overlayCandidatePools.ultimateIds,
+          ]),
+        ]
+          .map((id) => overlayTierInfo.get(id))
+          .filter((entry) => entry !== undefined)
+          .sort((left, right) => left.rank - right.rank)
+          .slice(0, 10)
+          .map((entry) => entry.ability.id),
+      ),
+    [overlayCandidatePools, overlayTierInfo],
+  )
   const layoutOverlayTiers = useMemo(
     () =>
       layoutOverlaySlots.map((_, index) => {
-        const abilityId = slots[index]?.selectedAbilityId
-        return abilityId === undefined
+        const slot = slots[index]
+        const abilityId =
+          slot?.selectedAbilityId ?? slot?.candidates[0]?.abilityId
+        return abilityId === undefined || !overlayTopTenIds.has(abilityId)
           ? null
-          : (candidateTierInfo.get(abilityId)?.tier ?? null)
+          : (overlayTierInfo.get(abilityId)?.tier ?? null)
       }),
-    [candidateTierInfo, layoutOverlaySlots, slots],
+    [layoutOverlaySlots, overlayTierInfo, overlayTopTenIds, slots],
   )
   const recommendations = useMemo(
     () =>
@@ -520,10 +623,21 @@ function MainApp() {
       ),
     [deferredCombinationCandidateIds, deferredSelectedIds, snapshot],
   )
+  const overlayPairRecommendations = useMemo(
+    () =>
+      recommendAbilityPairs(
+        deferredCombinationCandidateIds,
+        deferredSelectedIds,
+        snapshot,
+      ),
+    [deferredCombinationCandidateIds, deferredSelectedIds, snapshot],
+  )
   const overlayState = useMemo<OverlayState>(
     () => ({
-      candidatePools,
+      recognitionStatus: overlayRecognitionStatus,
+      candidatePools: overlayCandidatePools,
       combinationRecommendations,
+      pairRecommendations: overlayPairRecommendations,
       locale,
       recommendations,
       selectedIds,
@@ -534,8 +648,10 @@ function MainApp() {
       layoutViewport: imageSize,
     }),
     [
-      candidatePools,
+      overlayRecognitionStatus,
+      overlayCandidatePools,
       combinationRecommendations,
+      overlayPairRecommendations,
       locale,
       recommendations,
       selectedIds,
@@ -768,6 +884,7 @@ function MainApp() {
     setManualSlotIndex(undefined)
     setCalibrationOpen(true)
     setLoading(true)
+    setOverlayRecognitionStatus('recognizing')
     const missingCapabilities = missingRuntimeCapabilities(runtimeCapabilities)
     if (missingCapabilities.length > 0) {
       setError(
@@ -775,6 +892,7 @@ function MainApp() {
           capabilities: missingCapabilities.join(', '),
         }),
       )
+      setOverlayRecognitionStatus('error')
       setLoading(false)
       return
     }
@@ -797,6 +915,7 @@ function MainApp() {
         decoded.close()
         bitmap = undefined
         setError(dimensionError)
+        setOverlayRecognitionStatus('error')
         setLoading(false)
         return
       }
@@ -829,6 +948,7 @@ function MainApp() {
           return
         }
         setSlots(event.data.slots)
+        setOverlayRecognitionStatus('ready')
         setDebugSlotIndex(0)
         setLoading(false)
         finishWorker()
@@ -839,6 +959,7 @@ function MainApp() {
           return
         }
         setError(t('errors.recognitionFailed'))
+        setOverlayRecognitionStatus('error')
         setLoading(false)
         finishWorker()
       }
@@ -855,6 +976,7 @@ function MainApp() {
       timeoutId = window.setTimeout(() => {
         if (requestId !== recognitionRequestRef.current) return
         setError(t('errors.recognitionTimedOut'))
+        setOverlayRecognitionStatus('error')
         setLoading(false)
         finishWorker()
       }, RECOGNITION_TIMEOUT_MS)
@@ -866,6 +988,7 @@ function MainApp() {
       worker?.terminate()
       if (requestId !== recognitionRequestRef.current) return
       setError(t('errors.unreadableScreenshot'))
+      setOverlayRecognitionStatus('error')
       setLoading(false)
     }
   }
@@ -1053,8 +1176,7 @@ function MainApp() {
     if (!normalized || normalized === overlayShortcut) return
     const requestId = ++overlayShortcutRequestRef.current
     try {
-      if (isDesktopRuntime())
-        await setNativeOverlayShortcut(normalized, activePage === 'build')
+      if (isDesktopRuntime()) await setNativeOverlayShortcut(normalized, true)
       if (overlayShortcutRequestRef.current !== requestId) return
       setOverlayShortcut(normalized)
       writeOverlayShortcut(storage, normalized)
@@ -1183,21 +1305,37 @@ function MainApp() {
   }
 
   async function setOverlayOpen(kind: OverlayKind, open: boolean) {
+    const requestId = ++overlayRequestRef.current[kind]
+    overlayDesiredRef.current[kind] = open
     try {
+      let opened = open
       if (isDesktopRuntime()) {
         if (open) {
           writeOverlayState(kind, overlayState)
-          await openNativeOverlay(
+          opened = await openNativeOverlay(
             kind,
-            kind === 'layout' ? imageSize : undefined,
+            kind === 'layout' || kind === 'recommendation'
+              ? imageSize
+              : undefined,
           )
         } else await closeNativeOverlay(kind)
+      }
+      if (overlayRequestRef.current[kind] !== requestId) {
+        if (opened && !overlayDesiredRef.current[kind] && isDesktopRuntime())
+          void closeNativeOverlay(kind).catch(() => undefined)
+        return false
+      }
+      if (open && !opened) {
+        overlayDesiredRef.current[kind] = false
+        return false
       }
       setOverlayVisibility((current) =>
         current[kind] === open ? current : { ...current, [kind]: open },
       )
       return true
     } catch (overlayError) {
+      if (overlayRequestRef.current[kind] !== requestId) return false
+      overlayDesiredRef.current[kind] = !open
       const message =
         overlayError instanceof Error
           ? overlayError.message
@@ -1208,7 +1346,7 @@ function MainApp() {
   }
 
   async function toggleOverlay(kind: OverlayKind) {
-    return setOverlayOpen(kind, !overlayVisibility[kind])
+    return setOverlayOpen(kind, !overlayDesiredRef.current[kind])
   }
 
   function releaseHeldRecommendationOverlay() {
@@ -1238,9 +1376,7 @@ function MainApp() {
   }, [overlayVisibility.recommendation])
 
   useEffect(() => {
-    if (activePage !== 'build' || overlayShortcutMode !== 'hold')
-      releaseHeldRecommendationOverlay()
-    if (activePage !== 'build') return
+    if (overlayShortcutMode !== 'hold') releaseHeldRecommendationOverlay()
 
     const desktopRuntime = isDesktopRuntime()
 
@@ -1320,7 +1456,7 @@ function MainApp() {
       window.removeEventListener('blur', handleFocusLoss)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [activePage, overlayShortcut, overlayShortcutMode])
+  }, [overlayShortcut, overlayShortcutMode])
 
   useEffect(
     () => () => {
@@ -1849,9 +1985,7 @@ function MainApp() {
             combinationRecommendations={combinationRecommendations}
             recommendations={recommendations}
             abilities={abilitiesById}
-            recommendationOverlayOpen={overlayVisibility.recommendation}
-            tierOverlayOpen={overlayVisibility.tier}
-            layoutOverlayOpen={overlayVisibility.layout}
+            assistantOverlayOpen={overlayVisibility.recommendation}
             onToggleSelected={toggleSelected}
             onToggleOverlay={toggleOverlay}
           />
@@ -1892,7 +2026,7 @@ function MainApp() {
             query={tierQuery}
             groups={tierGroups}
             filteredEntryCount={filteredTierEntries.length}
-            overlayOpen={overlayVisibility.tier}
+            overlayOpen={overlayVisibility.recommendation}
             onCategoryChange={setTierCategory}
             onQueryChange={setTierQuery}
             onToggleOverlay={toggleOverlay}
@@ -1934,22 +2068,6 @@ function MainApp() {
         {!isDesktopRuntime() && overlayVisibility.recommendation && (
           <FloatingOverlay
             kind="recommendation"
-            state={overlayState}
-            snapshot={snapshot}
-            abilities={abilitiesById}
-          />
-        )}
-        {!isDesktopRuntime() && overlayVisibility.tier && (
-          <FloatingOverlay
-            kind="tier"
-            state={overlayState}
-            snapshot={snapshot}
-            abilities={abilitiesById}
-          />
-        )}
-        {!isDesktopRuntime() && overlayVisibility.layout && (
-          <FloatingOverlay
-            kind="layout"
             state={overlayState}
             snapshot={snapshot}
             abilities={abilitiesById}

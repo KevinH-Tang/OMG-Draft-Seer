@@ -67,11 +67,12 @@ function buildRecommendation(
   }
 }
 
-export function recommendAbilityCombinations(
+function recommendAbilityCombinationsInternal(
   candidateIds: readonly number[],
   selectedIds: readonly number[],
   snapshot: Snapshot,
-  limit = 8,
+  limit: number,
+  type?: CombinationRecommendation['type'],
 ): CombinationRecommendation[] {
   if (limit <= 0) return []
 
@@ -81,7 +82,9 @@ export function recommendAbilityCombinations(
   const selectedSet = new Set(selectedIds)
   const recommendations: CombinationRecommendation[] = []
 
-  for (const pair of buildPairStatsMap(snapshot.pairStats).values()) {
+  for (const pair of type === 'triple'
+    ? []
+    : buildPairStatsMap(snapshot.pairStats).values()) {
     if (
       pair.picks < MIN_ABILITY_PAIR_PICKS ||
       !candidateSet.has(pair.abilityIdOne) ||
@@ -102,9 +105,9 @@ export function recommendAbilityCombinations(
     if (recommendation) recommendations.push(recommendation)
   }
 
-  for (const triple of buildTripletStatsMap(
-    snapshot.tripletStats ?? [],
-  ).values()) {
+  for (const triple of type === 'pair'
+    ? []
+    : buildTripletStatsMap(snapshot.tripletStats ?? []).values()) {
     if (
       triple.picks < MIN_ABILITY_PAIR_PICKS ||
       !candidateSet.has(triple.abilityIdOne) ||
@@ -137,4 +140,32 @@ export function recommendAbilityCombinations(
         left.abilityIds.join(':').localeCompare(right.abilityIds.join(':')),
     )
     .slice(0, limit)
+}
+
+export function recommendAbilityCombinations(
+  candidateIds: readonly number[],
+  selectedIds: readonly number[],
+  snapshot: Snapshot,
+  limit = 8,
+): CombinationRecommendation[] {
+  return recommendAbilityCombinationsInternal(
+    candidateIds,
+    selectedIds,
+    snapshot,
+    limit,
+  )
+}
+
+export function recommendAbilityPairs(
+  candidateIds: readonly number[],
+  selectedIds: readonly number[],
+  snapshot: Snapshot,
+): CombinationRecommendation[] {
+  return recommendAbilityCombinationsInternal(
+    candidateIds,
+    selectedIds,
+    snapshot,
+    Number.MAX_SAFE_INTEGER,
+    'pair',
+  )
 }

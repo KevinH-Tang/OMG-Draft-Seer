@@ -28,7 +28,7 @@ const resources = {
         },
         overlayShortcut: '辅助浮窗快捷键',
         overlayShortcutHint:
-          '桌面版在“构筑推荐”页面注册 OS 全局 Tab；浏览器版仅在窗口聚焦时响应。Trigger 切换显示，Hold 按住显示。',
+          '桌面版注册 OS 全局快捷键；浏览器版在任意页面聚焦时响应。Trigger 切换显示，Hold 按住显示。',
         overlayShortcutKeyHint:
           '点击按键框后按下新的按键或组合键；Esc 取消。默认快捷键为 Tab。',
         overlayShortcutRecording: '请按下快捷键...',
@@ -39,6 +39,14 @@ const resources = {
         },
         language: '界面语言',
         languageHint: '切换后立即应用于界面。',
+        autostart: '开机自动启动',
+        autostartHint: '登录系统后自动启动并常驻系统托盘。',
+        autostartEnabled: '已开启',
+        autostartDisabled: '已关闭',
+        autostartLoading: '正在读取...',
+        autostartUnavailable: '状态不可用',
+        autostartDesktopOnly: '仅桌面版可用',
+        autostartError: '无法更新开机启动设置，请检查系统权限。',
       },
       language: { zh: '中文', en: 'EN' },
       app: {
@@ -196,6 +204,9 @@ const resources = {
         combinationRecommendations: 'Pair / Triple 组合',
         fivePickScore: '5 选构筑评分',
         combinationEmpty: '暂无达到 50 场门槛的组合统计',
+        waitingForScreenshot: '等待截图识别',
+        recognizingScreenshot: '正在识别截图…',
+        recognitionFailed: '截图识别失败，请重试',
         currentCandidates: '当前截图候选',
         globalTop: '全局 Top 36',
         globalTopCompact: '全局 Top 7',
@@ -294,7 +305,7 @@ const resources = {
         },
         overlayShortcut: 'Assistant overlay shortcut',
         overlayShortcutHint:
-          'The desktop build registers OS-global Tab on Build Recommendations; the browser build responds only while focused. Trigger toggles it; Hold shows it while pressed.',
+          'The desktop build registers an OS-global shortcut; the browser build responds on every page while focused. Trigger toggles it; Hold shows it while pressed.',
         overlayShortcutKeyHint:
           'Click the key field, then press a key or key combination; Esc cancels. The default is Tab.',
         overlayShortcutRecording: 'Press a shortcut...',
@@ -305,6 +316,16 @@ const resources = {
         },
         language: 'Interface language',
         languageHint: 'Changes apply to the interface immediately.',
+        autostart: 'Launch at startup',
+        autostartHint:
+          'Start after sign-in and remain available in the system tray.',
+        autostartEnabled: 'Enabled',
+        autostartDisabled: 'Disabled',
+        autostartLoading: 'Checking...',
+        autostartUnavailable: 'Status unavailable',
+        autostartDesktopOnly: 'Desktop app only',
+        autostartError:
+          'Unable to update the startup setting. Check system permissions.',
       },
       language: { zh: '中文', en: 'EN' },
       app: {
@@ -467,6 +488,9 @@ const resources = {
         combinationRecommendations: 'Pair / Triple combinations',
         fivePickScore: 'Five-pick build score',
         combinationEmpty: 'No combination stats meet the 50-pick threshold',
+        waitingForScreenshot: 'Waiting for screenshot recognition',
+        recognizingScreenshot: 'Recognizing screenshot…',
+        recognitionFailed: 'Screenshot recognition failed. Try again.',
         currentCandidates: 'Current screenshot candidates',
         globalTop: 'Global Top 36',
         globalTopCompact: 'Global Top 7',

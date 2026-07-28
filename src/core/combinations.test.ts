@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { recommendAbilityCombinations } from './combinations'
+import {
+  recommendAbilityCombinations,
+  recommendAbilityPairs,
+} from './combinations'
 import type { Ability, Snapshot } from '../types'
 
 function ability(
@@ -111,5 +114,20 @@ describe('ability combination recommendations', () => {
         ],
       }),
     ).toEqual([expect.objectContaining({ type: 'pair', abilityIds: [-1, 1] })])
+  })
+
+  it('returns the complete Pair list without Triple entries consuming the limit', () => {
+    const pairs = recommendAbilityPairs([-1, 1, 2, 3], [-1, 1], {
+      ...snapshot,
+      pairStats: [
+        ...snapshot.pairStats,
+        { abilityIdOne: 2, abilityIdTwo: 3, picks: 100, wins: 70 },
+      ],
+    })
+
+    expect(pairs).toHaveLength(2)
+    expect(
+      pairs.every((recommendation) => recommendation.type === 'pair'),
+    ).toBe(true)
   })
 })

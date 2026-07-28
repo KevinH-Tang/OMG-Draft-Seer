@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Production desktop capability for the main window and Tauri overlay windows.",
   "windows": ["main", "overlay-*"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "autostart:default"]
 }

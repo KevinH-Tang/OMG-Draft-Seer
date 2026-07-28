@@ -153,7 +153,7 @@ export function TierListPage({
             <Layers size={21} aria-hidden="true" />
             <span>{t('tiers.percentile')}</span>
             <OverlayToggleButton
-              kind="tier"
+              kind="recommendation"
               open={overlayOpen}
               onToggle={onToggleOverlay}
             />
