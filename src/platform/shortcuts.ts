@@ -1,13 +1,49 @@
-import { listen } from '@tauri-apps/api/event'
 import type { StorageAdapter } from './storage'
 
 export type OverlayShortcutMode = 'trigger' | 'hold'
 export type OverlayShortcutState = 'pressed' | 'released'
 
+export interface OverlayShortcutModeRequestState {
+  requestId: number
+  requestedMode: OverlayShortcutMode
+}
+
+export interface OverlayHoldCycleState {
+  active: boolean
+  overlayOpen: boolean
+}
+
+export function transitionOverlayHoldCycle(
+  state: OverlayHoldCycleState,
+  shortcutState: OverlayShortcutState,
+): OverlayHoldCycleState {
+  if (shortcutState === 'pressed') {
+    if (state.active) return state
+    return { active: true, overlayOpen: true }
+  }
+  if (!state.active) return state
+  return { active: false, overlayOpen: false }
+}
+
+export function overlayShouldCloseOnModeEntry(
+  mode: OverlayShortcutMode,
+): boolean {
+  return mode === 'hold'
+}
+
+export function beginOverlayShortcutModeRequest(
+  state: OverlayShortcutModeRequestState,
+  mode: OverlayShortcutMode,
+): number | undefined {
+  if (mode === state.requestedMode) return undefined
+  state.requestedMode = mode
+  state.requestId += 1
+  return state.requestId
+}
+
 export const OVERLAY_SHORTCUT_MODE_STORAGE_KEY = 'omg-overlay-shortcut-mode-v1'
 export const OVERLAY_SHORTCUT_STORAGE_KEY = 'omg-overlay-shortcut-key-v1'
 export const DEFAULT_OVERLAY_SHORTCUT = 'Tab'
-export const DESKTOP_OVERLAY_SHORTCUT_EVENT = 'omg-draft-seer-global-shortcut'
 
 const MODIFIER_KEYS = new Set(['Alt', 'Control', 'Meta', 'Shift'])
 const MODIFIER_CODES = new Set(['Alt', 'Control', 'Shift', 'Super'])
@@ -165,7 +201,6 @@ function formatShortcutKey(key: string): string {
 }
 
 const EDITABLE_TAG_NAMES = new Set(['INPUT', 'TEXTAREA', 'SELECT'])
-
 interface MaybeEditableElement {
   tagName?: unknown
   isContentEditable?: unknown
@@ -180,23 +215,43 @@ export function isEditableEventTarget(target: EventTarget | null): boolean {
   )
 }
 
-export function readOverlayShortcutState(
-  payload: unknown,
-): OverlayShortcutState | undefined {
-  const state =
-    typeof payload === 'string'
-      ? payload
-      : typeof payload === 'object' && payload !== null
-        ? (payload as { state?: unknown }).state
-        : undefined
-  return state === 'pressed' || state === 'released' ? state : undefined
-}
-
-export function listenOverlayShortcut(
+export function createOverlayShortcutController(
+  shortcut: string,
   onStateChange: (state: OverlayShortcutState) => void,
-): Promise<() => void> {
-  return listen<string>(DESKTOP_OVERLAY_SHORTCUT_EVENT, (event) => {
-    const state = readOverlayShortcutState(event.payload)
-    if (state) onStateChange(state)
-  })
+) {
+  let pressed = false
+
+  const handleState = (state: OverlayShortcutState) => {
+    const next = state === 'pressed'
+    if (next === pressed) return
+    pressed = next
+    onStateChange(state)
+  }
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (
+      !isOverlayShortcutEvent(event, shortcut) ||
+      event.repeat ||
+      event.defaultPrevented ||
+      isEditableEventTarget(event.target)
+    )
+      return
+    event.preventDefault()
+    handleState('pressed')
+  }
+
+  const handleKeyUp = (event: KeyboardEvent) => {
+    if (!pressed || !isOverlayShortcutKeyEvent(event, shortcut)) return
+    event.preventDefault()
+    handleState('released')
+  }
+
+  return {
+    handleKeyDown,
+    handleKeyUp,
+    handleState,
+    reset: () => {
+      handleState('released')
+    },
+  }
 }

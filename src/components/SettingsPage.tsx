@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
+  CircleAlert,
+  CircleCheck,
   Keyboard,
   LoaderCircle,
   Power,
@@ -27,6 +29,7 @@ export function SettingsPage({
   layoutMode,
   overlayShortcut,
   overlayShortcutMode,
+  overlayShortcutRegistered,
   onBack,
   onLayoutModeChange,
   onOverlayShortcutChange,
@@ -35,6 +38,7 @@ export function SettingsPage({
   layoutMode: LayoutMode
   overlayShortcut: string
   overlayShortcutMode: OverlayShortcutMode
+  overlayShortcutRegistered?: boolean
   onBack: () => void
   onLayoutModeChange: (mode: LayoutMode) => void
   onOverlayShortcutChange: (shortcut: string) => void
@@ -186,6 +190,35 @@ export function SettingsPage({
           <p className="mb-2 mt-0 text-xs text-text-muted">
             {t('settings.overlayShortcutKeyHint')}
           </p>
+          {desktopRuntime && (
+            <p
+              className={cn(
+                'mb-2 mt-0 inline-flex min-h-5 items-center gap-1.5 text-xs',
+                overlayShortcutRegistered === false
+                  ? 'text-danger'
+                  : 'text-text-muted',
+              )}
+              aria-live="polite"
+              data-testid="overlay-shortcut-registration-status"
+            >
+              {overlayShortcutRegistered === undefined ? (
+                <LoaderCircle
+                  className="animate-spin"
+                  size={13}
+                  aria-hidden="true"
+                />
+              ) : overlayShortcutRegistered ? (
+                <CircleCheck size={13} aria-hidden="true" />
+              ) : (
+                <CircleAlert size={13} aria-hidden="true" />
+              )}
+              {overlayShortcutRegistered === undefined
+                ? t('settings.overlayShortcutChecking')
+                : overlayShortcutRegistered
+                  ? t('settings.overlayShortcutRegistered')
+                  : t('settings.overlayShortcutUnregistered')}
+            </p>
+          )}
           <div className="flex items-center gap-2">
             <button
               className={cn(
@@ -293,7 +326,9 @@ export function SettingsPage({
                     : t('settings.autostartDisabled')}
             </span>
             {autostartPending ||
-            (desktopRuntime && autostartEnabled === undefined) ? (
+            (desktopRuntime &&
+              autostartEnabled === undefined &&
+              !autostartError) ? (
               <LoaderCircle
                 className="shrink-0 animate-spin text-accent"
                 size={16}

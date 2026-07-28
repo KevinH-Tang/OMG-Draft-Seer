@@ -1,7 +1,7 @@
 # Project Status
 
-> Audit baseline and latest local validation: 2026-07-24. macOS Apple Silicon build and
-> free-distribution decision: 2026-07-24.
+> Audit baseline and cross-platform validation: 2026-07-24. Overlay lifecycle implementation and
+> Apple Silicon native smoke evidence: 2026-07-28. Pre-commit validation: 2026-07-29.
 
 This document records the current implementation boundary, validated repository inputs, and open
 handoff items. It is a status record, not a product roadmap.
@@ -22,18 +22,35 @@ consumes Top1 for the deterministic path. The implementation boundary and assump
 in [Draft strategy tree](draft-strategy-tree.md).
 
 Layout is projected from resource geometry and the screenshot resolution, with manual fixed-layout
-calibration retained as a fallback. The project does not capture a game window or provide global shortcuts.
-The Tauri shell now exposes independent Tier and recommendation overlay windows with always-on-top
-and cursor-pass-through behavior; the browser build uses fixed mouse-transparent panels.
+calibration retained as a fallback. The project does not capture a game window. The Tauri shell
+exposes independent Tier, recommendation, and layout overlay windows with always-on-top and
+cursor-pass-through behavior. Its configurable OS-global shortcut controls the recommendation
+overlay in Trigger or Hold mode even while the main window is hidden; the browser build uses a
+focused-window shortcut and a fixed mouse-transparent recommendation panel. Rust owns native
+overlay visibility, readiness, request revisions, and shortcut press cycles; React consumes a
+revisioned visibility projection. See
+[Overlay lifecycle state machine](overlay-lifecycle-state-machine.md) for the command, readiness,
+content-sync, and shortcut event flows.
+
+The native shortcut callback sends press/release events to one dedicated FIFO worker. On Windows,
+the worker ignores a release while the shortcut's main key is still physically down, so a stale
+release cannot close a newer Hold press. Switching to Hold closes the recommendation overlay before
+committing the mode in both desktop and browser runtimes; a browser Hold press also claims an
+already-open overlay so release closes it. Native overlay ready is gated on the bundled runtime
+snapshot settling and a current main-WebView content handshake. WebView creation runs off the main
+thread, screenshot viewport changes resize and reposition existing recommendation and layout
+windows, and reload/hide transitions reassert cursor pass-through without resetting an existing
+visible window behind the cursor poller's state.
+
 The macOS transparent-overlay implementation uses Tauri's macOS private API, so macOS releases
 must be direct-distribution builds rather than Mac App Store submissions. The project does not
 join the Apple Developer Program: its macOS release target is an unsigned Apple Silicon DMG plus a
 GitHub Actions-generated SHA-256 file on GitHub Releases. Developer ID signing, notarization, stapling, and automatic
 Gatekeeper approval are intentionally out of scope; users follow the documented first-open flow.
 `src/platform/` contains the browser adapters for resource URLs, layout storage, file import/export,
-overlay state, and runtime capability checks. The current macOS build output is intentionally
-limited to a local unsigned Apple Silicon `.app`; universal, DMG, cross-compilation, and temporary
-disk-image artifacts have been cleaned after validation.
+overlay state, shortcuts, and runtime capability checks. Local macOS validation produces an
+unsigned Apple Silicon `.app`; the protected release workflow owns normal DMG packaging and
+checksum publication. Universal binaries and cross-compilation remain out of scope.
 
 ## Runtime Inventory
 
@@ -52,6 +69,23 @@ on 2026-07-22. These are derived inputs and reports; regenerate them instead of 
 hand.
 
 ## Latest Validation
+
+On 2026-07-29, the current Apple Silicon workspace used Node `24.18.0`, npm `11.16.0`, and the
+repository-pinned Rust/Cargo `1.90.0` Apple Silicon toolchain. This is a Node 24 compatibility
+validation, not the `.nvmrc`-pinned Node `22.12.0` release baseline:
+
+- `npm run check` passed: Prettier, Rustfmt, 26 Rust unit tests, TypeScript/Vite, 25 Vitest files
+  with 125 tests, Clippy with warnings denied, and the offline runtime graph all completed
+  successfully. Vite emitted only the existing main-chunk size warning.
+- `npm run test:rust` passed all 26 Rust unit tests, including native overlay lifecycle,
+  Trigger/Hold transactionality, shortcut worker ordering, Windows release filtering, background
+  WebView creation, and cursor-state preservation.
+- `npm run desktop:build -- --bundles app` produced
+  `src-tauri/target/release/bundle/macos/OMG-Draft-Seer.app`; its executable is arm64.
+- `npm run verify:macos-bundle -- --require-arm64 --require-runtime-assets` verified the arm64
+  executable, embedded runtime resources, and absence of the test WebDriver bridge. The manual
+  WKWebView smoke checklist was not run, so this remains a local app build rather than
+  release-candidate acceptance.
 
 On 2026-07-24, the current Windows workspace used Node `24.16.0`, npm `11.13.0`, and the
 repository-pinned Rust/Cargo `1.90.0` MSVC toolchain:
@@ -100,9 +134,9 @@ Also on 2026-07-24, local macOS Apple Silicon validation completed:
 | Path                                                            | State                                 | Responsibility                                                                                                                                    |
 | --------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/`                                                          | Maintained                            | React UI, recognition worker, layout, matching, tiers, pairs, and recommendations                                                                 |
-| `src/platform/`                                                 | Maintained                            | Resource, storage, file, and runtime capability adapters                                                                                          |
-| `src-tauri/`                                                    | Maintained; bundles built             | Tauri v2 shell, window configuration, relative asset packaging, and minimal capability                                                            |
-| `src-tauri/icons/`                                              | Derived; licence review pending       | Windrun favicon-derived Windows/macOS bundle icons                                                                                                |
+| `src/platform/`                                                 | Maintained                            | Resource, storage, file, overlay, shortcut, and runtime capability adapters                                                                       |
+| `src-tauri/`                                                    | Maintained; bundles built             | Tauri v2 shell, window and shortcut lifecycle, relative asset packaging, and capabilities                                                         |
+| `src-tauri/icons/`                                              | Derived; licence review pending       | Windrun-mark vector source and generated Windows/macOS bundle icons                                                                               |
 | `.github/workflows/ci.yml`                                      | Configured; execution pending         | macOS/Windows Node test, build, and runtime asset checks                                                                                          |
 | `.github/workflows/release-macos.yml`                           | Configured; release execution pending | Build an unsigned arm64 DMG, generate its SHA-256 on the GitHub Actions runner, and create or update a GitHub Release with `contents: write` only |
 | `public/data/`                                                  | Derived runtime input                 | Snapshot and template signatures used by the application                                                                                          |
@@ -173,12 +207,15 @@ endpoints; whether a fuller private export exists is not documented in this repo
   persistence inside the target WebViews on Windows and macOS. Before a macOS release, repeat the
   unsigned-DMG, SHA-256, Gatekeeper-first-open, and overlay acceptance checklist in
   `macos-build-test.md` on Apple Silicon.
+- Extend native shortcut validation beyond the 2026-07-28 Apple Silicon Trigger smoke: cover Hold
+  press/release and cancellation, macOS loss of focus while the main window remains visible, and
+  Windows focused/hidden main-window paths. Repeat macOS validation on the Node 22 release baseline.
 - Run the free release workflow: one arm64 DMG, one GitHub Actions-generated matching SHA-256
   file, GitHub `contents: write` publication, and release notes that disclose the missing
   Developer ID/notarization and user-controlled first-open path.
-  Perform the WKWebView manual smoke check for the resizable 720 x 540 default main window, language syncing,
-  Tier/recommendation overlays, transparent background, cursor pass-through, and multi-Space
-  behavior. These checks cannot be inferred from the build alone.
+- Perform the WKWebView manual smoke check for the resizable 720 x 540 default main window,
+  language syncing, Tier/recommendation overlays, transparent background, cursor pass-through, and
+  multi-Space behavior. These checks cannot be inferred from the build alone.
 - Run the configured CI matrix and add more independently labelled screenshots for top-1/top-10
   accuracy evaluation.
 - Complete source and redistribution licence review for third-party data and image assets.
@@ -186,9 +223,9 @@ endpoints; whether a fuller private export exists is not documented in this repo
   relation database. Track a full-export, pagination, or match-level-data path with the upstream
   project.
 
-Wails, Go-native UI, game-window capture, and global shortcuts remain outside the current
-implementation. The native overlay scope is limited to the independent information windows added
-for Tier and recommendation views.
+Wails, Go-native UI, and game-window capture remain outside the current implementation. Native
+global shortcuts are implemented only for recommendation-overlay Trigger/Hold control; they do not
+capture the game or add in-game input handling.
 
 ## Intentional Cleanup
 
@@ -205,6 +242,8 @@ directories. Resource projection is the default and the committed fixed layout i
 - [Recommendation metrics](recommendation-metrics.md) defines the project-owned scoring model.
 - [Draft strategy tree](draft-strategy-tree.md) defines the multi-player draft state, all-player
   strategy simulation, and Top20 ranking.
+- [Overlay lifecycle state machine](overlay-lifecycle-state-machine.md) defines native overlay and
+  global-shortcut ownership, transitions, readiness, and current smoke-test evidence.
 - [Golden screenshot fixtures](../tests/fixtures/README.md) defines fixture and label conventions.
 
 ## Attribution

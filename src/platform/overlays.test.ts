@@ -1,15 +1,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   OVERLAY_CHANNEL_NAME,
+  canMarkOverlayReady,
   closeNativeOverlay,
+  getNativeOverlayVisibility,
   isDesktopRuntime,
+  markNativeOverlayReady,
+  mergeNativeOverlayVisibility,
   openNativeOverlay,
   overlayKindFromLocation,
   readOverlayState,
   resizeNativeOverlay,
+  scheduleOverlayReadyAfterPaint,
   setNativeOverlayInteractionRegion,
   setNativeOverlayShortcut,
+  setNativeOverlayViewport,
+  toggleNativeOverlay,
   writeOverlayState,
+  type NativeOverlayVisibility,
   type OverlayState,
 } from './overlays'
 
@@ -29,6 +37,13 @@ afterEach(() => {
 })
 
 describe('overlay platform bridge', () => {
+  it('requires settled runtime data and synchronized content before native ready', () => {
+    expect(canMarkOverlayReady(true, true)).toBe(true)
+    expect(canMarkOverlayReady(true, false)).toBe(false)
+    expect(canMarkOverlayReady(false, true)).toBe(false)
+    expect(canMarkOverlayReady(false, false)).toBe(false)
+  })
+
   it('recognizes only supported overlay query values', () => {
     vi.stubGlobal('window', { location: { search: '?overlay=tier' } })
     expect(overlayKindFromLocation()).toBe('tier')
@@ -75,18 +90,25 @@ describe('overlay platform bridge', () => {
   })
 
   it('uses the desktop bridge only when Tauri internals are present', async () => {
-    const invoke = vi.fn().mockResolvedValue(true)
+    const visibility: NativeOverlayVisibility = {
+      kind: 'tier',
+      open: true,
+      revision: 4,
+    }
+    const invoke = vi.fn().mockResolvedValue(visibility)
     vi.stubGlobal('window', { __TAURI_INTERNALS__: { invoke } })
 
     expect(isDesktopRuntime()).toBe(true)
-    await expect(openNativeOverlay('tier')).resolves.toBe(true)
+    await expect(openNativeOverlay('tier')).resolves.toEqual(visibility)
     await expect(
       openNativeOverlay('layout', { width: 1920, height: 1080 }),
-    ).resolves.toBe(true)
+    ).resolves.toEqual(visibility)
     await closeNativeOverlay('recommendation')
+    await toggleNativeOverlay('recommendation', { width: 1920, height: 1080 })
     await resizeNativeOverlay('recommendation', 940)
     await setNativeOverlayInteractionRegion('recommendation', 372, 720)
-    await setNativeOverlayShortcut('F8', true)
+    await setNativeOverlayViewport({ width: 1920, height: 1080 })
+    await setNativeOverlayShortcut('F8', true, 'hold')
 
     expect(invoke).toHaveBeenNthCalledWith(1, 'open_overlay', { kind: 'tier' })
     expect(invoke).toHaveBeenNthCalledWith(2, 'open_overlay', {
@@ -97,12 +119,17 @@ describe('overlay platform bridge', () => {
     expect(invoke).toHaveBeenNthCalledWith(3, 'close_overlay', {
       kind: 'recommendation',
     })
-    expect(invoke).toHaveBeenNthCalledWith(4, 'resize_overlay', {
+    expect(invoke).toHaveBeenNthCalledWith(4, 'toggle_overlay', {
+      kind: 'recommendation',
+      width: 1920,
+      height: 1080,
+    })
+    expect(invoke).toHaveBeenNthCalledWith(5, 'resize_overlay', {
       kind: 'recommendation',
       height: 940,
     })
     expect(invoke).toHaveBeenNthCalledWith(
-      5,
+      6,
       'set_overlay_interaction_region',
       {
         kind: 'recommendation',
@@ -110,10 +137,131 @@ describe('overlay platform bridge', () => {
         height: 720,
       },
     )
-    expect(invoke).toHaveBeenNthCalledWith(6, 'set_overlay_shortcut', {
+    expect(invoke).toHaveBeenNthCalledWith(7, 'set_overlay_viewport', {
+      width: 1920,
+      height: 1080,
+    })
+    expect(invoke).toHaveBeenNthCalledWith(8, 'set_overlay_shortcut', {
       shortcut: 'F8',
       enabled: true,
+      mode: 'hold',
     })
+  })
+
+  it('signals that a mounted overlay is ready for native display', async () => {
+    const invoke = vi.fn().mockResolvedValue(true)
+    vi.stubGlobal('window', { __TAURI_INTERNALS__: { invoke } })
+
+    await expect(markNativeOverlayReady('tier')).resolves.toBe(true)
+    expect(invoke).toHaveBeenCalledWith('mark_overlay_ready', { kind: 'tier' })
+  })
+
+  it('queries the native visibility snapshot after event subscription', async () => {
+    const visibility: NativeOverlayVisibility[] = [
+      { kind: 'recommendation', open: true, revision: 5 },
+      { kind: 'tier', open: false, revision: 2 },
+      { kind: 'layout', open: false, revision: 0 },
+    ]
+    const invoke = vi.fn().mockResolvedValue(visibility)
+    vi.stubGlobal('window', { __TAURI_INTERNALS__: { invoke } })
+
+    await expect(getNativeOverlayVisibility()).resolves.toEqual(visibility)
+    expect(invoke).toHaveBeenCalledWith('get_overlay_visibility', {})
+  })
+
+  it('ignores stale native visibility projections', () => {
+    const projection = {
+      visibility: { recommendation: true, tier: false, layout: false },
+      revisions: { recommendation: 7, tier: 0, layout: 0 },
+    }
+
+    expect(
+      mergeNativeOverlayVisibility(projection, {
+        kind: 'recommendation',
+        open: false,
+        revision: 6,
+      }),
+    ).toBe(projection)
+    expect(
+      mergeNativeOverlayVisibility(projection, {
+        kind: 'recommendation',
+        open: false,
+        revision: 8,
+      }),
+    ).toEqual({
+      visibility: { recommendation: false, tier: false, layout: false },
+      revisions: { recommendation: 8, tier: 0, layout: 0 },
+    })
+  })
+
+  it('waits for two animation frames before signaling overlay readiness', () => {
+    const frames: FrameRequestCallback[] = []
+    const scheduler = {
+      requestAnimationFrame: vi.fn((callback: FrameRequestCallback) => {
+        frames.push(callback)
+        return frames.length
+      }),
+      cancelAnimationFrame: vi.fn(),
+      setTimeout: vi.fn(() => 1),
+      clearTimeout: vi.fn(),
+    }
+    const ready = vi.fn()
+
+    scheduleOverlayReadyAfterPaint(ready, scheduler)
+    expect(ready).not.toHaveBeenCalled()
+
+    frames.shift()?.(0)
+    expect(ready).not.toHaveBeenCalled()
+
+    frames.shift()?.(16)
+    expect(ready).toHaveBeenCalledOnce()
+  })
+
+  it('does not signal readiness after the overlay document is disposed', () => {
+    const frames: FrameRequestCallback[] = []
+    const scheduler = {
+      requestAnimationFrame: vi.fn((callback: FrameRequestCallback) => {
+        frames.push(callback)
+        return frames.length
+      }),
+      cancelAnimationFrame: vi.fn(),
+      setTimeout: vi.fn(() => 1),
+      clearTimeout: vi.fn(),
+    }
+    const ready = vi.fn()
+
+    const dispose = scheduleOverlayReadyAfterPaint(ready, scheduler)
+    dispose()
+    frames.shift()?.(0)
+    frames.shift()?.(16)
+
+    expect(ready).not.toHaveBeenCalled()
+  })
+
+  it('uses a timer fallback when a hidden webview does not produce frames', () => {
+    const frames: FrameRequestCallback[] = []
+    let timeoutCallback: (() => void) | undefined
+    const scheduler = {
+      requestAnimationFrame: vi.fn((callback: FrameRequestCallback) => {
+        frames.push(callback)
+        return frames.length
+      }),
+      cancelAnimationFrame: vi.fn(),
+      setTimeout: vi.fn((callback: () => void) => {
+        timeoutCallback = callback
+        return 99
+      }),
+      clearTimeout: vi.fn(),
+    }
+    const ready = vi.fn()
+
+    scheduleOverlayReadyAfterPaint(ready, scheduler)
+    timeoutCallback?.()
+    frames.shift()?.(0)
+    frames.shift()?.(16)
+
+    expect(ready).toHaveBeenCalledOnce()
+    expect(scheduler.clearTimeout).toHaveBeenCalledWith(99)
   })
 
   it('rejects native overlay commands outside the desktop shell', async () => {

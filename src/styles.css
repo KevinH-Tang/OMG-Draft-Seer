@@ -246,7 +246,8 @@
 
 /* Native overlay documents are transparent and have no hit target at all. */
 .overlay-document,
-.overlay-document body {
+.overlay-document body,
+.overlay-document #root {
   background: transparent;
 }
 

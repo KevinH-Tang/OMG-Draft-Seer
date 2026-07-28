@@ -115,6 +115,10 @@ Verify data and overlay behavior:
 - Open the Tier and recommendation native overlays independently.
 - Confirm that overlays remain above other windows, receive synchronized language/state updates,
   and allow cursor input to reach the window behind them.
+- Confirm that switching to Hold closes an open recommendation overlay, pressing the configured
+  shortcut opens it, and releasing the shortcut closes it again.
+- Hide the main window to the tray and confirm that the configured global shortcut still toggles
+  or holds the recommendation overlay according to the selected mode.
 
 ## Windows Tauri E2E
 
@@ -160,6 +164,7 @@ The current E2E suite covers:
 - Tier and Pairs filtering and the same-hero exclusion toggle.
 - Screenshot upload, recognition completion, candidate acceptance, and layout reset dialog.
 - Draft strategy switching and opening a native Tier overlay window.
+- Opening the assistant overlay with the registered shortcut and restoring the default `Tab` key.
 
 The WDIO-enabled binary is test-only and must not be published or used as the release artifact.
 
@@ -236,10 +241,10 @@ not fail the build, but route or page-level lazy loading remains a follow-up opt
 - Recognition projects the resource-defined layout from the screenshot resolution, treats narrow
   screenshots as centered `4:3` letterboxed viewports, and retains manual fixed-layout calibration
   as a fallback.
-- The application does not capture or follow the game window and does not register global
-  shortcuts.
+- The application does not capture or follow the game window. It registers one configurable
+  OS-global shortcut for the recommendation overlay, with Trigger and Hold modes.
 - Native Tier and recommendation overlays are user-opened analysis views, not automatic in-game
-  HUD tracking.
+  HUD tracking. The internal layout overlay kind is not exposed as a separate user control.
 - Recognition accuracy needs a larger independently labelled screenshot set.
 - Windrun, DatDota, local VPK-derived images, and desktop icon sources require licence review before
   redistribution.

@@ -1,17 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_OVERLAY_SHORTCUT,
-  DESKTOP_OVERLAY_SHORTCUT_EVENT,
   OVERLAY_SHORTCUT_MODE_STORAGE_KEY,
   OVERLAY_SHORTCUT_STORAGE_KEY,
+  beginOverlayShortcutModeRequest,
+  createOverlayShortcutController,
   formatOverlayShortcut,
   isEditableEventTarget,
   isOverlayShortcutEvent,
   isOverlayShortcutKeyEvent,
+  overlayShouldCloseOnModeEntry,
   readOverlayShortcut,
   readOverlayShortcutMode,
-  readOverlayShortcutState,
   shortcutFromKeyboardEvent,
+  transitionOverlayHoldCycle,
   writeOverlayShortcut,
   writeOverlayShortcutMode,
 } from './shortcuts'
@@ -35,6 +37,35 @@ afterEach(() => {
 })
 
 describe('overlay shortcut preferences', () => {
+  it('claims an open overlay for a hold cycle and closes it on release', () => {
+    let state = { active: false, overlayOpen: true }
+
+    state = transitionOverlayHoldCycle(state, 'pressed')
+    expect(state).toEqual({ active: true, overlayOpen: true })
+
+    state = transitionOverlayHoldCycle(state, 'released')
+    expect(state).toEqual({ active: false, overlayOpen: false })
+  })
+
+  it('closes the recommendation overlay when entering hold mode', () => {
+    expect(overlayShouldCloseOnModeEntry('hold')).toBe(true)
+    expect(overlayShouldCloseOnModeEntry('trigger')).toBe(false)
+  })
+
+  it('lets the latest mode click supersede a pending mode request', () => {
+    const requests = {
+      requestId: 0,
+      requestedMode: 'trigger' as const,
+    }
+
+    const holdRequest = beginOverlayShortcutModeRequest(requests, 'hold')
+    const triggerRequest = beginOverlayShortcutModeRequest(requests, 'trigger')
+
+    expect(holdRequest).toBe(1)
+    expect(triggerRequest).toBe(2)
+    expect(requests.requestedMode).toBe('trigger')
+  })
+
   it('defaults to trigger and persists hold mode', () => {
     const storage = createStorage()
 
@@ -169,13 +200,17 @@ describe('overlay shortcut preferences', () => {
     ).toBe('Control+KeyE')
   })
 
-  it('reads native desktop press and release events', () => {
-    expect(readOverlayShortcutState('pressed')).toBe('pressed')
-    expect(readOverlayShortcutState({ state: 'released' })).toBe('released')
-    expect(readOverlayShortcutState('repeat')).toBeUndefined()
-    expect(DESKTOP_OVERLAY_SHORTCUT_EVENT).toBe(
-      'omg-draft-seer-global-shortcut',
+  it('releases an active shortcut when its listener is disposed', () => {
+    const onStateChange = vi.fn()
+    const controller = createOverlayShortcutController(
+      DEFAULT_OVERLAY_SHORTCUT,
+      onStateChange,
     )
+
+    controller.handleState('pressed')
+    controller.reset()
+
+    expect(onStateChange.mock.calls).toEqual([['pressed'], ['released']])
   })
 
   it('identifies editable event targets so the shortcut does not hijack typing', () => {

@@ -8,10 +8,13 @@ import { cropCenter, FIXED_SLOT_LAYOUT, type RuntimeSlot } from '../core/layout'
 import { buildAbilityTierList, type TierEntry } from '../core/tiers'
 import i18n from '../i18n'
 import {
+  canMarkOverlayReady,
   createOverlayChannel,
   isDesktopRuntime,
+  markNativeOverlayReady,
   readOverlayState,
   resizeNativeOverlay,
+  scheduleOverlayReadyAfterPaint,
   setNativeOverlayInteractionRegion,
   type OverlayKind,
   type OverlayMessage,
@@ -439,6 +442,8 @@ export function FloatingOverlay({
 export function OverlayApp({ kind }: { kind: OverlayKind }) {
   const { i18n: instance } = useTranslation()
   const [snapshot, setSnapshot] = useState<Snapshot>(demoSnapshot)
+  const [snapshotSettled, setSnapshotSettled] = useState(false)
+  const [contentSynchronized, setContentSynchronized] = useState(false)
   const [state, setState] = useState<OverlayState>(() =>
     restoreOverlayState(kind),
   )
@@ -449,30 +454,64 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
   }, [kind])
 
   useEffect(() => {
+    let active = true
     fetch(appResourceUrl('/data/snapshots/latest.json'))
       .then((response) =>
         response.ok
           ? (response.json() as Promise<Snapshot>)
           : Promise.reject(new Error('no local snapshot')),
       )
-      .then(setSnapshot)
+      .then((nextSnapshot) => {
+        if (active) setSnapshot(nextSnapshot)
+      })
       .catch(() => undefined)
+      .finally(() => {
+        if (active) setSnapshotSettled(true)
+      })
+    return () => {
+      active = false
+    }
   }, [])
 
   useEffect(() => {
     const channel = createOverlayChannel()
-    if (!channel) return
-    channel.onmessage = (event: MessageEvent<OverlayMessage>) => {
-      const message = event.data
-      if (message?.type === 'overlay-state' && message.kind === kind)
-        setState(normalizeOverlayState(message.state))
+    if (channel) {
+      let retry = 0
+      const requestState = () => {
+        channel.postMessage({
+          type: 'overlay-ready',
+          kind,
+        } satisfies OverlayMessage)
+      }
+      channel.onmessage = (event: MessageEvent<OverlayMessage>) => {
+        const message = event.data
+        if (message?.type === 'overlay-state' && message.kind === kind) {
+          setState(normalizeOverlayState(message.state))
+          setContentSynchronized(true)
+          window.clearInterval(retry)
+        }
+      }
+      requestState()
+      retry = window.setInterval(requestState, 250)
+      return () => {
+        window.clearInterval(retry)
+        channel.close()
+      }
     }
-    channel.postMessage({
-      type: 'overlay-ready',
-      kind,
-    } satisfies OverlayMessage)
-    return () => channel.close()
   }, [kind])
+
+  useEffect(() => {
+    if (
+      !isDesktopRuntime() ||
+      !canMarkOverlayReady(snapshotSettled, contentSynchronized)
+    )
+      return
+    return scheduleOverlayReadyAfterPaint(() => {
+      void markNativeOverlayReady(kind).catch((error: unknown) => {
+        console.error(`Failed to mark ${kind} overlay ready`, error)
+      })
+    })
+  }, [contentSynchronized, kind, snapshotSettled, state])
 
   useEffect(() => {
     void instance.changeLanguage(state.locale)

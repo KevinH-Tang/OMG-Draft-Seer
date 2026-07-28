@@ -2491,6 +2491,7 @@ dependencies = [
 name = "omg-draft-seer"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "tauri",
  "tauri-build",
  "tauri-plugin-autostart",
@@ -2498,6 +2499,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-wdio",
  "tauri-plugin-wdio-webdriver",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

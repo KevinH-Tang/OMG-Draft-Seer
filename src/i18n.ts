@@ -33,6 +33,9 @@ const resources = {
           '点击按键框后按下新的按键或组合键；Esc 取消。默认快捷键为 Tab。',
         overlayShortcutRecording: '请按下快捷键...',
         overlayShortcutReset: '恢复默认快捷键 Tab',
+        overlayShortcutChecking: '正在读取系统注册状态...',
+        overlayShortcutRegistered: '系统快捷键已注册',
+        overlayShortcutUnregistered: '系统快捷键未注册',
         overlayShortcutOptions: {
           trigger: 'Trigger · 按一下切换',
           hold: 'Hold · 按住显示',
@@ -310,6 +313,9 @@ const resources = {
           'Click the key field, then press a key or key combination; Esc cancels. The default is Tab.',
         overlayShortcutRecording: 'Press a shortcut...',
         overlayShortcutReset: 'Restore default shortcut Tab',
+        overlayShortcutChecking: 'Checking system registration...',
+        overlayShortcutRegistered: 'System shortcut registered',
+        overlayShortcutUnregistered: 'System shortcut not registered',
         overlayShortcutOptions: {
           trigger: 'Trigger · Toggle',
           hold: 'Hold · While pressed',

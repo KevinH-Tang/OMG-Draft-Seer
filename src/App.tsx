@@ -83,16 +83,24 @@ import { getBrowserFileAdapter } from './platform/files'
 import {
   closeNativeOverlay,
   createOverlayChannel,
+  getNativeOverlayShortcutStatus,
+  getNativeOverlayVisibility,
   isDesktopRuntime,
-  listenMainWindowHidden,
+  listenOverlayVisibility,
+  mergeNativeOverlayVisibility,
   openNativeOverlay,
   overlayKindFromLocation,
   setNativeOverlayShortcut,
+  setNativeOverlayViewport,
+  toggleNativeOverlay,
   writeOverlayState,
+  type NativeOverlayShortcutStatus,
+  type NativeOverlayVisibility,
   type OverlayKind,
   type OverlayMessage,
   type OverlayRecognitionStatus,
   type OverlayState,
+  type OverlayVisibilityProjection,
 } from './platform/overlays'
 import { appResourceUrl } from './platform/resources'
 import {
@@ -102,15 +110,16 @@ import {
 } from './platform/storage'
 import {
   DEFAULT_OVERLAY_SHORTCUT,
-  isEditableEventTarget,
-  isOverlayShortcutEvent,
-  isOverlayShortcutKeyEvent,
-  listenOverlayShortcut,
+  beginOverlayShortcutModeRequest,
+  createOverlayShortcutController,
+  overlayShouldCloseOnModeEntry,
   readOverlayShortcut,
   readOverlayShortcutMode,
+  transitionOverlayHoldCycle,
   writeOverlayShortcut,
   writeOverlayShortcutMode,
   type OverlayShortcutMode,
+  type OverlayShortcutModeRequestState,
 } from './platform/shortcuts'
 import {
   BuildRecommendationsPage,
@@ -167,12 +176,20 @@ const DEBUG_MATCH_CANDIDATES = 5
 const RECOGNITION_TIMEOUT_MS = 30_000
 const PAIR_ROW_HEIGHT = 52
 const LAYOUT_MODE_STORAGE_KEY = 'omg-layout-mode-v1'
+const OVERLAY_KINDS: OverlayKind[] = ['recommendation', 'tier', 'layout']
 
 type ImageSize = Pick<LayoutDocument, 'width' | 'height'>
 
 const DEFAULT_IMAGE_SIZE: ImageSize = {
   width: DEFAULT_LAYOUT_DOCUMENT.width,
   height: DEFAULT_LAYOUT_DOCUMENT.height,
+}
+
+function closedOverlayProjection(): OverlayVisibilityProjection {
+  return {
+    visibility: { recommendation: false, tier: false, layout: false },
+    revisions: { recommendation: 0, tier: 0, layout: 0 },
+  }
 }
 
 function ui(key: string, options?: Record<string, unknown>): string {
@@ -339,9 +356,10 @@ function MainApp() {
     direction: SortDirection
   }>({ key: 'synergy', direction: 'desc' })
   const [activePage, setActivePage] = useState<AppPage>('analysis')
+  const nativeOverlayProjectionRef = useRef(closedOverlayProjection())
   const [overlayVisibility, setOverlayVisibility] = useState<
     Record<OverlayKind, boolean>
-  >({ recommendation: false, tier: false, layout: false })
+  >(() => nativeOverlayProjectionRef.current.visibility)
   const [draftStrategy, setDraftStrategy] =
     useState<DraftStrategyId>('tier-first')
   const [replayStep, setReplayStep] = useState(0)
@@ -359,18 +377,13 @@ function MainApp() {
   const [overlayShortcut, setOverlayShortcut] = useState(() =>
     readOverlayShortcut(storage),
   )
+  const [nativeOverlayShortcutStatus, setNativeOverlayShortcutStatus] =
+    useState<NativeOverlayShortcutStatus>()
   const overlayShortcutHoldRef = useRef(false)
   const overlayShortcutOpenRef = useRef<Promise<boolean> | undefined>(undefined)
-  const overlayShortcutRequestRef = useRef(0)
-  const overlayRequestRef = useRef<Record<OverlayKind, number>>({
-    recommendation: 0,
-    tier: 0,
-    layout: 0,
-  })
-  const overlayDesiredRef = useRef<Record<OverlayKind, boolean>>({
-    recommendation: false,
-    tier: false,
-    layout: false,
+  const overlayShortcutRequestRef = useRef<OverlayShortcutModeRequestState>({
+    requestId: 0,
+    requestedMode: overlayShortcutMode,
   })
   const recommendationVisibleRef = useRef(false)
   const recognitionWorkerRef = useRef<Worker | undefined>(undefined)
@@ -402,6 +415,17 @@ function MainApp() {
     return parseLayoutDocument(saved) ?? undefined
   })
   const importedLayoutRef = useRef(importedLayout)
+
+  const applyNativeOverlayVisibility = useCallback(
+    (status: NativeOverlayVisibility) => {
+      const current = nativeOverlayProjectionRef.current
+      const next = mergeNativeOverlayVisibility(current, status)
+      if (next === current) return
+      nativeOverlayProjectionRef.current = next
+      setOverlayVisibility(next.visibility)
+    },
+    [],
+  )
 
   useEffect(() => {
     fetch(appResourceUrl('/data/snapshots/latest.json'))
@@ -438,25 +462,37 @@ function MainApp() {
   useEffect(() => {
     if (!isDesktopRuntime()) return
     const requested = overlayShortcut
-    const requestId = ++overlayShortcutRequestRef.current
-    void setNativeOverlayShortcut(requested, true).catch(
-      async (shortcutError) => {
-        if (overlayShortcutRequestRef.current !== requestId) return
+    overlayShortcutRequestRef.current.requestedMode = overlayShortcutMode
+    const requestId = ++overlayShortcutRequestRef.current.requestId
+    void setNativeOverlayShortcut(requested, true, overlayShortcutMode)
+      .then((status) => {
+        if (overlayShortcutRequestRef.current.requestId === requestId) {
+          overlayShortcutRequestRef.current.requestedMode = status.mode
+          setNativeOverlayShortcutStatus(status)
+        }
+      })
+      .catch(async (shortcutError) => {
+        if (overlayShortcutRequestRef.current.requestId !== requestId) return
         if (requested !== DEFAULT_OVERLAY_SHORTCUT) {
           try {
-            await setNativeOverlayShortcut(DEFAULT_OVERLAY_SHORTCUT, true)
+            const status = await setNativeOverlayShortcut(
+              DEFAULT_OVERLAY_SHORTCUT,
+              true,
+              overlayShortcutMode,
+            )
+            if (overlayShortcutRequestRef.current.requestId === requestId)
+              setNativeOverlayShortcutStatus(status)
           } catch (fallbackError) {
-            if (overlayShortcutRequestRef.current === requestId)
+            if (overlayShortcutRequestRef.current.requestId === requestId)
               reportShortcutError(fallbackError)
             return
           }
-          if (overlayShortcutRequestRef.current !== requestId) return
+          if (overlayShortcutRequestRef.current.requestId !== requestId) return
           setOverlayShortcut(DEFAULT_OVERLAY_SHORTCUT)
           writeOverlayShortcut(storage, DEFAULT_OVERLAY_SHORTCUT)
         }
         reportShortcutError(shortcutError)
-      },
-    )
+      })
     // User-initiated changes register directly in updateOverlayShortcut.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storage])
@@ -465,31 +501,26 @@ function MainApp() {
     if (!isDesktopRuntime()) return
     let disposed = false
     let unlisten: (() => void) | undefined
-    void listenMainWindowHidden(() => {
-      for (const kind of ['recommendation', 'tier', 'layout'] as const) {
-        overlayRequestRef.current[kind] += 1
-        overlayDesiredRef.current[kind] = false
+    void (async () => {
+      const nextUnlisten = await listenOverlayVisibility(
+        applyNativeOverlayVisibility,
+      )
+      if (disposed) {
+        nextUnlisten()
+        return
       }
-      overlayShortcutHoldRef.current = false
-      overlayShortcutOpenRef.current = undefined
-      setOverlayVisibility({
-        recommendation: false,
-        tier: false,
-        layout: false,
-      })
+      unlisten = nextUnlisten
+      const snapshot = await getNativeOverlayVisibility()
+      if (!disposed) snapshot.forEach(applyNativeOverlayVisibility)
+    })().catch((visibilityError) => {
+      if (disposed) return
+      reportOverlayError(visibilityError)
     })
-      .then((nextUnlisten) => {
-        if (disposed) nextUnlisten()
-        else unlisten = nextUnlisten
-      })
-      .catch(() => {
-        // The desktop shell remains usable if this optional synchronization fails.
-      })
     return () => {
       disposed = true
       unlisten?.()
     }
-  }, [])
+  }, [applyNativeOverlayVisibility, t])
 
   const abilitiesById = useMemo(
     () => new Map(snapshot.abilities.map((ability) => [ability.id, ability])),
@@ -664,11 +695,10 @@ function MainApp() {
   )
 
   useEffect(() => {
+    for (const kind of OVERLAY_KINDS) writeOverlayState(kind, overlayState)
     const channel = createOverlayChannel()
     if (!channel) return
     const publish = (kind: OverlayKind) => {
-      if (!overlayVisibility[kind]) return
-      writeOverlayState(kind, overlayState)
       channel.postMessage({
         type: 'overlay-state',
         kind,
@@ -679,11 +709,9 @@ function MainApp() {
       const message = event.data
       if (message?.type === 'overlay-ready') publish(message.kind)
     }
-    publish('recommendation')
-    publish('tier')
-    publish('layout')
+    for (const kind of OVERLAY_KINDS) publish(kind)
     return () => channel.close()
-  }, [overlayState, overlayVisibility])
+  }, [overlayState])
   const rankedDraftPoolInfo = useMemo(() => {
     const pool = buildRankedDraftPool(snapshot)
     const errors = validateInitialDraftPool(pool, snapshot.abilities)
@@ -925,6 +953,18 @@ function MainApp() {
         layoutOverrides,
         nextImageSize,
       )
+      if (isDesktopRuntime()) {
+        try {
+          await setNativeOverlayViewport(nextImageSize)
+        } catch (overlayError) {
+          reportOverlayError(overlayError)
+        }
+        if (requestId !== recognitionRequestRef.current) {
+          decoded.close()
+          bitmap = undefined
+          return
+        }
+      }
       setImageSize(nextImageSize)
       if (screenshotUrlRef.current)
         URL.revokeObjectURL(screenshotUrlRef.current)
@@ -1159,11 +1199,39 @@ function MainApp() {
   }
 
   function updateOverlayShortcutMode(mode: OverlayShortcutMode) {
-    setOverlayShortcutMode(mode)
-    writeOverlayShortcutMode(storage, mode)
+    const requestId = beginOverlayShortcutModeRequest(
+      overlayShortcutRequestRef.current,
+      mode,
+    )
+    if (requestId === undefined) return
+    if (!isDesktopRuntime()) {
+      if (overlayShouldCloseOnModeEntry(mode))
+        void setOverlayOpen('recommendation', false)
+      setOverlayShortcutMode(mode)
+      writeOverlayShortcutMode(storage, mode)
+      return
+    }
+    void setNativeOverlayShortcut(overlayShortcut, true, mode)
+      .then((status) => {
+        if (overlayShortcutRequestRef.current.requestId !== requestId) return
+        overlayShortcutRequestRef.current.requestedMode = status.mode
+        setNativeOverlayShortcutStatus(status)
+        setOverlayShortcutMode(status.mode)
+        writeOverlayShortcutMode(storage, status.mode)
+      })
+      .catch((shortcutError) => {
+        if (overlayShortcutRequestRef.current.requestId === requestId) {
+          overlayShortcutRequestRef.current.requestedMode = overlayShortcutMode
+          reportShortcutError(shortcutError)
+        }
+      })
   }
 
   function reportShortcutError(shortcutError: unknown) {
+    if (isDesktopRuntime())
+      void getNativeOverlayShortcutStatus()
+        .then(setNativeOverlayShortcutStatus)
+        .catch(() => setNativeOverlayShortcutStatus(undefined))
     const message =
       shortcutError instanceof Error
         ? shortcutError.message
@@ -1171,17 +1239,33 @@ function MainApp() {
     toast.error(message)
   }
 
+  function reportOverlayError(overlayError: unknown) {
+    const message =
+      overlayError instanceof Error
+        ? overlayError.message
+        : t('errors.overlayOpen')
+    toast.error(message)
+  }
+
   async function updateOverlayShortcut(shortcut: string) {
     const normalized = shortcut.trim()
     if (!normalized || normalized === overlayShortcut) return
-    const requestId = ++overlayShortcutRequestRef.current
+    overlayShortcutRequestRef.current.requestedMode = overlayShortcutMode
+    const requestId = ++overlayShortcutRequestRef.current.requestId
     try {
-      if (isDesktopRuntime()) await setNativeOverlayShortcut(normalized, true)
-      if (overlayShortcutRequestRef.current !== requestId) return
-      setOverlayShortcut(normalized)
-      writeOverlayShortcut(storage, normalized)
+      const status = isDesktopRuntime()
+        ? await setNativeOverlayShortcut(normalized, true, overlayShortcutMode)
+        : undefined
+      if (overlayShortcutRequestRef.current.requestId !== requestId) return
+      if (status) {
+        overlayShortcutRequestRef.current.requestedMode = status.mode
+        setNativeOverlayShortcutStatus(status)
+      }
+      const registeredShortcut = status?.shortcut ?? normalized
+      setOverlayShortcut(registeredShortcut)
+      writeOverlayShortcut(storage, registeredShortcut)
     } catch (shortcutError) {
-      if (overlayShortcutRequestRef.current !== requestId) return
+      if (overlayShortcutRequestRef.current.requestId !== requestId) return
       reportShortcutError(shortcutError)
     }
   }
@@ -1304,55 +1388,57 @@ function MainApp() {
     if (nextStep >= maxStep) setReplayPlaying(false)
   }
 
+  function overlayViewportFor(kind: OverlayKind): ImageSize | undefined {
+    return kind === 'layout' || kind === 'recommendation'
+      ? imageSize
+      : undefined
+  }
+
   async function setOverlayOpen(kind: OverlayKind, open: boolean) {
-    const requestId = ++overlayRequestRef.current[kind]
-    overlayDesiredRef.current[kind] = open
     try {
-      let opened = open
       if (isDesktopRuntime()) {
+        let status: NativeOverlayVisibility
         if (open) {
           writeOverlayState(kind, overlayState)
-          opened = await openNativeOverlay(
-            kind,
-            kind === 'layout' || kind === 'recommendation'
-              ? imageSize
-              : undefined,
-          )
-        } else await closeNativeOverlay(kind)
-      }
-      if (overlayRequestRef.current[kind] !== requestId) {
-        if (opened && !overlayDesiredRef.current[kind] && isDesktopRuntime())
-          void closeNativeOverlay(kind).catch(() => undefined)
-        return false
-      }
-      if (open && !opened) {
-        overlayDesiredRef.current[kind] = false
-        return false
+          status = await openNativeOverlay(kind, overlayViewportFor(kind))
+        } else status = await closeNativeOverlay(kind)
+        applyNativeOverlayVisibility(status)
+        return status.open === open
       }
       setOverlayVisibility((current) =>
         current[kind] === open ? current : { ...current, [kind]: open },
       )
       return true
     } catch (overlayError) {
-      if (overlayRequestRef.current[kind] !== requestId) return false
-      overlayDesiredRef.current[kind] = !open
-      const message =
-        overlayError instanceof Error
-          ? overlayError.message
-          : t('errors.overlayOpen')
-      toast.error(message)
+      reportOverlayError(overlayError)
       return false
     }
   }
 
   async function toggleOverlay(kind: OverlayKind) {
-    return setOverlayOpen(kind, !overlayDesiredRef.current[kind])
+    if (!isDesktopRuntime())
+      return setOverlayOpen(kind, !overlayVisibility[kind])
+    try {
+      writeOverlayState(kind, overlayState)
+      const status = await toggleNativeOverlay(kind, overlayViewportFor(kind))
+      applyNativeOverlayVisibility(status)
+      return true
+    } catch (overlayError) {
+      reportOverlayError(overlayError)
+      return false
+    }
   }
 
   function releaseHeldRecommendationOverlay() {
-    if (!overlayShortcutHoldRef.current) return
-    overlayShortcutHoldRef.current = false
     const pendingOpen = overlayShortcutOpenRef.current
+    const current = {
+      active: overlayShortcutHoldRef.current,
+      overlayOpen:
+        recommendationVisibleRef.current || pendingOpen !== undefined,
+    }
+    const next = transitionOverlayHoldCycle(current, 'released')
+    if (next === current) return
+    overlayShortcutHoldRef.current = next.active
     if (pendingOpen) {
       void pendingOpen.then((opened) => {
         if (opened && !overlayShortcutHoldRef.current)
@@ -1376,9 +1462,8 @@ function MainApp() {
   }, [overlayVisibility.recommendation])
 
   useEffect(() => {
+    if (isDesktopRuntime()) return
     if (overlayShortcutMode !== 'hold') releaseHeldRecommendationOverlay()
-
-    const desktopRuntime = isDesktopRuntime()
 
     const handleShortcutState = (state: 'pressed' | 'released') => {
       if (state === 'released') {
@@ -1389,70 +1474,43 @@ function MainApp() {
       }
 
       if (overlayShortcutMode === 'hold') {
-        if (recommendationVisibleRef.current) return
-        if (overlayShortcutHoldRef.current) return
-        if (overlayShortcutOpenRef.current) {
-          overlayShortcutHoldRef.current = true
-          return
+        const current = {
+          active: overlayShortcutHoldRef.current,
+          overlayOpen:
+            recommendationVisibleRef.current ||
+            overlayShortcutOpenRef.current !== undefined,
         }
-        overlayShortcutHoldRef.current = true
+        const next = transitionOverlayHoldCycle(current, state)
+        if (next === current) return
+        overlayShortcutHoldRef.current = next.active
+        if (next.overlayOpen === current.overlayOpen) return
         trackHeldRecommendationOpen(setOverlayOpen('recommendation', true))
         return
       }
       void setOverlayOpen('recommendation', !recommendationVisibleRef.current)
     }
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        !isOverlayShortcutEvent(event, overlayShortcut) ||
-        event.repeat ||
-        event.defaultPrevented ||
-        isEditableEventTarget(event.target)
-      )
-        return
-      event.preventDefault()
-      handleShortcutState('pressed')
-    }
+    const shortcutController = createOverlayShortcutController(
+      overlayShortcut,
+      handleShortcutState,
+    )
 
-    const handleKeyUp = (event: KeyboardEvent) => {
-      if (
-        overlayShortcutMode !== 'hold' ||
-        !overlayShortcutHoldRef.current ||
-        !isOverlayShortcutKeyEvent(event, overlayShortcut)
-      )
-        return
-      event.preventDefault()
-      handleShortcutState('released')
-    }
-
-    let unlistenDesktopShortcut: (() => void) | undefined
-    let effectActive = true
     const handleFocusLoss = () => {
-      if (overlayShortcutMode === 'hold') releaseHeldRecommendationOverlay()
+      shortcutController.reset()
     }
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') handleFocusLoss()
     }
 
-    if (desktopRuntime) {
-      void listenOverlayShortcut(handleShortcutState)
-        .then((unlisten) => {
-          if (effectActive) unlistenDesktopShortcut = unlisten
-          else unlisten()
-        })
-        .catch(() => undefined)
-    } else {
-      window.addEventListener('keydown', handleKeyDown)
-      window.addEventListener('keyup', handleKeyUp)
-      window.addEventListener('blur', handleFocusLoss)
-      document.addEventListener('visibilitychange', handleVisibilityChange)
-    }
+    window.addEventListener('keydown', shortcutController.handleKeyDown)
+    window.addEventListener('keyup', shortcutController.handleKeyUp)
+    window.addEventListener('blur', handleFocusLoss)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
-      effectActive = false
-      unlistenDesktopShortcut?.()
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
+      shortcutController.reset()
+      window.removeEventListener('keydown', shortcutController.handleKeyDown)
+      window.removeEventListener('keyup', shortcutController.handleKeyUp)
       window.removeEventListener('blur', handleFocusLoss)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
@@ -2058,6 +2116,7 @@ function MainApp() {
             layoutMode={layoutMode}
             overlayShortcut={overlayShortcut}
             overlayShortcutMode={overlayShortcutMode}
+            overlayShortcutRegistered={nativeOverlayShortcutStatus?.registered}
             onBack={() => setActivePage('analysis')}
             onLayoutModeChange={updateLayoutMode}
             onOverlayShortcutChange={updateOverlayShortcut}

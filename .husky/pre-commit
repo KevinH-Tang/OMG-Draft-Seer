@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+set -e
 
 npm run check:staged
 npm run format:rust:check

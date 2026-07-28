@@ -4,6 +4,7 @@ import type { RuntimeSlot } from '../core/layout'
 import type { AbilityTier, TierCategory } from '../core/tiers'
 import type { AppLocale } from '../i18n'
 import type { CombinationRecommendation, Recommendation } from '../types'
+import type { OverlayShortcutMode } from './shortcuts'
 
 export type OverlayKind = 'recommendation' | 'tier' | 'layout'
 export type OverlayRecognitionStatus =
@@ -12,6 +13,23 @@ export type OverlayRecognitionStatus =
 export interface OverlayViewport {
   width: number
   height: number
+}
+
+export interface NativeOverlayVisibility {
+  kind: OverlayKind
+  open: boolean
+  revision: number
+}
+
+export interface OverlayVisibilityProjection {
+  visibility: Record<OverlayKind, boolean>
+  revisions: Record<OverlayKind, number>
+}
+
+export interface NativeOverlayShortcutStatus {
+  shortcut: string
+  registered: boolean
+  mode: OverlayShortcutMode
 }
 
 export interface OverlayState {
@@ -44,7 +62,47 @@ declare global {
 }
 
 export const OVERLAY_CHANNEL_NAME = 'omg-draft-seer-overlay-v1'
-export const MAIN_WINDOW_HIDDEN_EVENT = 'omg-draft-seer-main-window-hidden'
+export const OVERLAY_VISIBILITY_EVENT = 'omg-draft-seer-overlay-visibility'
+
+interface AnimationFrameScheduler {
+  requestAnimationFrame(callback: FrameRequestCallback): number
+  cancelAnimationFrame(handle: number): void
+  setTimeout(callback: () => void, delay: number): number
+  clearTimeout(handle: number): void
+}
+
+export function canMarkOverlayReady(
+  snapshotSettled: boolean,
+  contentSynchronized: boolean,
+): boolean {
+  return snapshotSettled && contentSynchronized
+}
+
+export function scheduleOverlayReadyAfterPaint(
+  callback: () => void,
+  scheduler: AnimationFrameScheduler = window,
+): () => void {
+  let active = true
+  let timeout = 0
+  const finish = () => {
+    if (!active) return
+    active = false
+    scheduler.cancelAnimationFrame(frame)
+    scheduler.clearTimeout(timeout)
+    callback()
+  }
+  let frame = scheduler.requestAnimationFrame(() => {
+    if (!active) return
+    frame = scheduler.requestAnimationFrame(finish)
+  })
+  timeout = scheduler.setTimeout(finish, 100)
+  return () => {
+    if (!active) return
+    active = false
+    scheduler.cancelAnimationFrame(frame)
+    scheduler.clearTimeout(timeout)
+  }
+}
 
 function overlayStorageKey(kind: OverlayKind): string {
   return `${OVERLAY_CHANNEL_NAME}:${kind}`
@@ -103,7 +161,7 @@ async function invokeOverlayCommand<T>(
 export function openNativeOverlay(
   kind: OverlayKind,
   viewport?: OverlayViewport,
-): Promise<boolean> {
+): Promise<NativeOverlayVisibility> {
   return invokeOverlayCommand('open_overlay', {
     kind,
     ...(viewport
@@ -112,15 +170,65 @@ export function openNativeOverlay(
   })
 }
 
-export function closeNativeOverlay(kind: OverlayKind): Promise<void> {
+export function markNativeOverlayReady(kind: OverlayKind): Promise<boolean> {
+  return invokeOverlayCommand('mark_overlay_ready', { kind })
+}
+
+export function closeNativeOverlay(
+  kind: OverlayKind,
+): Promise<NativeOverlayVisibility> {
   return invokeOverlayCommand('close_overlay', { kind })
+}
+
+export function toggleNativeOverlay(
+  kind: OverlayKind,
+  viewport?: OverlayViewport,
+): Promise<NativeOverlayVisibility> {
+  return invokeOverlayCommand('toggle_overlay', {
+    kind,
+    ...(viewport
+      ? { width: viewport.width, height: viewport.height }
+      : undefined),
+  })
+}
+
+export function getNativeOverlayVisibility(): Promise<
+  NativeOverlayVisibility[]
+> {
+  return invokeOverlayCommand('get_overlay_visibility', {})
+}
+
+export function mergeNativeOverlayVisibility(
+  projection: OverlayVisibilityProjection,
+  status: NativeOverlayVisibility,
+): OverlayVisibilityProjection {
+  if (status.revision < projection.revisions[status.kind]) return projection
+  return {
+    visibility:
+      projection.visibility[status.kind] === status.open
+        ? projection.visibility
+        : { ...projection.visibility, [status.kind]: status.open },
+    revisions: {
+      ...projection.revisions,
+      [status.kind]: status.revision,
+    },
+  }
 }
 
 export function setNativeOverlayShortcut(
   shortcut: string,
   enabled: boolean,
-): Promise<void> {
-  return invokeOverlayCommand('set_overlay_shortcut', { shortcut, enabled })
+  mode: OverlayShortcutMode,
+): Promise<NativeOverlayShortcutStatus> {
+  return invokeOverlayCommand('set_overlay_shortcut', {
+    shortcut,
+    enabled,
+    mode,
+  })
+}
+
+export function getNativeOverlayShortcutStatus(): Promise<NativeOverlayShortcutStatus> {
+  return invokeOverlayCommand('get_overlay_shortcut_status', {})
 }
 
 export function resizeNativeOverlay(
@@ -142,8 +250,19 @@ export function setNativeOverlayInteractionRegion(
   })
 }
 
-export async function listenMainWindowHidden(
-  handler: () => void,
+export function setNativeOverlayViewport(
+  viewport: OverlayViewport,
+): Promise<void> {
+  return invokeOverlayCommand('set_overlay_viewport', {
+    width: viewport.width,
+    height: viewport.height,
+  })
+}
+
+export async function listenOverlayVisibility(
+  handler: (status: NativeOverlayVisibility) => void,
 ): Promise<() => void> {
-  return listen(MAIN_WINDOW_HIDDEN_EVENT, handler)
+  return listen<NativeOverlayVisibility>(OVERLAY_VISIBILITY_EVENT, (event) =>
+    handler(event.payload),
+  )
 }

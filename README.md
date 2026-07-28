@@ -252,6 +252,7 @@ are intentionally excluded from version control.
 
 - [Documentation index](docs/README.md)
 - [Project status and handoff notes](docs/project-status.md)
+- [Overlay lifecycle state machine](docs/overlay-lifecycle-state-machine.md)
 - [Recommendation metrics](docs/recommendation-metrics.md)
 - [Draft strategy tree](docs/draft-strategy-tree.md)
 - [Windows build and validation](docs/windows-build-test.md)
