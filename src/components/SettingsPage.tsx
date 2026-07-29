@@ -10,6 +10,7 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import { LanguageSwitcher } from './LanguageSwitcher'
+import { SegmentedControl } from './ui/SegmentedControl'
 import { cn } from '../lib/cn'
 import {
   readAutostartEnabled,
@@ -151,30 +152,18 @@ export function SettingsPage({
           <p className="mb-3 mt-1 text-xs text-text-muted">
             {t('settings.layoutModeHint')}
           </p>
-          <div
-            className="grid w-full grid-cols-2 rounded-md border border-border bg-surface-raised p-0.5"
-            role="group"
-            aria-label={t('settings.layoutMode')}
-            data-testid="layout-mode-switcher"
-          >
-            {(['auto', 'manual'] as const).map((mode) => (
-              <button
-                className={cn(
-                  'min-h-9 whitespace-nowrap rounded px-2 py-1 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent',
-                  mode === layoutMode
-                    ? 'bg-accent text-canvas'
-                    : 'text-text-muted hover:bg-surface-hover hover:text-text',
-                )}
-                type="button"
-                aria-pressed={mode === layoutMode}
-                data-testid={`layout-mode-${mode}`}
-                key={mode}
-                onClick={() => onLayoutModeChange(mode)}
-              >
-                {t(`settings.layoutModeOptions.${mode}`)}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            ariaLabel={t('settings.layoutMode')}
+            fullWidth
+            options={(['auto', 'manual'] as const).map((mode) => ({
+              value: mode,
+              label: t(`settings.layoutModeOptions.${mode}`),
+              testId: `layout-mode-${mode}`,
+            }))}
+            testId="layout-mode-switcher"
+            value={layoutMode}
+            onValueChange={onLayoutModeChange}
+          />
         </section>
         <section className="w-full" aria-labelledby="overlay-shortcut-title">
           <h2
@@ -254,30 +243,18 @@ export function SettingsPage({
               <RotateCcw size={15} aria-hidden="true" />
             </button>
           </div>
-          <div
-            className="grid w-full grid-cols-2 rounded-md border border-border bg-surface-raised p-0.5"
-            role="group"
-            aria-label={t('settings.overlayShortcut')}
-            data-testid="overlay-shortcut-mode-switcher"
-          >
-            {(['trigger', 'hold'] as const).map((mode) => (
-              <button
-                className={cn(
-                  'min-h-9 whitespace-nowrap rounded px-2 py-1 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent',
-                  mode === overlayShortcutMode
-                    ? 'bg-accent text-canvas'
-                    : 'text-text-muted hover:bg-surface-hover hover:text-text',
-                )}
-                type="button"
-                aria-pressed={mode === overlayShortcutMode}
-                data-testid={`overlay-shortcut-${mode}`}
-                key={mode}
-                onClick={() => onOverlayShortcutModeChange(mode)}
-              >
-                {t(`settings.overlayShortcutOptions.${mode}`)}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            ariaLabel={t('settings.overlayShortcut')}
+            fullWidth
+            options={(['trigger', 'hold'] as const).map((mode) => ({
+              value: mode,
+              label: t(`settings.overlayShortcutOptions.${mode}`),
+              testId: `overlay-shortcut-${mode}`,
+            }))}
+            testId="overlay-shortcut-mode-switcher"
+            value={overlayShortcutMode}
+            onValueChange={onOverlayShortcutModeChange}
+          />
         </section>
         <section className="w-full" aria-labelledby="language-title">
           <h2 id="language-title" className="text-base">

@@ -32,6 +32,13 @@ struct OverlayShortcutRegistration {
     state_machine: OverlayShortcutStateMachine,
 }
 
+struct OverlayShortcutRegistrationRequest {
+    shortcut: Shortcut,
+    shortcut_text: String,
+    enabled: bool,
+    mode: OverlayShortcutMode,
+}
+
 impl OverlayShortcutRegistration {
     fn status(&self) -> OverlayShortcutStatus {
         OverlayShortcutStatus {
@@ -52,6 +59,19 @@ struct OverlayShortcutWork {
 }
 
 struct OverlayShortcutWorker(mpsc::Sender<OverlayShortcutWork>);
+
+#[cfg(target_os = "windows")]
+struct WindowsShortcutCycles(Mutex<HashSet<u32>>);
+
+#[cfg(any(test, target_os = "windows"))]
+fn begin_windows_shortcut_cycle(active: &mut HashSet<u32>, id: u32) -> bool {
+    active.insert(id)
+}
+
+#[cfg(any(test, target_os = "windows"))]
+fn finish_windows_shortcut_cycle(active: &mut HashSet<u32>, id: u32) {
+    active.remove(&id);
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -146,6 +166,7 @@ struct OverlayShortcutStatus {
 struct OverlayVisibilityStatus {
     kind: String,
     open: bool,
+    displayed: bool,
     revision: u64,
 }
 
@@ -156,7 +177,7 @@ struct OverlayDisplayTarget {
 }
 
 struct OverlayLifecycle {
-    visible: HashSet<String>,
+    requested_open: HashSet<String>,
     ready: HashSet<String>,
     revisions: HashMap<String, u64>,
     viewport: OverlayViewport,
@@ -185,27 +206,32 @@ impl OverlayLifecycle {
         *revision
     }
 
-    fn begin_open(&mut self, label: &str) -> u64 {
+    fn request_open(&mut self, label: &str) -> u64 {
         let revision = self.next_revision(label);
-        self.visible.insert(label.to_owned());
+        self.requested_open.insert(label.to_owned());
         revision
     }
 
-    fn close(&mut self, label: &str) -> u64 {
+    fn request_close(&mut self, label: &str) -> u64 {
         let revision = self.next_revision(label);
-        self.visible.remove(label);
+        self.requested_open.remove(label);
         revision
+    }
+
+    fn is_open_requested(&self, label: &str) -> bool {
+        self.requested_open.contains(label)
     }
 
     fn is_current_open(&self, label: &str, revision: u64) -> bool {
         self.revisions.get(label).copied().unwrap_or_default() == revision
-            && self.visible.contains(label)
+            && self.is_open_requested(label)
     }
 
     fn status(&self, kind: &str, label: &str) -> OverlayVisibilityStatus {
         OverlayVisibilityStatus {
             kind: kind.to_owned(),
-            open: self.visible.contains(label),
+            open: self.is_open_requested(label),
+            displayed: self.should_show(label),
             revision: self.revisions.get(label).copied().unwrap_or_default(),
         }
     }
@@ -213,12 +239,15 @@ impl OverlayLifecycle {
     fn display_target(&self, label: &str) -> OverlayDisplayTarget {
         OverlayDisplayTarget {
             revision: self.revisions.get(label).copied().unwrap_or_default(),
-            show: self.should_show(label),
+            // Hidden WebViews may suspend JavaScript before the frontend can
+            // report readiness. Keep requested overlays running; `displayed`
+            // remains gated by `ready` in the public status.
+            show: self.is_open_requested(label),
         }
     }
 
     fn invalidate_overlays(&mut self) {
-        self.visible.clear();
+        self.requested_open.clear();
         for revision in self.revisions.values_mut() {
             *revision = revision.wrapping_add(1);
         }
@@ -232,15 +261,20 @@ impl OverlayLifecycle {
         self.ready.remove(label);
     }
 
+    fn remove_window(&mut self, label: &str) -> u64 {
+        self.ready.remove(label);
+        self.request_close(label)
+    }
+
     fn fail_display(&mut self, label: &str) {
         self.ready.remove(label);
-        if self.visible.contains(label) {
-            self.close(label);
+        if self.is_open_requested(label) {
+            self.request_close(label);
         }
     }
 
     fn should_show(&self, label: &str) -> bool {
-        self.visible.contains(label) && self.ready.contains(label)
+        self.is_open_requested(label) && self.ready.contains(label)
     }
 }
 
@@ -302,6 +336,15 @@ fn overlay_label(kind: &str) -> Result<&'static str, String> {
     overlay_window_config(kind)
         .map(|(label, ..)| label)
         .ok_or_else(|| format!("unknown overlay kind: {kind}"))
+}
+
+fn overlay_kind(label: &str) -> Option<&'static str> {
+    match label {
+        "overlay-recommendation" => Some("recommendation"),
+        "overlay-tier" => Some("tier"),
+        "overlay-layout" => Some("layout"),
+        _ => None,
+    }
 }
 
 fn emit_overlay_visibility(app: &tauri::AppHandle, status: &OverlayVisibilityStatus) {
@@ -386,25 +429,56 @@ fn prepare_overlay_window(app: &tauri::AppHandle, kind: &str) -> Result<WebviewW
     .visible_on_all_workspaces(true)
     .skip_taskbar(true)
     .focused(false)
-    .visible(false)
+    // The window is only created for an open request. Starting WebView2 hidden
+    // can suspend its bootstrap script before it reports overlay readiness.
+    .visible(true)
     .transparent(true)
     .on_page_load(|window, payload| {
-        if !matches!(payload.event(), PageLoadEvent::Started) {
+        let Some(kind) = overlay_kind(window.label()) else {
+            return;
+        };
+        let Some(lifecycle) = window.app_handle().try_state::<OverlayLifecycleState>() else {
+            return;
+        };
+        if matches!(payload.event(), PageLoadEvent::Started) {
+            let loading_status = lifecycle.0.lock().ok().map(|mut current| {
+                current.mark_loading(window.label());
+                current.status(kind, window.label())
+            });
+            if let Err(error) = window.set_ignore_cursor_events(true) {
+                eprintln!(
+                    "failed to restore cursor pass-through for {}: {error}",
+                    window.label()
+                );
+            }
+            let visibility_result = if loading_status.as_ref().is_some_and(|status| status.open) {
+                window.show()
+            } else {
+                window.hide()
+            };
+            if let Err(error) = visibility_result {
+                eprintln!(
+                    "failed to reconcile loading overlay {}: {error}",
+                    window.label()
+                );
+            }
+            if let Some(status) = loading_status {
+                emit_overlay_visibility(window.app_handle(), &status);
+            }
             return;
         }
-        if let Some(lifecycle) = window.app_handle().try_state::<OverlayLifecycleState>() {
+        if matches!(payload.event(), PageLoadEvent::Finished) {
             if let Ok(mut current) = lifecycle.0.lock() {
-                current.mark_loading(window.label());
+                current.mark_ready(window.label());
             }
-        }
-        if let Err(error) = window.set_ignore_cursor_events(true) {
-            eprintln!(
-                "failed to restore cursor pass-through for {}: {error}",
-                window.label()
-            );
-        }
-        if let Err(error) = window.hide() {
-            eprintln!("failed to hide loading overlay {}: {error}", window.label());
+            if let Err(error) =
+                reconcile_and_emit_status(window.app_handle(), kind, window.label(), &lifecycle)
+            {
+                eprintln!(
+                    "failed to finish loading overlay {}: {error}",
+                    window.label()
+                );
+            }
         }
     })
     .build()
@@ -414,10 +488,6 @@ fn prepare_overlay_window(app: &tauri::AppHandle, kind: &str) -> Result<WebviewW
         .set_ignore_cursor_events(true)
         .map_err(|error| error.to_string())?;
     Ok(window)
-}
-
-const fn should_prewarm_recommendation_overlay() -> bool {
-    !cfg!(feature = "wdio")
 }
 
 fn reconcile_overlay_window(
@@ -453,20 +523,58 @@ fn reconcile_and_emit_status(
     label: &str,
     lifecycle: &OverlayLifecycleState,
 ) -> Result<OverlayVisibilityStatus, String> {
-    let operation = app
-        .get_webview_window(label)
-        .map(|window| reconcile_overlay_window(&window, lifecycle, label))
-        .transpose();
-    let status = emit_current_status(app, kind, label, lifecycle)?;
-    operation?;
-    Ok(status)
+    if let Some(window) = app.get_webview_window(label) {
+        reconcile_overlay_window(&window, lifecycle, label)?;
+    }
+    emit_current_status(app, kind, label, lifecycle)
 }
 
-#[tauri::command]
-async fn prepare_overlay(app: tauri::AppHandle, kind: String) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || prepare_overlay_window(&app, &kind).map(|_| ()))
-        .await
-        .map_err(|error| error.to_string())?
+#[derive(Clone, Copy)]
+enum OverlayRequest {
+    Open,
+    Close,
+    Toggle,
+}
+
+struct OverlayRequestTransition {
+    label: &'static str,
+    open_revision: Option<u64>,
+    physical_size: Option<PhysicalSize<u32>>,
+}
+
+fn transition_overlay_request(
+    kind: &str,
+    width: Option<u32>,
+    height: Option<u32>,
+    request: OverlayRequest,
+    lifecycle: &OverlayLifecycleState,
+) -> Result<OverlayRequestTransition, String> {
+    let label = overlay_label(kind)?;
+    let mut current = lifecycle
+        .0
+        .lock()
+        .map_err(|_| "overlay visibility state is unavailable".to_owned())?;
+    let should_open = match request {
+        OverlayRequest::Open => true,
+        OverlayRequest::Close => false,
+        OverlayRequest::Toggle => !current.is_open_requested(label),
+    };
+    if should_open {
+        let physical_size = requested_overlay_size(kind, width, height, &mut current.viewport)?;
+        let revision = current.request_open(label);
+        Ok(OverlayRequestTransition {
+            label,
+            open_revision: Some(revision),
+            physical_size,
+        })
+    } else {
+        current.request_close(label);
+        Ok(OverlayRequestTransition {
+            label,
+            open_revision: None,
+            physical_size: None,
+        })
+    }
 }
 
 fn complete_overlay_open(
@@ -486,7 +594,6 @@ fn complete_overlay_open(
     let operation = (|| {
         let window = prepare_overlay_window(app, kind)?;
         if let Some(size) = physical_overlay_size {
-            window.hide().map_err(|error| error.to_string())?;
             window.set_size(size).map_err(|error| error.to_string())?;
             window
                 .set_position(physical_overlay_position)
@@ -503,7 +610,7 @@ fn complete_overlay_open(
                 .lock()
                 .map_err(|_| "overlay visibility state is unavailable".to_owned())?;
             if current.is_current_open(label, revision) {
-                current.close(label);
+                current.request_close(label);
             }
             current.status(kind, label)
         };
@@ -514,27 +621,20 @@ fn complete_overlay_open(
     emit_current_status(app, kind, label, lifecycle)
 }
 
-fn request_overlay_open(
+fn apply_overlay_request(
     app: &tauri::AppHandle,
     kind: &str,
     width: Option<u32>,
     height: Option<u32>,
+    request: OverlayRequest,
     lifecycle: &OverlayLifecycleState,
 ) -> Result<OverlayVisibilityStatus, String> {
-    let physical_overlay_size = {
-        let mut current = lifecycle
-            .0
-            .lock()
-            .map_err(|_| "overlay visibility state is unavailable".to_owned())?;
-        requested_overlay_size(kind, width, height, &mut current.viewport)?
-    };
-    let label = overlay_label(kind)?;
-    let revision = lifecycle
-        .0
-        .lock()
-        .map_err(|_| "overlay visibility state is unavailable".to_owned())?
-        .begin_open(label);
-    complete_overlay_open(app, kind, physical_overlay_size, revision, lifecycle)
+    let transition = transition_overlay_request(kind, width, height, request, lifecycle)?;
+    if let Some(revision) = transition.open_revision {
+        complete_overlay_open(app, kind, transition.physical_size, revision, lifecycle)
+    } else {
+        reconcile_and_emit_status(app, kind, transition.label, lifecycle)
+    }
 }
 
 #[tauri::command]
@@ -546,7 +646,7 @@ async fn open_overlay(
 ) -> Result<OverlayVisibilityStatus, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let lifecycle = app.state::<OverlayLifecycleState>();
-        request_overlay_open(&app, &kind, width, height, &lifecycle)
+        apply_overlay_request(&app, &kind, width, height, OverlayRequest::Open, &lifecycle)
     })
     .await
     .map_err(|error| error.to_string())?
@@ -568,7 +668,10 @@ fn mark_overlay_ready(
         .map_err(|_| "overlay visibility state is unavailable".to_owned())
         .map(|mut current| current.mark_ready(label))?;
     match reconcile_overlay_window(&window, &lifecycle, label) {
-        Ok(target) => Ok(target.show),
+        Ok(target) => {
+            emit_current_status(&app, &kind, label, &lifecycle)?;
+            Ok(target.show)
+        }
         Err(error) => {
             let status = {
                 let mut current = lifecycle
@@ -587,63 +690,17 @@ fn mark_overlay_ready(
     }
 }
 
-fn request_overlay_close(
-    app: &tauri::AppHandle,
-    kind: &str,
-    lifecycle: &OverlayLifecycleState,
-) -> Result<OverlayVisibilityStatus, String> {
-    let label = overlay_label(kind)?;
-    {
-        let mut current = lifecycle
-            .0
-            .lock()
-            .map_err(|_| "overlay visibility state is unavailable".to_owned())?;
-        current.close(label);
-    }
-    reconcile_and_emit_status(app, kind, label, lifecycle)
-}
-
 #[tauri::command]
-fn close_overlay(
+async fn close_overlay(
     app: tauri::AppHandle,
     kind: String,
-    lifecycle: tauri::State<'_, OverlayLifecycleState>,
 ) -> Result<OverlayVisibilityStatus, String> {
-    request_overlay_close(&app, &kind, &lifecycle)
-}
-
-fn request_overlay_toggle(
-    app: &tauri::AppHandle,
-    kind: &str,
-    width: Option<u32>,
-    height: Option<u32>,
-    lifecycle: &OverlayLifecycleState,
-) -> Result<OverlayVisibilityStatus, String> {
-    let physical_overlay_size = {
-        let mut current = lifecycle
-            .0
-            .lock()
-            .map_err(|_| "overlay visibility state is unavailable".to_owned())?;
-        requested_overlay_size(kind, width, height, &mut current.viewport)?
-    };
-    let label = overlay_label(kind)?;
-    let open_revision = {
-        let mut current = lifecycle
-            .0
-            .lock()
-            .map_err(|_| "overlay visibility state is unavailable".to_owned())?;
-        if current.visible.contains(label) {
-            current.close(label);
-            None
-        } else {
-            Some(current.begin_open(label))
-        }
-    };
-    if let Some(revision) = open_revision {
-        complete_overlay_open(app, kind, physical_overlay_size, revision, lifecycle)
-    } else {
-        reconcile_and_emit_status(app, kind, label, lifecycle)
-    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let lifecycle = app.state::<OverlayLifecycleState>();
+        apply_overlay_request(&app, &kind, None, None, OverlayRequest::Close, &lifecycle)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -655,7 +712,14 @@ async fn toggle_overlay(
 ) -> Result<OverlayVisibilityStatus, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let lifecycle = app.state::<OverlayLifecycleState>();
-        request_overlay_toggle(&app, &kind, width, height, &lifecycle)
+        apply_overlay_request(
+            &app,
+            &kind,
+            width,
+            height,
+            OverlayRequest::Toggle,
+            &lifecycle,
+        )
     })
     .await
     .map_err(|error| error.to_string())?
@@ -677,22 +741,13 @@ fn apply_overlay_shortcut_action(
     action: OverlayShortcutAction,
 ) -> Result<(), String> {
     let lifecycle = app.state::<OverlayLifecycleState>();
-    match action {
-        OverlayShortcutAction::None => Ok(()),
-        OverlayShortcutAction::ToggleRecommendation => {
-            request_overlay_toggle(app, "recommendation", None, None, &lifecycle).map(|_| ())
-        }
-        OverlayShortcutAction::OpenRecommendation => {
-            request_overlay_open(app, "recommendation", None, None, &lifecycle).map(|_| ())
-        }
-        OverlayShortcutAction::CloseRecommendation => {
-            request_overlay_close(app, "recommendation", &lifecycle).map(|_| ())
-        }
-    }
-}
-
-fn should_process_shortcut_event(state: ShortcutState, shortcut_key_is_down: bool) -> bool {
-    state != ShortcutState::Released || !shortcut_key_is_down
+    let request = match action {
+        OverlayShortcutAction::None => return Ok(()),
+        OverlayShortcutAction::ToggleRecommendation => OverlayRequest::Toggle,
+        OverlayShortcutAction::OpenRecommendation => OverlayRequest::Open,
+        OverlayShortcutAction::CloseRecommendation => OverlayRequest::Close,
+    };
+    apply_overlay_request(app, "recommendation", None, None, request, &lifecycle).map(|_| ())
 }
 
 #[cfg(any(test, target_os = "windows"))]
@@ -826,15 +881,15 @@ fn shortcut_key_is_down(code: Code) -> bool {
         .unwrap_or(false)
 }
 
-#[cfg(not(target_os = "windows"))]
-fn shortcut_key_is_down(_code: Code) -> bool {
-    false
-}
-
 fn process_global_shortcut(app: &tauri::AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
-    if !should_process_shortcut_event(event.state, shortcut_key_is_down(shortcut.key)) {
+    let Some(update_lock) = app.try_state::<OverlayShortcutUpdateLock>() else {
+        eprintln!("shortcut update state is unavailable");
         return;
-    }
+    };
+    let Ok(_update) = update_lock.0.lock() else {
+        eprintln!("shortcut update state is unavailable");
+        return;
+    };
     let Some(registered) = app.try_state::<RegisteredOverlayShortcut>() else {
         eprintln!("shortcut registration state is unavailable");
         return;
@@ -854,17 +909,60 @@ fn process_global_shortcut(app: &tauri::AppHandle, shortcut: &Shortcut, event: S
     }
 }
 
-fn forward_global_shortcut(app: &tauri::AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
+fn queue_overlay_shortcut(app: &tauri::AppHandle, shortcut: Shortcut, event: ShortcutEvent) {
     let Some(worker) = app.try_state::<OverlayShortcutWorker>() else {
         eprintln!("overlay shortcut worker is unavailable");
         return;
     };
-    if let Err(error) = worker.0.send(OverlayShortcutWork {
-        shortcut: *shortcut,
-        event,
-    }) {
+    if let Err(error) = worker.0.send(OverlayShortcutWork { shortcut, event }) {
         eprintln!("failed to queue overlay shortcut action: {error}");
     }
+}
+
+#[cfg(target_os = "windows")]
+fn forward_global_shortcut(app: &tauri::AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
+    if event.state != ShortcutState::Pressed {
+        return;
+    }
+    let Some(cycles) = app.try_state::<WindowsShortcutCycles>() else {
+        eprintln!("Windows shortcut cycle state is unavailable");
+        return;
+    };
+    let Ok(mut active) = cycles.0.lock() else {
+        eprintln!("Windows shortcut cycle state is unavailable");
+        return;
+    };
+    if !begin_windows_shortcut_cycle(&mut active, event.id) {
+        return;
+    }
+    drop(active);
+
+    queue_overlay_shortcut(app, *shortcut, event);
+    let shortcut_app = app.clone();
+    let shortcut = *shortcut;
+    std::thread::spawn(move || {
+        while shortcut_key_is_down(shortcut.key) {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        queue_overlay_shortcut(
+            &shortcut_app,
+            shortcut,
+            ShortcutEvent {
+                id: shortcut.id(),
+                state: ShortcutState::Released,
+            },
+        );
+        if let Some(cycles) = shortcut_app.try_state::<WindowsShortcutCycles>() {
+            if let Ok(mut active) = cycles.0.lock() {
+                finish_windows_shortcut_cycle(&mut active, shortcut.id());
+            }
+        }
+    });
+}
+
+#[cfg(not(target_os = "windows"))]
+fn forward_global_shortcut(app: &tauri::AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
+    queue_overlay_shortcut(app, *shortcut, event);
 }
 
 #[tauri::command]
@@ -955,30 +1053,38 @@ fn set_overlay_viewport(
 
 fn update_overlay_shortcut_registration(
     registration: &Mutex<OverlayShortcutRegistration>,
-    requested: Shortcut,
-    shortcut_text: String,
-    enabled: bool,
-    requested_mode: OverlayShortcutMode,
+    request: OverlayShortcutRegistrationRequest,
+    mut apply: impl FnMut(OverlayShortcutAction) -> Result<(), String>,
     mut unregister: impl FnMut(Shortcut) -> Result<(), String>,
     mut register: impl FnMut(Shortcut) -> Result<(), String>,
-) -> Result<(OverlayShortcutStatus, OverlayShortcutAction), String> {
-    let previous = {
+) -> Result<OverlayShortcutStatus, String> {
+    let (previous, mut next_state_machine) = {
         let current = registration
             .lock()
             .map_err(|_| "shortcut registration state is unavailable".to_owned())?;
-        if current.registered && current.shortcut == requested && enabled {
-            return Ok((current.status(), OverlayShortcutAction::None));
+        if current.registered && current.shortcut == request.shortcut && request.enabled {
+            return Ok(current.status());
         }
-        current.registered.then_some(current.shortcut)
+        (
+            current.registered.then_some(current.shortcut),
+            current.state_machine,
+        )
     };
+
+    let action = next_state_machine.cancel();
+    apply(action)?;
+    registration
+        .lock()
+        .map_err(|_| "shortcut registration state is unavailable".to_owned())?
+        .state_machine = next_state_machine;
 
     if let Some(previous) = previous {
         unregister(previous)?;
     }
 
-    if enabled {
-        if let Err(registration_error) = register(requested) {
-            if let Some(previous) = previous.filter(|previous| *previous != requested) {
+    if request.enabled {
+        if let Err(registration_error) = register(request.shortcut) {
+            if let Some(previous) = previous.filter(|previous| *previous != request.shortcut) {
                 if let Err(restore_error) = register(previous) {
                     if let Ok(mut current) = registration.lock() {
                         current.registered = false;
@@ -995,13 +1101,12 @@ fn update_overlay_shortcut_registration(
     let mut current = registration
         .lock()
         .map_err(|_| "shortcut registration state is unavailable".to_owned())?;
-    current.shortcut = requested;
-    current.shortcut_text = shortcut_text;
-    current.registered = enabled;
-    let action = current.state_machine.cancel();
-    current.state_machine.mode = requested_mode;
+    current.shortcut = request.shortcut;
+    current.shortcut_text = request.shortcut_text;
+    current.registered = request.enabled;
+    current.state_machine.mode = request.mode;
     let status = current.status();
-    Ok((status, action))
+    Ok(status)
 }
 
 fn update_overlay_shortcut_mode(
@@ -1061,12 +1166,15 @@ fn set_overlay_shortcut(
         return Ok(status);
     }
     let global_shortcut = app.global_shortcut();
-    let (status, action) = update_overlay_shortcut_registration(
+    let status = update_overlay_shortcut_registration(
         &registered.0,
-        requested,
-        shortcut,
-        enabled,
-        requested_mode,
+        OverlayShortcutRegistrationRequest {
+            shortcut: requested,
+            shortcut_text: shortcut,
+            enabled,
+            mode: requested_mode,
+        },
+        |action| apply_overlay_shortcut_action(&app, action),
         |previous| {
             global_shortcut
                 .unregister(previous)
@@ -1079,7 +1187,6 @@ fn set_overlay_shortcut(
         },
     )?;
     drop(update);
-    apply_overlay_shortcut_action(&app, action)?;
     Ok(status)
 }
 
@@ -1106,6 +1213,26 @@ pub fn run() {
         )
         .on_window_event(|window, event| {
             if window.label() != "main" {
+                if matches!(event, tauri::WindowEvent::Destroyed) {
+                    let Some(kind) = overlay_kind(window.label()) else {
+                        return;
+                    };
+                    let Some(lifecycle) = window.app_handle().try_state::<OverlayLifecycleState>()
+                    else {
+                        return;
+                    };
+                    let status = match lifecycle.0.lock() {
+                        Ok(mut current) => {
+                            current.remove_window(window.label());
+                            current.status(kind, window.label())
+                        }
+                        Err(_) => {
+                            eprintln!("overlay visibility state is unavailable");
+                            return;
+                        }
+                    };
+                    emit_overlay_visibility(window.app_handle(), &status);
+                }
                 return;
             }
             let tauri::WindowEvent::CloseRequested { api, .. } = event else {
@@ -1158,8 +1285,10 @@ pub fn run() {
                 },
             )));
             app.manage(OverlayShortcutUpdateLock(Mutex::new(())));
+            #[cfg(target_os = "windows")]
+            app.manage(WindowsShortcutCycles(Mutex::new(HashSet::new())));
             app.manage(OverlayLifecycleState(Mutex::new(OverlayLifecycle {
-                visible: HashSet::new(),
+                requested_open: HashSet::new(),
                 ready: HashSet::new(),
                 revisions: HashMap::new(),
                 viewport: OverlayViewport::default(),
@@ -1178,14 +1307,6 @@ pub fn run() {
                     process_global_shortcut(&shortcut_app, &work.shortcut, work.event);
                 }
             });
-            if should_prewarm_recommendation_overlay() {
-                let prewarm_app = app.handle().clone();
-                std::thread::spawn(move || {
-                    if let Err(error) = prepare_overlay_window(&prewarm_app, "recommendation") {
-                        eprintln!("recommendation overlay prewarm failed: {error}");
-                    }
-                });
-            }
             let overlay_app = app.handle().clone();
             std::thread::spawn(move || {
                 let mut ignoring_cursor = true;
@@ -1289,7 +1410,6 @@ pub fn run() {
 
     let app = builder
         .invoke_handler(tauri::generate_handler![
-            prepare_overlay,
             open_overlay,
             toggle_overlay,
             get_overlay_visibility,
@@ -1318,46 +1438,23 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        cursor_is_inside_interaction_region, requested_overlay_size,
-        should_prewarm_recommendation_overlay, should_process_shortcut_event,
+        begin_windows_shortcut_cycle, cursor_is_inside_interaction_region,
+        finish_windows_shortcut_cycle, overlay_kind, requested_overlay_size,
         update_overlay_shortcut_mode, update_overlay_shortcut_registration, windows_virtual_key,
         OverlayInteractionRegion, OverlayLifecycle, OverlayShortcutAction, OverlayShortcutMode,
-        OverlayShortcutRegistration, OverlayShortcutStateMachine, OverlayViewport,
-        FULLSCREEN_OVERLAY_KINDS,
+        OverlayShortcutRegistration, OverlayShortcutRegistrationRequest,
+        OverlayShortcutStateMachine, OverlayViewport, FULLSCREEN_OVERLAY_KINDS,
     };
+    use std::cell::Cell;
     use std::collections::{HashMap, HashSet};
     use std::sync::Mutex;
     use tauri::PhysicalSize;
     use tauri_plugin_global_shortcut::{Code, Shortcut, ShortcutState};
 
     #[test]
-    fn wdio_builds_disable_recommendation_overlay_prewarming() {
-        assert_eq!(
-            should_prewarm_recommendation_overlay(),
-            !cfg!(feature = "wdio")
-        );
-    }
-
-    #[test]
-    fn recommendation_prewarm_creates_the_window_on_its_worker_thread() {
-        let source = include_str!("lib.rs");
-        let prewarm = source
-            .split_once("if should_prewarm_recommendation_overlay()")
-            .expect("recommendation prewarm should exist")
-            .1
-            .split_once("let overlay_app")
-            .expect("cursor worker should follow recommendation prewarm")
-            .0;
-
-        assert!(prewarm.contains("std::thread::spawn"));
-        assert!(prewarm.contains("prepare_overlay_window"));
-        assert!(!prewarm.contains("run_on_main_thread"));
-    }
-
-    #[test]
     fn window_creating_commands_run_on_blocking_workers() {
         let source = include_str!("lib.rs");
-        for command in ["prepare_overlay", "open_overlay", "toggle_overlay"] {
+        for command in ["open_overlay", "close_overlay", "toggle_overlay"] {
             let signature = format!("async fn {command}");
             assert!(source.contains(&signature), "{command} must be async");
             let body = source
@@ -1429,12 +1526,19 @@ mod tests {
             state_machine: OverlayShortcutStateMachine::new(OverlayShortcutMode::Trigger),
         });
 
-        let (status, action) = update_overlay_shortcut_registration(
+        let status = update_overlay_shortcut_registration(
             &registration,
-            requested,
-            "F8".to_owned(),
-            true,
-            OverlayShortcutMode::Trigger,
+            OverlayShortcutRegistrationRequest {
+                shortcut: requested,
+                shortcut_text: "F8".to_owned(),
+                enabled: true,
+                mode: OverlayShortcutMode::Trigger,
+            },
+            |action| {
+                assert!(registration.try_lock().is_ok());
+                assert_eq!(action, OverlayShortcutAction::None);
+                Ok(())
+            },
             |shortcut| {
                 assert!(registration.try_lock().is_ok());
                 assert_eq!(shortcut, previous);
@@ -1450,7 +1554,54 @@ mod tests {
 
         assert_eq!(status.shortcut, "F8");
         assert!(status.registered);
-        assert_eq!(action, OverlayShortcutAction::None);
+    }
+
+    #[test]
+    fn shortcut_replacement_stops_before_plugin_changes_when_hold_cancel_fails() {
+        let previous = Shortcut::new(None, Code::Tab);
+        let requested = Shortcut::new(None, Code::F8);
+        let mut state_machine = OverlayShortcutStateMachine::new(OverlayShortcutMode::Hold);
+        state_machine.handle(ShortcutState::Pressed);
+        let registration = Mutex::new(OverlayShortcutRegistration {
+            shortcut: previous,
+            shortcut_text: "Tab".to_owned(),
+            registered: true,
+            state_machine,
+        });
+        let unregister_called = Cell::new(false);
+        let register_called = Cell::new(false);
+
+        let error = update_overlay_shortcut_registration(
+            &registration,
+            OverlayShortcutRegistrationRequest {
+                shortcut: requested,
+                shortcut_text: "F8".to_owned(),
+                enabled: true,
+                mode: OverlayShortcutMode::Hold,
+            },
+            |action| {
+                assert_eq!(action, OverlayShortcutAction::CloseRecommendation);
+                Err("hide failed".to_owned())
+            },
+            |_| {
+                unregister_called.set(true);
+                Ok(())
+            },
+            |_| {
+                register_called.set(true);
+                Ok(())
+            },
+        )
+        .expect_err("a failed hold close must reject the shortcut replacement");
+
+        let current = registration.lock().unwrap();
+        assert_eq!(error, "hide failed");
+        assert_eq!(current.shortcut, previous);
+        assert_eq!(current.shortcut_text, "Tab");
+        assert!(current.registered);
+        assert!(current.state_machine.pressed);
+        assert!(!unregister_called.get());
+        assert!(!register_called.get());
     }
 
     #[test]
@@ -1498,30 +1649,27 @@ mod tests {
     #[test]
     fn global_shortcut_handler_sends_work_to_a_dedicated_worker() {
         let source = include_str!("lib.rs");
-        let handler = source
-            .split_once("fn forward_global_shortcut")
-            .expect("global shortcut handler should exist")
+        let queue = source
+            .split_once("fn queue_overlay_shortcut")
+            .expect("shortcut queue should exist")
             .1
-            .split_once("#[tauri::command]")
-            .expect("a command should follow the shortcut handler")
+            .split_once("fn forward_global_shortcut")
+            .expect("global shortcut handler should follow the queue")
             .0;
 
-        assert!(handler.contains("OverlayShortcutWorker"));
-        assert!(handler.contains(".send("));
-        assert!(!handler.contains("run_on_main_thread"));
+        assert!(queue.contains("OverlayShortcutWorker"));
+        assert!(queue.contains(".send("));
+        assert!(!queue.contains("run_on_main_thread"));
     }
 
     #[test]
-    fn shortcut_release_waits_until_the_main_key_is_physically_up() {
-        assert!(!should_process_shortcut_event(
-            ShortcutState::Released,
-            true,
-        ));
-        assert!(should_process_shortcut_event(
-            ShortcutState::Released,
-            false,
-        ));
-        assert!(should_process_shortcut_event(ShortcutState::Pressed, true,));
+    fn windows_shortcut_cycle_filters_repeated_pressed_events() {
+        let mut active = HashSet::new();
+
+        assert!(begin_windows_shortcut_cycle(&mut active, 7));
+        assert!(!begin_windows_shortcut_cycle(&mut active, 7));
+        finish_windows_shortcut_cycle(&mut active, 7);
+        assert!(begin_windows_shortcut_cycle(&mut active, 7));
     }
 
     #[test]
@@ -1607,33 +1755,33 @@ mod tests {
     #[test]
     fn invalidating_overlays_rejects_an_older_open_request() {
         let mut lifecycle = OverlayLifecycle {
-            visible: HashSet::new(),
+            requested_open: HashSet::new(),
             ready: HashSet::new(),
             revisions: HashMap::new(),
             viewport: OverlayViewport::default(),
         };
-        let old_request = lifecycle.begin_open("overlay-recommendation");
+        let old_request = lifecycle.request_open("overlay-recommendation");
 
         lifecycle.invalidate_overlays();
 
-        assert!(lifecycle.visible.is_empty());
+        assert!(lifecycle.requested_open.is_empty());
         assert!(!lifecycle.is_current_open("overlay-recommendation", old_request));
-        let current_request = lifecycle.begin_open("overlay-recommendation");
+        let current_request = lifecycle.request_open("overlay-recommendation");
         assert!(lifecycle.is_current_open("overlay-recommendation", current_request));
     }
 
     #[test]
     fn closing_an_overlay_rejects_its_in_flight_open_without_affecting_others() {
         let mut lifecycle = OverlayLifecycle {
-            visible: HashSet::new(),
+            requested_open: HashSet::new(),
             ready: HashSet::new(),
             revisions: HashMap::new(),
             viewport: OverlayViewport::default(),
         };
-        let recommendation_request = lifecycle.begin_open("overlay-recommendation");
-        let tier_request = lifecycle.begin_open("overlay-tier");
+        let recommendation_request = lifecycle.request_open("overlay-recommendation");
+        let tier_request = lifecycle.request_open("overlay-tier");
 
-        lifecycle.close("overlay-recommendation");
+        lifecycle.request_close("overlay-recommendation");
 
         assert!(!lifecycle.is_current_open("overlay-recommendation", recommendation_request));
         assert!(lifecycle.is_current_open("overlay-tier", tier_request));
@@ -1643,15 +1791,15 @@ mod tests {
     #[test]
     fn display_target_identifies_a_newer_request_that_supersedes_a_hide() {
         let mut lifecycle = OverlayLifecycle {
-            visible: HashSet::new(),
+            requested_open: HashSet::new(),
             ready: HashSet::from(["overlay-recommendation".to_owned()]),
             revisions: HashMap::new(),
             viewport: OverlayViewport::default(),
         };
-        lifecycle.close("overlay-recommendation");
+        lifecycle.request_close("overlay-recommendation");
         let stale_hide = lifecycle.display_target("overlay-recommendation");
 
-        lifecycle.begin_open("overlay-recommendation");
+        lifecycle.request_open("overlay-recommendation");
         let latest_open = lifecycle.display_target("overlay-recommendation");
 
         assert!(!stale_hide.show);
@@ -1699,6 +1847,9 @@ mod tests {
             .0;
 
         assert!(page_load.contains("set_ignore_cursor_events(true)"));
+        assert!(page_load.contains("PageLoadEvent::Finished"));
+        assert!(page_load.contains("mark_ready"));
+        assert!(page_load.contains("reconcile_and_emit_status"));
         assert!(hidden_branch.contains("set_ignore_cursor_events(true)"));
     }
 
@@ -1720,26 +1871,60 @@ mod tests {
     #[test]
     fn overlay_ready_state_gates_visibility_and_does_not_resurrect_closed_overlay() {
         let mut lifecycle = OverlayLifecycle {
-            visible: HashSet::new(),
+            requested_open: HashSet::new(),
             ready: HashSet::new(),
             revisions: HashMap::new(),
             viewport: OverlayViewport::default(),
         };
 
-        lifecycle.begin_open("overlay-tier");
+        lifecycle.request_open("overlay-tier");
         assert!(!lifecycle.should_show("overlay-tier"));
+        assert!(lifecycle.display_target("overlay-tier").show);
 
         lifecycle.mark_ready("overlay-tier");
         assert!(lifecycle.should_show("overlay-tier"));
 
-        lifecycle.visible.remove("overlay-tier");
+        lifecycle.requested_open.remove("overlay-tier");
         assert!(!lifecycle.should_show("overlay-tier"));
+    }
+
+    #[test]
+    fn destroyed_overlay_window_clears_requested_and_ready_state() {
+        let label = "overlay-tier";
+        let mut lifecycle = OverlayLifecycle {
+            requested_open: HashSet::new(),
+            ready: HashSet::new(),
+            revisions: HashMap::new(),
+            viewport: OverlayViewport::default(),
+        };
+        lifecycle.request_open(label);
+        lifecycle.mark_ready(label);
+        let previous = lifecycle.display_target(label).revision;
+
+        lifecycle.remove_window(label);
+
+        let current = lifecycle.display_target(label);
+        assert!(!lifecycle.requested_open.contains(label));
+        assert!(!lifecycle.ready.contains(label));
+        assert!(!current.show);
+        assert!(current.revision > previous);
+    }
+
+    #[test]
+    fn overlay_window_labels_map_back_to_public_kinds() {
+        assert_eq!(
+            overlay_kind("overlay-recommendation"),
+            Some("recommendation")
+        );
+        assert_eq!(overlay_kind("overlay-tier"), Some("tier"));
+        assert_eq!(overlay_kind("overlay-layout"), Some("layout"));
+        assert_eq!(overlay_kind("main"), None);
     }
 
     #[test]
     fn a_new_page_load_invalidates_ready_without_clearing_the_open_request() {
         let mut lifecycle = OverlayLifecycle {
-            visible: HashSet::from(["overlay-recommendation".to_owned()]),
+            requested_open: HashSet::from(["overlay-recommendation".to_owned()]),
             ready: HashSet::from(["overlay-recommendation".to_owned()]),
             revisions: HashMap::new(),
             viewport: OverlayViewport::default(),
@@ -1747,20 +1932,20 @@ mod tests {
 
         lifecycle.mark_loading("overlay-recommendation");
 
-        assert!(lifecycle.visible.contains("overlay-recommendation"));
+        assert!(lifecycle.requested_open.contains("overlay-recommendation"));
         assert!(!lifecycle.should_show("overlay-recommendation"));
     }
 
     #[test]
-    fn a_new_open_request_reuses_preheated_content() {
+    fn a_new_open_request_reuses_ready_content() {
         let mut lifecycle = OverlayLifecycle {
-            visible: HashSet::new(),
+            requested_open: HashSet::new(),
             ready: HashSet::from(["overlay-recommendation".to_owned()]),
             revisions: HashMap::new(),
             viewport: OverlayViewport::default(),
         };
 
-        lifecycle.begin_open("overlay-recommendation");
+        lifecycle.request_open("overlay-recommendation");
 
         assert!(lifecycle.should_show("overlay-recommendation"));
     }
@@ -1768,7 +1953,7 @@ mod tests {
     #[test]
     fn frontend_ready_marks_a_requested_overlay_ready_for_display() {
         let mut lifecycle = OverlayLifecycle {
-            visible: HashSet::from(["overlay-tier".to_owned()]),
+            requested_open: HashSet::from(["overlay-tier".to_owned()]),
             ready: HashSet::new(),
             revisions: HashMap::new(),
             viewport: OverlayViewport::default(),
@@ -1783,12 +1968,12 @@ mod tests {
     fn ready_failure_closes_the_current_request() {
         let label = "overlay-recommendation";
         let mut lifecycle = OverlayLifecycle {
-            visible: HashSet::new(),
+            requested_open: HashSet::new(),
             ready: HashSet::new(),
             revisions: HashMap::new(),
             viewport: OverlayViewport::default(),
         };
-        lifecycle.begin_open(label);
+        lifecycle.request_open(label);
         lifecycle.mark_ready(label);
         let previous = lifecycle.display_target(label).revision;
 
@@ -1797,7 +1982,7 @@ mod tests {
         let current = lifecycle.display_target(label);
         assert!(!current.show);
         assert!(!lifecycle.ready.contains(label));
-        assert!(!lifecycle.visible.contains(label));
+        assert!(!lifecycle.requested_open.contains(label));
         assert!(current.revision > previous);
     }
 }

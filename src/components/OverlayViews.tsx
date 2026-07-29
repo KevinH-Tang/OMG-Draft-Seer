@@ -8,7 +8,6 @@ import { cropCenter, FIXED_SLOT_LAYOUT, type RuntimeSlot } from '../core/layout'
 import { buildAbilityTierList, type TierEntry } from '../core/tiers'
 import i18n from '../i18n'
 import {
-  canMarkOverlayReady,
   createOverlayChannel,
   isDesktopRuntime,
   markNativeOverlayReady,
@@ -442,8 +441,6 @@ export function FloatingOverlay({
 export function OverlayApp({ kind }: { kind: OverlayKind }) {
   const { i18n: instance } = useTranslation()
   const [snapshot, setSnapshot] = useState<Snapshot>(demoSnapshot)
-  const [snapshotSettled, setSnapshotSettled] = useState(false)
-  const [contentSynchronized, setContentSynchronized] = useState(false)
   const [state, setState] = useState<OverlayState>(() =>
     restoreOverlayState(kind),
   )
@@ -465,9 +462,6 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
         if (active) setSnapshot(nextSnapshot)
       })
       .catch(() => undefined)
-      .finally(() => {
-        if (active) setSnapshotSettled(true)
-      })
     return () => {
       active = false
     }
@@ -487,7 +481,6 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
         const message = event.data
         if (message?.type === 'overlay-state' && message.kind === kind) {
           setState(normalizeOverlayState(message.state))
-          setContentSynchronized(true)
           window.clearInterval(retry)
         }
       }
@@ -501,17 +494,13 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
   }, [kind])
 
   useEffect(() => {
-    if (
-      !isDesktopRuntime() ||
-      !canMarkOverlayReady(snapshotSettled, contentSynchronized)
-    )
-      return
+    if (!isDesktopRuntime()) return
     return scheduleOverlayReadyAfterPaint(() => {
       void markNativeOverlayReady(kind).catch((error: unknown) => {
         console.error(`Failed to mark ${kind} overlay ready`, error)
       })
     })
-  }, [contentSynchronized, kind, snapshotSettled, state])
+  }, [kind])
 
   useEffect(() => {
     void instance.changeLanguage(state.locale)

@@ -5,7 +5,6 @@ import { resolve } from 'node:path'
 const screenshotPath = resolve(
   'tests/fixtures/{241DAD27-9A37-4364-BF08-68998F993992}.jpg',
 )
-
 async function setScreenshotInput() {
   const imageBase64 = (await readFile(screenshotPath)).toString('base64')
 
@@ -107,16 +106,45 @@ describe('Tauri desktop application', () => {
     await expect(toggle).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('uploads a screenshot and exposes layout reset controls', async () => {
-    await (await $('[data-testid="nav-analysis"]')).click()
+  it('opens and closes the assistant overlay from its button', async () => {
+    await (await $('[data-testid="nav-database"]')).click()
     const handles = await browser.getWindowHandles()
-    await browser.keys(['Tab'])
+    const toggle = await $('[data-testid="overlay-toggle-recommendation"]')
+
+    await toggle.click()
     await browser.waitUntil(
       async () => (await browser.getWindowHandles()).length > handles.length,
       {
-        timeoutMsg: 'Tab shortcut did not open the assistant overlay',
+        timeoutMsg: 'Overlay button did not create the assistant overlay',
       },
     )
+    await browser.waitUntil(async () => {
+      const visibility = (await browser.executeAsync((done) => {
+        window.__TAURI_INTERNALS__
+          ?.invoke('get_overlay_visibility', {})
+          .then(done)
+      })) as Array<{ kind: string; open: boolean }>
+      return visibility.some(
+        (status) => status.kind === 'recommendation' && status.open,
+      )
+    })
+
+    await toggle.click()
+    await browser.waitUntil(async () => {
+      const visibility = (await browser.executeAsync((done) => {
+        window.__TAURI_INTERNALS__
+          ?.invoke('get_overlay_visibility', {})
+          .then(done)
+      })) as Array<{ kind: string; open: boolean }>
+      return visibility.some(
+        (status) => status.kind === 'recommendation' && !status.open,
+      )
+    })
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('uploads a screenshot and exposes layout reset controls', async () => {
+    await (await $('[data-testid="nav-analysis"]')).click()
     await setScreenshotInput()
     await expect($('[data-testid="screenshot-frame"]')).toBeDisplayed()
     await browser.waitUntil(

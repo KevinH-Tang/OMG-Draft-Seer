@@ -18,6 +18,7 @@ export interface OverlayViewport {
 export interface NativeOverlayVisibility {
   kind: OverlayKind
   open: boolean
+  displayed: boolean
   revision: number
 }
 
@@ -69,13 +70,6 @@ interface AnimationFrameScheduler {
   cancelAnimationFrame(handle: number): void
   setTimeout(callback: () => void, delay: number): number
   clearTimeout(handle: number): void
-}
-
-export function canMarkOverlayReady(
-  snapshotSettled: boolean,
-  contentSynchronized: boolean,
-): boolean {
-  return snapshotSettled && contentSynchronized
 }
 
 export function scheduleOverlayReadyAfterPaint(
@@ -143,7 +137,7 @@ export function writeOverlayState(
   try {
     window.localStorage.setItem(overlayStorageKey(kind), JSON.stringify(state))
   } catch {
-    // Storage is an optional handoff path; BroadcastChannel remains authoritative.
+    // BroadcastChannel remains available for live updates when storage is blocked.
   }
 }
 
@@ -205,9 +199,9 @@ export function mergeNativeOverlayVisibility(
   if (status.revision < projection.revisions[status.kind]) return projection
   return {
     visibility:
-      projection.visibility[status.kind] === status.open
+      projection.visibility[status.kind] === status.displayed
         ? projection.visibility
-        : { ...projection.visibility, [status.kind]: status.open },
+        : { ...projection.visibility, [status.kind]: status.displayed },
     revisions: {
       ...projection.revisions,
       [status.kind]: status.revision,

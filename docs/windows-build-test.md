@@ -164,7 +164,14 @@ The current E2E suite covers:
 - Tier and Pairs filtering and the same-hero exclusion toggle.
 - Screenshot upload, recognition completion, candidate acceptance, and layout reset dialog.
 - Draft strategy switching and opening a native Tier overlay window.
-- Opening the assistant overlay with the registered shortcut and restoring the default `Tab` key.
+- Creating and closing the assistant overlay through its button, plus registering and restoring the
+  default `Tab` shortcut configuration.
+
+The overlay assertions currently prove window-handle creation and Rust lifecycle state only. They
+do not prove that the operating system marks the overlay visible or that the transparent WebView
+contains rendered pixels. Do not report a visual pass from `npm run test:tauri` alone. See
+[Windows native overlay visual validation issue](windows-overlay-visual-validation-incident.md)
+for the open incident, captured evidence, and the required visual acceptance criteria.
 
 The WDIO-enabled binary is test-only and must not be published or used as the release artifact.
 

@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   OVERLAY_CHANNEL_NAME,
-  canMarkOverlayReady,
   closeNativeOverlay,
   getNativeOverlayVisibility,
   isDesktopRuntime,
@@ -37,13 +36,6 @@ afterEach(() => {
 })
 
 describe('overlay platform bridge', () => {
-  it('requires settled runtime data and synchronized content before native ready', () => {
-    expect(canMarkOverlayReady(true, true)).toBe(true)
-    expect(canMarkOverlayReady(true, false)).toBe(false)
-    expect(canMarkOverlayReady(false, true)).toBe(false)
-    expect(canMarkOverlayReady(false, false)).toBe(false)
-  })
-
   it('recognizes only supported overlay query values', () => {
     vi.stubGlobal('window', { location: { search: '?overlay=tier' } })
     expect(overlayKindFromLocation()).toBe('tier')
@@ -93,6 +85,7 @@ describe('overlay platform bridge', () => {
     const visibility: NativeOverlayVisibility = {
       kind: 'tier',
       open: true,
+      displayed: true,
       revision: 4,
     }
     const invoke = vi.fn().mockResolvedValue(visibility)
@@ -158,9 +151,9 @@ describe('overlay platform bridge', () => {
 
   it('queries the native visibility snapshot after event subscription', async () => {
     const visibility: NativeOverlayVisibility[] = [
-      { kind: 'recommendation', open: true, revision: 5 },
-      { kind: 'tier', open: false, revision: 2 },
-      { kind: 'layout', open: false, revision: 0 },
+      { kind: 'recommendation', open: true, displayed: true, revision: 5 },
+      { kind: 'tier', open: false, displayed: false, revision: 2 },
+      { kind: 'layout', open: false, displayed: false, revision: 0 },
     ]
     const invoke = vi.fn().mockResolvedValue(visibility)
     vi.stubGlobal('window', { __TAURI_INTERNALS__: { invoke } })
@@ -179,18 +172,50 @@ describe('overlay platform bridge', () => {
       mergeNativeOverlayVisibility(projection, {
         kind: 'recommendation',
         open: false,
+        displayed: false,
         revision: 6,
       }),
     ).toBe(projection)
     expect(
       mergeNativeOverlayVisibility(projection, {
         kind: 'recommendation',
-        open: false,
+        open: true,
+        displayed: false,
         revision: 8,
       }),
     ).toEqual({
       visibility: { recommendation: false, tier: false, layout: false },
       revisions: { recommendation: 8, tier: 0, layout: 0 },
+    })
+  })
+
+  it('projects displayed state independently from an accepted open request', () => {
+    const projection = {
+      visibility: { recommendation: false, tier: false, layout: false },
+      revisions: { recommendation: 3, tier: 0, layout: 0 },
+    }
+
+    const requested = mergeNativeOverlayVisibility(projection, {
+      kind: 'recommendation',
+      open: true,
+      displayed: false,
+      revision: 4,
+    })
+    expect(requested).toEqual({
+      visibility: { recommendation: false, tier: false, layout: false },
+      revisions: { recommendation: 4, tier: 0, layout: 0 },
+    })
+
+    expect(
+      mergeNativeOverlayVisibility(requested, {
+        kind: 'recommendation',
+        open: true,
+        displayed: true,
+        revision: 4,
+      }),
+    ).toEqual({
+      visibility: { recommendation: true, tier: false, layout: false },
+      revisions: { recommendation: 4, tier: 0, layout: 0 },
     })
   })
 

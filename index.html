@@ -3,6 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      const overlay = new URLSearchParams(location.search).get('overlay')
+      if (['recommendation', 'tier', 'layout'].includes(overlay))
+        document.documentElement.dataset.overlayBootstrap = ''
+    </script>
+    <style>
+      html[data-overlay-bootstrap],
+      html[data-overlay-bootstrap] body {
+        background: transparent;
+      }
+    </style>
     <title>OMG-Draft-Seer</title>
   </head>
   <body>

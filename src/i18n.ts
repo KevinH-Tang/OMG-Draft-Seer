@@ -41,7 +41,7 @@ const resources = {
           hold: 'Hold · 按住显示',
         },
         language: '界面语言',
-        languageHint: '切换后立即应用于界面。',
+        languageHint: '语言名称同时显示中文和英文；切换后立即应用于界面。',
         autostart: '开机自动启动',
         autostartHint: '登录系统后自动启动并常驻系统托盘。',
         autostartEnabled: '已开启',
@@ -51,7 +51,12 @@ const resources = {
         autostartDesktopOnly: '仅桌面版可用',
         autostartError: '无法更新开机启动设置，请检查系统权限。',
       },
-      language: { zh: '中文', en: 'EN' },
+      language: {
+        zh: '中文',
+        zhSecondary: 'Chinese',
+        en: 'English',
+        enSecondary: '英文',
+      },
       app: {
         snapshot: '数据快照',
         ready: '就绪',
@@ -321,7 +326,8 @@ const resources = {
           hold: 'Hold · While pressed',
         },
         language: 'Interface language',
-        languageHint: 'Changes apply to the interface immediately.',
+        languageHint:
+          'Both language names are shown side by side; changes apply immediately.',
         autostart: 'Launch at startup',
         autostartHint:
           'Start after sign-in and remain available in the system tray.',
@@ -333,7 +339,12 @@ const resources = {
         autostartError:
           'Unable to update the startup setting. Check system permissions.',
       },
-      language: { zh: '中文', en: 'EN' },
+      language: {
+        zh: '中文',
+        zhSecondary: 'Chinese',
+        en: 'English',
+        enSecondary: '英文',
+      },
       app: {
         snapshot: 'Snapshot',
         ready: 'Ready',
