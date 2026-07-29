@@ -18,8 +18,26 @@ export interface OverlayViewport {
 export interface NativeOverlayVisibility {
   kind: OverlayKind
   open: boolean
+  ready: boolean
+  visible: boolean
+  visibilityObserved: boolean
   displayed: boolean
   revision: number
+  position?: { x: number; y: number }
+  size?: OverlayViewport
+  monitor?: {
+    name?: string
+    position: { x: number; y: number }
+    size: OverlayViewport
+    scaleFactor: number
+  }
+  targetMonitor?: {
+    name?: string
+    position: { x: number; y: number }
+    size: OverlayViewport
+    scaleFactor: number
+  }
+  withinMonitorBounds?: boolean
 }
 
 export interface OverlayVisibilityProjection {
@@ -70,6 +88,52 @@ interface AnimationFrameScheduler {
   cancelAnimationFrame(handle: number): void
   setTimeout(callback: () => void, delay: number): number
   clearTimeout(handle: number): void
+}
+
+interface RetryScheduler {
+  setTimeout(callback: () => void, delay: number): number
+  clearTimeout(handle: number): void
+}
+
+export function canMarkOverlayReady(
+  snapshotSettled: boolean,
+  contentSynchronized: boolean,
+): boolean {
+  return snapshotSettled && contentSynchronized
+}
+
+export function shouldObserveOverlayPanel(
+  desktop: boolean,
+  kind: OverlayKind,
+  contentReady: boolean,
+  resizeObserverAvailable: boolean,
+): boolean {
+  return desktop && kind !== 'layout' && contentReady && resizeObserverAvailable
+}
+
+export function scheduleOverlayReadyRetry(
+  markReady: () => Promise<boolean>,
+  reportError: (error: unknown) => void,
+  scheduler: RetryScheduler = window,
+  maxAttempts = 3,
+): () => void {
+  let active = true
+  let attempt = 0
+  let timeout = 0
+  const run = () => {
+    attempt += 1
+    void markReady().catch((error: unknown) => {
+      if (!active) return
+      reportError(error)
+      if (attempt >= maxAttempts) return
+      timeout = scheduler.setTimeout(run, 250)
+    })
+  }
+  run()
+  return () => {
+    active = false
+    if (timeout) scheduler.clearTimeout(timeout)
+  }
 }
 
 export function scheduleOverlayReadyAfterPaint(

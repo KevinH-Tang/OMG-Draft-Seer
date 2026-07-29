@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   OVERLAY_CHANNEL_NAME,
+  canMarkOverlayReady,
   closeNativeOverlay,
   getNativeOverlayVisibility,
   isDesktopRuntime,
@@ -11,6 +12,8 @@ import {
   readOverlayState,
   resizeNativeOverlay,
   scheduleOverlayReadyAfterPaint,
+  scheduleOverlayReadyRetry,
+  shouldObserveOverlayPanel,
   setNativeOverlayInteractionRegion,
   setNativeOverlayShortcut,
   setNativeOverlayViewport,
@@ -36,6 +39,75 @@ afterEach(() => {
 })
 
 describe('overlay platform bridge', () => {
+  it('waits for both runtime data and synchronized content before native ready', () => {
+    expect(canMarkOverlayReady(true, true)).toBe(true)
+    expect(canMarkOverlayReady(true, false)).toBe(false)
+    expect(canMarkOverlayReady(false, true)).toBe(false)
+    expect(canMarkOverlayReady(false, false)).toBe(false)
+  })
+
+  it('starts panel measurement only after gated content mounts', () => {
+    expect(shouldObserveOverlayPanel(true, 'recommendation', false, true)).toBe(
+      false,
+    )
+    expect(shouldObserveOverlayPanel(true, 'recommendation', true, true)).toBe(
+      true,
+    )
+    expect(shouldObserveOverlayPanel(true, 'layout', true, true)).toBe(false)
+    expect(shouldObserveOverlayPanel(false, 'tier', true, true)).toBe(false)
+  })
+
+  it('retries a rejected native ready handshake without looping forever', async () => {
+    let retry: (() => void) | undefined
+    const scheduler = {
+      setTimeout: vi.fn((callback: () => void) => {
+        retry = callback
+        return 41
+      }),
+      clearTimeout: vi.fn(),
+    }
+    const markReady = vi
+      .fn<() => Promise<boolean>>()
+      .mockRejectedValueOnce(new Error('show failed'))
+      .mockResolvedValue(false)
+    const report = vi.fn()
+
+    const dispose = scheduleOverlayReadyRetry(markReady, report, scheduler, 2)
+    await Promise.resolve()
+    expect(report).toHaveBeenCalledOnce()
+    expect(scheduler.setTimeout).toHaveBeenCalledOnce()
+
+    retry?.()
+    await Promise.resolve()
+    expect(markReady).toHaveBeenCalledTimes(2)
+    expect(scheduler.setTimeout).toHaveBeenCalledOnce()
+
+    dispose()
+  })
+
+  it('ignores a pending ready rejection after disposal', async () => {
+    let rejectReady: (reason: unknown) => void = () => undefined
+    const scheduler = {
+      setTimeout: vi.fn(() => 41),
+      clearTimeout: vi.fn(),
+    }
+    const markReady = vi.fn(
+      () =>
+        new Promise<boolean>((_resolve, reject) => {
+          rejectReady = reject
+        }),
+    )
+    const report = vi.fn()
+
+    const dispose = scheduleOverlayReadyRetry(markReady, report, scheduler)
+    dispose()
+    rejectReady(new Error('late show failure'))
+    await Promise.resolve()
+
+    expect(report).not.toHaveBeenCalled()
+    expect(scheduler.setTimeout).not.toHaveBeenCalled()
+  })
+
   it('recognizes only supported overlay query values', () => {
     vi.stubGlobal('window', { location: { search: '?overlay=tier' } })
     expect(overlayKindFromLocation()).toBe('tier')
@@ -85,6 +157,9 @@ describe('overlay platform bridge', () => {
     const visibility: NativeOverlayVisibility = {
       kind: 'tier',
       open: true,
+      ready: true,
+      visible: true,
+      visibilityObserved: true,
       displayed: true,
       revision: 4,
     }
@@ -151,9 +226,33 @@ describe('overlay platform bridge', () => {
 
   it('queries the native visibility snapshot after event subscription', async () => {
     const visibility: NativeOverlayVisibility[] = [
-      { kind: 'recommendation', open: true, displayed: true, revision: 5 },
-      { kind: 'tier', open: false, displayed: false, revision: 2 },
-      { kind: 'layout', open: false, displayed: false, revision: 0 },
+      {
+        kind: 'recommendation',
+        open: true,
+        ready: true,
+        visible: true,
+        visibilityObserved: true,
+        displayed: true,
+        revision: 5,
+      },
+      {
+        kind: 'tier',
+        open: false,
+        ready: false,
+        visible: false,
+        visibilityObserved: true,
+        displayed: false,
+        revision: 2,
+      },
+      {
+        kind: 'layout',
+        open: false,
+        ready: false,
+        visible: false,
+        visibilityObserved: true,
+        displayed: false,
+        revision: 0,
+      },
     ]
     const invoke = vi.fn().mockResolvedValue(visibility)
     vi.stubGlobal('window', { __TAURI_INTERNALS__: { invoke } })
@@ -172,6 +271,9 @@ describe('overlay platform bridge', () => {
       mergeNativeOverlayVisibility(projection, {
         kind: 'recommendation',
         open: false,
+        ready: false,
+        visible: false,
+        visibilityObserved: true,
         displayed: false,
         revision: 6,
       }),
@@ -180,6 +282,9 @@ describe('overlay platform bridge', () => {
       mergeNativeOverlayVisibility(projection, {
         kind: 'recommendation',
         open: true,
+        ready: false,
+        visible: true,
+        visibilityObserved: true,
         displayed: false,
         revision: 8,
       }),
@@ -198,6 +303,9 @@ describe('overlay platform bridge', () => {
     const requested = mergeNativeOverlayVisibility(projection, {
       kind: 'recommendation',
       open: true,
+      ready: false,
+      visible: true,
+      visibilityObserved: true,
       displayed: false,
       revision: 4,
     })
@@ -210,6 +318,9 @@ describe('overlay platform bridge', () => {
       mergeNativeOverlayVisibility(requested, {
         kind: 'recommendation',
         open: true,
+        ready: true,
+        visible: true,
+        visibilityObserved: true,
         displayed: true,
         revision: 4,
       }),

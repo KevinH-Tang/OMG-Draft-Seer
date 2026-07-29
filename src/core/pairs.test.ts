@@ -215,6 +215,38 @@ describe('buildAbilityPairList', () => {
     ])
   })
 
+  it('keeps the highest-sample record for duplicate Ability keys', () => {
+    const snapshot: Snapshot = {
+      ...demoSnapshot,
+      abilities: [
+        {
+          id: 1,
+          name: 'First',
+          shortName: 'first',
+          isUltimate: false,
+          iconColor: '#111111',
+        },
+        {
+          id: 2,
+          name: 'Second',
+          shortName: 'second',
+          isUltimate: false,
+          iconColor: '#222222',
+        },
+      ],
+      abilityStats: [
+        { abilityId: 1, picks: 100, avgPickPosition: 1, wins: 60 },
+        { abilityId: 1, picks: 40, avgPickPosition: 1, wins: 4 },
+        { abilityId: 2, picks: 100, avgPickPosition: 2, wins: 50 },
+      ],
+      pairStats: [{ abilityIdOne: 1, abilityIdTwo: 2, picks: 60, wins: 30 }],
+      tripletStats: [],
+    }
+
+    const [row] = buildAbilityPairList(snapshot)
+    expect(row.winRateOne).toBeCloseTo(0.6)
+  })
+
   it('drops invalid Pair and Triple win records before indexing them', () => {
     const snapshot: Snapshot = {
       ...demoSnapshot,

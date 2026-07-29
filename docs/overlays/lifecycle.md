@@ -5,13 +5,49 @@
 
 ## 1. 范围与结论
 
+### 1.1 Overlay 两阶段产品边界
+
+Overlay 按目标所有权和定位策略分为两个阶段：
+
+| 阶段 | 名称                  | 状态               | 定位目标                         | 产品承诺                                                              |
+| ---- | --------------------- | ------------------ | -------------------------------- | --------------------------------------------------------------------- |
+| 1    | Desktop overlay       | 当前开发与发布目标 | 显示器或桌面坐标                 | 提供透明、置顶、鼠标穿透的桌面辅助浮层，以及按钮和 Trigger/Hold 控制  |
+| 2    | Game-attached overlay | 未来扩展，尚未实现 | 经过身份验证的 Dota 2 窗口客户区 | 跟随游戏窗口的移动、缩放、DPI、显示器和可用性变化；不承诺独占全屏覆盖 |
+
+除非段落明确标记为阶段 2，本文描述的均是阶段 1 Desktop overlay。当前实现不会查找或
+验证 Dota 进程，不绑定 `HWND`/`CGWindowID`，不捕获游戏窗口，也不会随游戏客户区持续
+移动。跨显示器、跨 Space 和全屏应用 smoke 只验证桌面窗口行为，不能作为 Game-attached
+overlay 已受支持的证据。
+
+两个阶段复用内容与生命周期，不复用定位假设：
+
+```text
+OverlayLifecycle
+  -> overlay kind、open/close、ready、revision、shortcut、content state
+
+OverlayPlacement
+  -> target identity、bounds、eligibility、geometry updates、detach
+     |- DesktopMonitorPlacement     当前：显示器/桌面坐标策略
+     `- GameWindowPlacement         未来：以验证后的游戏窗口客户区为目标
+```
+
+以上 placement 名称是扩展边界，不表示当前代码已经抽取出同名接口。现有 recommendation 和
+layout 使用主窗口所在显示器的物理边界，tier 使用桌面坐标与内容高度；未来抽取
+`DesktopMonitorPlacement` 时必须保留这两类现状行为。
+
+阶段 2 应通过独立 placement adapter 接入现有生命周期。目标失效、最小化、权限不匹配或
+显示模式不支持外部浮层时，adapter 必须返回不可显示并立即隐藏浮层；不得静默把目标改为
+桌面显示器或另一个 Space。用户可以显式退出游戏跟随并切回 Desktop overlay。
+
+### 1.2 当前原生窗口种类
+
 本文覆盖三类悬浮层：
 
-| `OverlayKind`    | 原生窗口标签             | 用途                     | 默认原生尺寸                          |
-| ---------------- | ------------------------ | ------------------------ | ------------------------------------- |
-| `recommendation` | `overlay-recommendation` | Tier、候选技能与组合推荐 | `2560 x 1440`，按当前截图尺寸覆盖主屏 |
-| `tier`           | `overlay-tier`           | Tier 列表                | `430 x 760`，内容变化时调整高度       |
-| `layout`         | `overlay-layout`         | 识别矩形与 Tier 标记     | `2560 x 1440`，按当前截图尺寸覆盖主屏 |
+| `OverlayKind`    | 原生窗口标签             | 用途                     | 默认原生尺寸                                   |
+| ---------------- | ------------------------ | ------------------------ | ---------------------------------------------- |
+| `recommendation` | `overlay-recommendation` | Tier、候选技能与组合推荐 | 目标显示器物理边界；builder 默认 `2560 x 1440` |
+| `tier`           | `overlay-tier`           | Tier 列表                | `430 x 760`，内容变化时调整高度                |
+| `layout`         | `overlay-layout`         | 识别矩形与 Tier 标记     | 目标显示器物理边界；builder 默认 `2560 x 1440` |
 
 修复前的现场诊断把“快捷键无效”定位到一个明确边界：
 
@@ -53,72 +89,78 @@ Carbon 探针的“跨进程重复注册返回值”不能用于判断某个快�
 
 桌面版由 Rust 独占控制状态，React 不再保存目标状态或请求版本：
 
-| 层           | 当前所有者                         | 状态                                  | 含义                                       |
-| ------------ | ---------------------------------- | ------------------------------------- | ------------------------------------------ |
-| 快捷键注册   | Rust `RegisteredOverlayShortcut`   | `shortcut`, `registered`              | OS 实际注册状态                            |
-| 快捷键周期   | Rust `OverlayShortcutStateMachine` | `mode`, `pressed`                     | Trigger/Hold 与按压去重                    |
-| 原生生命周期 | Rust `OverlayLifecycle`            | `visible`, `ready`, `revisions[kind]` | 最新目标、首帧状态和每类请求版本           |
-| 前端只读投影 | React state/ref                    | `overlayVisibility`, `revisions`      | 按钮展示；只接受不旧于当前 revision 的状态 |
-| 实际窗口状态 | Tauri/Wry                          | 窗口存在、hidden/visible              | OS 当前是否实际显示窗口                    |
+| 层           | 当前所有者                         | 状态                                         | 含义                                       |
+| ------------ | ---------------------------------- | -------------------------------------------- | ------------------------------------------ |
+| 快捷键注册   | Rust `RegisteredOverlayShortcut`   | `shortcut`, `registered`                     | OS 实际注册状态                            |
+| 快捷键周期   | Rust `OverlayShortcutStateMachine` | `mode`, `pressed`                            | Trigger/Hold 与按压去重                    |
+| 原生生命周期 | Rust `OverlayLifecycle`            | `requested_open`, `ready`, `revisions[kind]` | 最新请求、内容状态和每类请求版本           |
+| 前端只读投影 | React state/ref                    | `overlayVisibility`, `revisions`             | 按钮展示；只接受不旧于当前 revision 的状态 |
+| 实际窗口状态 | Tauri/Wry                          | 窗口存在、hidden/visible                     | OS 当前是否实际显示窗口                    |
 
 另有两条内容同步通道，不直接决定窗口是否显示：
 
 - `localStorage` 持续保存每类 overlay 的最新内容，供新建 WebView 恢复；
 - `BroadcastChannel` 持续向已创建的 overlay WebView 推送内容。
 
-`overlayVisibility=true` 是 Rust 目标状态的投影，不等于窗口已经完成首帧；`visible` 集合
-中的标签仍可能因为 `ready=false` 而处于隐藏加载状态。
+`get_overlay_visibility` 和 visibility 事件区分四层状态：`open` 是请求状态，`ready` 是
+overlay 前端内容状态，`visible` 是 Tauri `is_visible()` 的值，`visibilityObserved` 表示
+该查询本身成功，`displayed` 仅在 open/ready/observed/visible 同时为真时成立。诊断快照还
+包含窗口位置、窗口当前显示器、主窗口所在目标显示器及 `withinMonitorBounds`；最后一项
+始终相对目标显示器计算，不能用“窗口恰好完整落在另一个显示器”冒充通过。
 
 ## 4. 单个原生悬浮层状态机
 
 对每个 `kind`，原生状态可以归纳为以下稳定状态：
 
-| 状态                 | 窗口存在 | `visible` 包含标签 | `ready` 包含标签 | 实际显示 |
-| -------------------- | -------- | ------------------ | ---------------- | -------- |
-| `ABSENT`             | 否       | 否                 | 否               | 否       |
-| `LOADING_HIDDEN`     | 是       | 否                 | 否               | 否       |
-| `READY_HIDDEN`       | 是       | 否                 | 是               | 否       |
-| `OPEN_WAITING_READY` | 是       | 是                 | 否               | 否       |
-| `OPEN_VISIBLE`       | 是       | 是                 | 是               | 是       |
+| 状态                  | 窗口存在 | `open` | `ready` | OS `visible` | 面板像素 |
+| --------------------- | -------- | ------ | ------- | ------------ | -------- |
+| `ABSENT`              | 否       | 否     | 否      | 否           | 否       |
+| `LOADING_TRANSPARENT` | 是       | 是     | 否      | 是           | 否       |
+| `READY_HIDDEN`        | 是       | 否     | 是      | 否           | 否       |
+| `OPEN_VISIBLE`        | 是       | 是     | 是      | 是           | 是       |
 
-`recommendation` 在应用启动时由后台线程预热，所以通常从 `LOADING_HIDDEN` 开始；另外
-两类窗口在首次打开前通常是 `ABSENT`。可能首次创建 WebView 的 Tauri 命令是 async，并把
-窗口操作放进 blocking worker，避免在 Windows 主事件线程同步创建 WebView2。
+三类窗口在首次打开前都是 `ABSENT`，窗口只为 open 请求创建。可能首次创建 WebView 的
+Tauri 命令是 async，并把窗口操作放进 blocking worker，避免在 Windows 主事件线程同步
+创建 WebView2。首次成功关闭后，已同步的窗口可以停留在 `READY_HIDDEN`，供后续打开复用。
 
 ### 4.1 原生转换表
 
-| 事件                             | 前置状态/条件                 | 原生状态变化                                               | 结果                                     |
-| -------------------------------- | ----------------------------- | ---------------------------------------------------------- | ---------------------------------------- |
-| `prepare_overlay(kind)`          | `ABSENT`                      | 创建透明、无边框、always-on-top、跨 Space、初始隐藏窗口    | `LOADING_HIDDEN`                         |
-| `prepare_overlay(kind)`          | 窗口已存在                    | 重新应用 always-on-top；保留 cursor poller 的交互状态      | 可见性不变                               |
-| WebView `PageLoadEvent::Started` | 窗口已存在                    | 清除 `ready`，恢复鼠标穿透并执行 `hide()`                  | `LOADING_HIDDEN` 或 `OPEN_WAITING_READY` |
-| `open_overlay(kind)`             | 尺寸合法                      | 递增该 kind 的 revision，先记录 requested，再准备窗口      | 继续到版本校验                           |
-| `open_overlay(kind)`             | revision 仍是最新且 requested | ready 时显示，否则继续隐藏                                 | `OPEN_VISIBLE` 或 `OPEN_WAITING_READY`   |
-| `open_overlay(kind)`             | 准备期间被新请求覆盖          | 隐藏窗口并返回最新 Rust 状态投影                           | latest-request-wins                      |
-| `toggle_overlay(kind)`           | 任意                          | 在同一把 Rust 锁内原子决定 open/close 并递增 revision      | 不依赖 React 的旧投影                    |
-| `set_overlay_viewport`           | 截图尺寸合法                  | 保存尺寸并调整已存在的 recommendation/layout 窗口          | 保持各窗口 requested/ready 状态          |
-| `mark_overlay_ready(kind)`       | 标签仍在 `visible`            | 把标签加入 `ready`，执行 `show()`，再检查请求仍有效        | `OPEN_VISIBLE`                           |
-| `mark_overlay_ready(kind)`       | 标签不在 `visible`            | 只把标签加入 `ready`，不显示                               | `READY_HIDDEN`                           |
-| `mark_overlay_ready(kind)`       | 原生显示失败                  | 清除 `ready`，关闭请求并递增 revision，发送 closed 投影    | 保持隐藏并向 WebView 返回错误            |
-| `close_overlay(kind)`            | 任意                          | 先从 `visible` 删除标签，再隐藏窗口                        | `READY_HIDDEN` 或 `LOADING_HIDDEN`       |
-| 主窗口 `CloseRequested`          | 任意                          | 递增各 kind revision，清空 `visible`，取消 Hold 并隐藏窗口 | 所有悬浮层关闭；`ready` 保留             |
-| 应用 Quit                        | 任意                          | Tauri cleanup 后进程退出                                   | 全部终止                                 |
+| 事件                              | 前置状态/条件                 | 原生状态变化                                               | 结果                                    |
+| --------------------------------- | ----------------------------- | ---------------------------------------------------------- | --------------------------------------- |
+| `prepare_overlay(kind)`           | `ABSENT`                      | 创建透明、无边框、always-on-top、跨 Space、OS-visible 窗口 | `LOADING_TRANSPARENT`                   |
+| `prepare_overlay(kind)`           | 窗口已存在                    | 重新应用 always-on-top；保留 cursor poller 的交互状态      | 可见性不变                              |
+| WebView `PageLoadEvent::Started`  | 窗口已存在                    | 清除 `ready`，恢复鼠标穿透，按 `open` 调用 show/hide       | `LOADING_TRANSPARENT` 或隐藏            |
+| WebView `PageLoadEvent::Finished` | 窗口已存在                    | 只记录 load finished；不得替代前端 content-ready           | `ready` 保持 false                      |
+| `open_overlay(kind)`              | 尺寸合法                      | 递增该 kind 的 revision，先记录 requested，再准备窗口      | 继续到版本校验                          |
+| `open_overlay(kind)`              | revision 仍是最新且 requested | 让透明窗口保持 OS-visible；ready 前不渲染面板 DOM          | `OPEN_VISIBLE` 或 `LOADING_TRANSPARENT` |
+| `open_overlay(kind)`              | 准备期间被新请求覆盖          | 隐藏窗口并返回最新 Rust 状态投影                           | latest-request-wins                     |
+| `toggle_overlay(kind)`            | 任意                          | 在同一把 Rust 锁内原子决定 open/close 并递增 revision      | 不依赖 React 的旧投影                   |
+| `set_overlay_viewport`            | 截图尺寸合法                  | 保存内容坐标；原生全屏窗口使用当前显示器物理边界           | 保持各窗口 requested/ready 状态         |
+| `mark_overlay_ready(kind)`        | 标签仍为 requested            | 把标签加入 `ready`，执行 show 并读取 OS 可见性             | `OPEN_VISIBLE`                          |
+| `mark_overlay_ready(kind)`        | 标签不再 requested            | 只把标签加入 `ready`，窗口保持隐藏                         | `READY_HIDDEN`                          |
+| `mark_overlay_ready(kind)`        | 原生显示失败                  | 清除 `ready`，关闭请求并递增 revision，发送 closed 投影    | 保持隐藏并向 WebView 返回错误           |
+| `close_overlay(kind)`             | 任意                          | 先清除 requested，再隐藏窗口                               | `READY_HIDDEN` 或隐藏 loading           |
+| 主窗口 `CloseRequested`           | 任意                          | 递增各 kind revision，清空 requested，取消 Hold 并隐藏窗口 | 所有悬浮层关闭；`ready` 保留            |
+| 应用 Quit                         | 任意                          | Tauri cleanup 后进程退出                                   | 全部终止                                |
 
 ### 4.2 原生不变量
 
 当前代码试图保持以下不变量：
 
-1. 实际可见窗口必须同时满足 `requested && ready`。
+1. 面板像素可见必须满足 `requested && ready && is_visible()`；Windows bootstrap 期间允许透明
+   窗口在 `requested && !ready` 时保持 OS-visible。
 2. `close_overlay` 必须先清除请求，再隐藏，避免迟到的 ready 回调复活窗口。
 3. 每类 overlay 独立递增 revision；关闭一种 overlay 不会错误取消另一种的打开请求。
-4. 页面重新加载时必须清除 ready 并隐藏，避免显示未完成绘制的透明空窗。
-5. 预热只创建并加载窗口，不等于请求显示。
+4. 页面重新加载时必须清除 ready；React 在内容重新同步前不渲染面板 DOM。
+5. `PageLoadEvent::Finished` 不能授权 ready，只有 overlay 前端握手完成后才能授权。
 6. 页面加载和隐藏转换必须恢复鼠标穿透，不能让全屏透明窗口继续拦截输入。
 
 ## 5. 前端命令与只读投影
 
 桌面按钮只发送 `open_overlay`、`close_overlay` 或原子 `toggle_overlay` 意图。每个命令返回
-`{ kind, open, revision }`；Rust 同时发送相同结构的 best-effort 事件。React 用
+`{ kind, open, ready, visibilityObserved, visible, displayed, revision, position, size,
+monitor, targetMonitor, withinMonitorBounds }`；Rust 同时发送相同结构的 best-effort
+事件。React 用
 `mergeNativeOverlayVisibility` 丢弃较旧 revision，并在 listener 建立后调用
 `get_overlay_visibility` 补齐可能错过的状态。React 不回滚或补发原生命令，也不参与桌面
 Trigger/Hold。
@@ -136,7 +178,8 @@ Trigger/Hold。
   -> 为已创建 WebView 广播 overlay-state
 
 Rust 快捷键或 UI 命令请求打开
-  -> 原生窗口保持隐藏，等待内容与 runtime snapshot
+  -> 原生透明窗口保持 OS-visible，让 WebView2 可以执行 bootstrap
+  -> React 暂不渲染 data-overlay-panel，等待内容与 runtime snapshot
   -> overlay WebView 从 localStorage 恢复首份状态
   -> overlay WebView 建立 BroadcastChannel
   -> 重试 postMessage(overlay-ready)，直到收到响应
@@ -146,17 +189,18 @@ overlay WebView runtime snapshot 请求成功或降级完成
   + 已收到主页面最新 overlay-state
   -> content ready
 
-overlay WebView 每次 content-ready state 绘制
-  -> 两次 requestAnimationFrame；隐藏 WKWebView 无帧时使用一次性 timer fallback
+overlay WebView content-ready state 绘制 data-overlay-panel
+  -> 两次 requestAnimationFrame；无帧时使用一次性 timer fallback
   -> mark_overlay_ready
   -> native 在 requested=true 时 show()
 ```
 
 注意：localStorage 恢复内容可以构建隐藏首帧，但不能单独授权 native 显示。native 的
 `ready` 表示 runtime snapshot 已结束、主页面最新内容已经握手且 React DOM 已 commit；窗口
-能产生帧时还会优先等待两帧，隐藏预热窗口则由 timer fallback 打破无帧死锁。内容每次更新
-都可能再次报告 ready，native 操作是幂等的。若 show/reconcile 失败，Rust 用新 revision
-回滚为 closed，WebView 同时把 IPC 错误写入 console。
+能产生帧时还会优先等待两帧，timer fallback 负责打破无帧死锁。内容每次更新都可能再次
+报告 ready，native 操作是幂等的。若 show/reconcile 失败，Rust 只在失败目标仍是当前 open
+revision 时回滚为 closed，迟到的失败不能关闭更新的请求；WebView 记录 IPC 错误并进行
+有界重试，使失败后仍存活的 WebView 可以进入 `READY_HIDDEN`，供下一次 open 安全复用。
 
 ## 7. 快捷键注册状态机
 
@@ -266,6 +310,11 @@ native Pressed 已确认
    macOS 没有 native 自动化 E2E，只能依赖手工 smoke test。
 6. `global-hotkey` 的平台能力不是完全相同的。若未来扩大到 Linux，Wayland 不能沿用 X11
    全局快捷键假设；本文当前产品范围仍是 Windows 和 Apple Silicon macOS。
+7. 当前 `.visible_on_all_workspaces(true)`、目标显示器物理边界和 macOS 跨 Space 行为属于
+   Desktop overlay placement 策略，不得直接成为未来 Game-attached overlay 的不变量。
+8. Game-attached overlay 在 Windows 上通常不需要管理员权限。若 Steam/Dota 与本应用的
+   完整性级别不一致，应报告受限状态并建议使用相同的普通用户权限级别，而不是默认请求
+   `requireAdministrator`。进程注入、内存读取、输入模拟和驱动均不属于扩展接口。
 
 ## 11. 修复验收状态
 

@@ -19,28 +19,40 @@ The recommendation flow still scores an individual five-pick build, while Draft 
 the shared 10-player serpentine pool. It applies a configurable `tier-first` or `pair-first`
 strategy to every player position, records up to 20 legal candidates at each global pick, and
 consumes Top1 for the deterministic path. The implementation boundary and assumptions are recorded
-in [Draft strategy tree](draft-strategy-tree.md).
+in [Draft strategy tree](../product/draft-strategy-tree.md).
 
 Layout is projected from resource geometry and the screenshot resolution, with manual fixed-layout
-calibration retained as a fallback. The project does not capture a game window. The Tauri shell
+calibration retained as a fallback. The project does not capture or attach to a game window. Its
+current phase-1 Desktop overlay uses display/desktop coordinates; full-display recommendation and
+layout windows target the main application window's monitor. The Tauri shell
 exposes independent Tier, recommendation, and layout overlay windows with always-on-top and
 cursor-pass-through behavior. Its configurable OS-global shortcut controls the recommendation
 overlay in Trigger or Hold mode even while the main window is hidden; the browser build uses a
 focused-window shortcut and a fixed mouse-transparent recommendation panel. Rust owns native
-overlay visibility, readiness, request revisions, and shortcut press cycles; React consumes a
-revisioned visibility projection. See
-[Overlay lifecycle state machine](overlay-lifecycle-state-machine.md) for the command, readiness,
+overlay requests, content readiness, request revisions, OS visibility observations, target-monitor
+geometry, and shortcut press cycles; React consumes a revisioned `displayed` projection. See
+[Overlay lifecycle state machine](../overlays/lifecycle.md) for the command, readiness,
 content-sync, and shortcut event flows.
+
+The future phase-2 Game-attached overlay is a separate placement mode, not a description of current
+behavior. It may reuse the existing overlay content, readiness, revision, shortcut, and
+cursor-pass-through lifecycle, but must add platform-specific verified game target identity,
+client-area geometry tracking, display eligibility, and detach behavior behind an
+`OverlayPlacement` boundary. It must not silently fall back to a desktop monitor when attachment is
+lost. The proposed capture and placement architecture is documented in
+[Game capture and overlay design](../overlays/game-capture-design.md).
 
 The native shortcut callback sends press/release events to one dedicated FIFO worker. On Windows,
 the worker ignores a release while the shortcut's main key is still physically down, so a stale
 release cannot close a newer Hold press. Switching to Hold closes the recommendation overlay before
 committing the mode in both desktop and browser runtimes; a browser Hold press also claims an
 already-open overlay so release closes it. Native overlay ready is gated on the bundled runtime
-snapshot settling and a current main-WebView content handshake. WebView creation runs off the main
-thread, screenshot viewport changes resize and reposition existing recommendation and layout
-windows, and reload/hide transitions reassert cursor pass-through without resetting an existing
-visible window behind the cursor poller's state.
+snapshot settling and a current main-WebView content handshake. Requested transparent windows
+remain OS-visible during bootstrap so WebView2 can execute, while React withholds the panel DOM
+until content-ready. Full-screen native bounds come from the target monitor rather than screenshot
+pixels; screenshot viewport remains the content coordinate system. WebView creation runs off the
+main thread, and reload/hide transitions reassert cursor pass-through without resetting an
+existing visible window behind the cursor poller's state.
 
 The macOS transparent-overlay implementation uses Tauri's macOS private API, so macOS releases
 must be direct-distribution builds rather than Mac App Store submissions. The project does not
@@ -74,18 +86,22 @@ On 2026-07-29, the current Apple Silicon workspace used Node `24.18.0`, npm `11.
 repository-pinned Rust/Cargo `1.90.0` Apple Silicon toolchain. This is a Node 24 compatibility
 validation, not the `.nvmrc`-pinned Node `22.12.0` release baseline:
 
-- `npm run check` passed: Prettier, Rustfmt, 26 Rust unit tests, TypeScript/Vite, 25 Vitest files
-  with 125 tests, Clippy with warnings denied, and the offline runtime graph all completed
+- `npm run check` passed: Prettier, Rustfmt, 31 Rust unit tests, TypeScript/Vite, 25 Vitest files
+  with 129 tests, Clippy with warnings denied, and the offline runtime graph all completed
   successfully. Vite emitted only the existing main-chunk size warning.
-- `npm run test:rust` passed all 26 Rust unit tests, including native overlay lifecycle,
+- `npm run test:rust` passed all 31 Rust unit tests, including native overlay lifecycle,
   Trigger/Hold transactionality, shortcut worker ordering, Windows release filtering, background
   WebView creation, and cursor-state preservation.
 - `npm run desktop:build -- --bundles app` produced
   `src-tauri/target/release/bundle/macos/OMG-Draft-Seer.app`; its executable is arm64.
-- `npm run verify:macos-bundle -- --require-arm64 --require-runtime-assets` verified the arm64
-  executable, embedded runtime resources, and absence of the test WebDriver bridge. The manual
-  WKWebView smoke checklist was not run, so this remains a local app build rather than
-  release-candidate acceptance.
+- The macOS bundle verifier with `--require-arm64 --require-runtime-assets` verified the arm64
+  executable, embedded runtime resources, and absence of the test WebDriver bridge.
+- A macOS 26.5.1 system-level button smoke on an earlier candidate from this repair series confirmed
+  the recommendation panel appears with `ready=true`, Tauri `visible=true`, valid monitor bounds,
+  and non-transparent screenshot pixels, then disappears with `visible=false`. The latest arm64
+  `.app` was rebuilt and bundle-verified after the final revision/retry changes, but its system-level
+  screenshot smoke has not been repeated. This remains local WKWebView evidence, not Windows or
+  macOS release-candidate acceptance.
 
 On 2026-07-24, the current Windows workspace used Node `24.16.0`, npm `11.13.0`, and the
 repository-pinned Rust/Cargo `1.90.0` MSVC toolchain:
@@ -97,7 +113,7 @@ repository-pinned Rust/Cargo `1.90.0` MSVC toolchain:
 - `npm run verify:runtime` passed for 636 runtime candidates, 636 signature IDs, and 636 icon
   manifest IDs with zero failures.
 - The recorded `npm run desktop:build` passed and generated the x64 MSI and NSIS packages listed in
-  `windows-build-test.md`.
+  `docs/platforms/windows/build-test.md`.
 - `npm run format:check` remains blocked by repository-wide Prettier debt outside this focused
   documentation correction. Native WDIO E2E and installed-package smoke tests were not run.
 
@@ -202,11 +218,16 @@ endpoints; whether a fuller private export exists is not documented in this repo
 - Run `npm run build:tauri:test` followed by `npm run test:tauri` on Windows and retain the native
   WebdriverIO result.
 - Launch the generated Windows release executable, install both the MSI and NSIS packages, and
-  verify startup from the installed locations.
+  complete the Button, Trigger, Hold, hidden-main Trigger, and hidden-main Hold evidence matrix
+  defined by the [shared overlay production acceptance design](../overlays/production-acceptance/shared.md)
+  and [Windows adapter](../overlays/production-acceptance/windows.md). The harness is designed but
+  not yet implemented.
 - Exercise screenshot upload, Worker recognition, DPI behavior, layout import/export, and restart
   persistence inside the target WebViews on Windows and macOS. Before a macOS release, repeat the
   unsigned-DMG, SHA-256, Gatekeeper-first-open, and overlay acceptance checklist in
-  `macos-build-test.md` on Apple Silicon.
+  `docs/platforms/macos/build-test.md` on Apple Silicon. The proposed stronger evidence harness is recorded in the
+  [macOS overlay production acceptance adapter design](../overlays/production-acceptance/macos.md)
+  and is not a current command.
 - Extend native shortcut validation beyond the 2026-07-28 Apple Silicon Trigger smoke: cover Hold
   press/release and cancellation, macOS loss of focus while the main window remains visible, and
   Windows focused/hidden main-window paths. Repeat macOS validation on the Node 22 release baseline.
@@ -223,9 +244,10 @@ endpoints; whether a fuller private export exists is not documented in this repo
   relation database. Track a full-export, pagination, or match-level-data path with the upstream
   project.
 
-Wails, Go-native UI, and game-window capture remain outside the current implementation. Native
-global shortcuts are implemented only for recommendation-overlay Trigger/Hold control; they do not
-capture the game or add in-game input handling.
+Wails, Go-native UI, game-window capture, and Game-attached overlay placement remain outside the
+current implementation. Native global shortcuts are implemented only for Desktop recommendation-
+overlay Trigger/Hold control; they do not capture the game, bind the overlay to Dota, or add in-game
+input handling.
 
 ## Intentional Cleanup
 
@@ -236,15 +258,18 @@ directories. Resource projection is the default and the committed fixed layout i
 
 ## Maintained References
 
-- [Root README](../README.md) is the user-facing setup and usage guide.
-- [Windows build and validation](windows-build-test.md) is the platform handoff procedure.
-- [macOS build and release validation](macos-build-test.md) is the macOS release handoff procedure.
-- [Recommendation metrics](recommendation-metrics.md) defines the project-owned scoring model.
-- [Draft strategy tree](draft-strategy-tree.md) defines the multi-player draft state, all-player
+- [Root README](../../README.md) is the user-facing setup and usage guide.
+- [Windows build and validation](../platforms/windows/build-test.md) is the platform handoff procedure.
+- [macOS build and release validation](../platforms/macos/build-test.md) is the macOS release handoff procedure.
+- [Recommendation model](../product/recommendation-model.md) defines the project-owned scoring model.
+- [Draft strategy tree](../product/draft-strategy-tree.md) defines the multi-player draft state, all-player
   strategy simulation, and Top20 ranking.
-- [Overlay lifecycle state machine](overlay-lifecycle-state-machine.md) defines native overlay and
-  global-shortcut ownership, transitions, readiness, and current smoke-test evidence.
-- [Golden screenshot fixtures](../tests/fixtures/README.md) defines fixture and label conventions.
+- [Overlay lifecycle state machine](../overlays/lifecycle.md) defines native overlay and
+  global-shortcut ownership, transitions, readiness, the two-stage overlay boundary, and current
+  Desktop overlay smoke-test evidence.
+- [Game capture and overlay design](../overlays/game-capture-design.md) defines the proposed phase-2
+  capture and Game-attached overlay placement architecture; it is not shipped behavior.
+- [Golden screenshot fixtures](../../tests/fixtures/README.md) defines fixture and label conventions.
 
 ## Attribution
 

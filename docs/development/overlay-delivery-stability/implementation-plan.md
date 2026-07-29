@@ -197,9 +197,9 @@ Run the same targeted Vitest command. Expected: all shortcut and overlay bridge 
 
 - Modify: `package.json`
 - Modify: `.github/workflows/ci.yml`
-- Modify: `docs/windows-build-test.md`
-- Modify: `docs/overlay-lifecycle-state-machine.md`
-- Modify: `docs/project-status.md`
+- Modify: `docs/platforms/windows/build-test.md`
+- Modify: `docs/overlays/lifecycle.md`
+- Modify: `docs/project/status.md`
 
 - [x] **Step 1: Add the named Rust test command**
 
@@ -225,7 +225,7 @@ Run:
 
 ```sh
 npm run format:rust
-npx prettier --write package.json .github/workflows/ci.yml docs/windows-build-test.md docs/overlay-lifecycle-state-machine.md docs/project-status.md src/App.tsx src/components/OverlayViews.tsx src/platform/overlays.ts src/platform/overlays.test.ts src/platform/shortcuts.ts src/platform/shortcuts.test.ts
+npx prettier --write package.json .github/workflows/ci.yml docs/platforms/windows/build-test.md docs/overlays/lifecycle.md docs/project/status.md src/App.tsx src/components/OverlayViews.tsx src/platform/overlays.ts src/platform/overlays.test.ts src/platform/shortcuts.ts src/platform/shortcuts.test.ts
 ```
 
 Expected: both commands exit `0`.

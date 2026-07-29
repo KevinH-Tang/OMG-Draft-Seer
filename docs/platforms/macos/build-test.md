@@ -78,7 +78,7 @@ second WebDriver suite.
 The project does not use Apple credentials. A GitHub Release needs only a GitHub token with
 `contents: write`; it must not require, store, or print an `APPLE_*` secret, a Developer ID
 certificate, a notarization password, or an App Store Connect key. The checked-in
-[macOS release workflow](../.github/workflows/release-macos.yml) builds the unsigned DMG, then
+[macOS release workflow](../../../.github/workflows/release-macos.yml) builds the unsigned DMG, then
 uses the GitHub Actions runner to generate and attach a same-name `.sha256` file. No local checksum
 generation or manual asset upload is part of the release process.
 
@@ -107,7 +107,18 @@ must never run it itself.
 Record the macOS version, CPU architecture, display scaling, and whether multiple Spaces are
 enabled. On an Apple Silicon Mac, download the final DMG outside a development directory, compare
 its SHA-256 with the published value, and check it. Record the result in the
-[release acceptance template](macos-release-acceptance-template.md):
+[release acceptance template](release-acceptance-template.md):
+
+These checks cover the phase-1 Desktop overlay: it uses display/desktop coordinates rather than a
+Dota window target. Across-Spaces and full-screen-app checks validate current desktop-window
+behavior only; they do not prove game-window attachment, full-screen Space following, capture, or a
+future `GameWindowPlacement` adapter.
+
+The proposed repeatable Button, Trigger, Hold, hidden-main-window, native-state, and system-screenshot
+evidence harness is documented separately in the
+[shared overlay production acceptance design](../../overlays/production-acceptance/shared.md) and
+[macOS adapter](../../overlays/production-acceptance/macos.md). It is not a current command or a
+replacement for this manual release-candidate checklist until implemented.
 
 - The resizable main window starts near 720 x 540 logical points without a native minimum-size lock.
   Navigation and toolbars wrap, tables scroll horizontally, and wider windows enable parallel layouts.
@@ -117,7 +128,8 @@ its SHA-256 with the published value, and check it. Record the result in the
   Switching Chinese and English updates both already-open native overlays immediately.
 - Tier and recommendation overlays open and close independently. They are transparent,
   borderless, always on top, visible across Spaces, excluded from the Dock, and pass mouse input
-  through to the window below. Repeat this with a full-screen application and multiple Spaces.
+  through to the window below. Repeat this Desktop overlay check with a full-screen application
+  and multiple Spaces.
 - With the download still quarantined, Gatekeeper showed the expected unrecognized-developer
   warning and the documented Finder or Privacy & Security first-open path launched the app.
 - The production executable was built without the `wdio` feature. It has no

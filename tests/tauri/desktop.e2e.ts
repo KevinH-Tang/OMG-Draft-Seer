@@ -5,6 +5,23 @@ import { resolve } from 'node:path'
 const screenshotPath = resolve(
   'tests/fixtures/{241DAD27-9A37-4364-BF08-68998F993992}.jpg',
 )
+
+interface OverlayVisibilityStatus {
+  kind: string
+  open: boolean
+  ready: boolean
+  visible: boolean
+  visibilityObserved: boolean
+  displayed: boolean
+  withinMonitorBounds?: boolean
+}
+
+async function getOverlayVisibility(): Promise<OverlayVisibilityStatus[]> {
+  return (await browser.executeAsync((done) => {
+    window.__TAURI_INTERNALS__?.invoke('get_overlay_visibility', {}).then(done)
+  })) as OverlayVisibilityStatus[]
+}
+
 async function setScreenshotInput() {
   const imageBase64 = (await readFile(screenshotPath)).toString('base64')
 
@@ -118,28 +135,43 @@ describe('Tauri desktop application', () => {
         timeoutMsg: 'Overlay button did not create the assistant overlay',
       },
     )
-    await browser.waitUntil(async () => {
-      const visibility = (await browser.executeAsync((done) => {
-        window.__TAURI_INTERNALS__
-          ?.invoke('get_overlay_visibility', {})
-          .then(done)
-      })) as Array<{ kind: string; open: boolean }>
-      return visibility.some(
-        (status) => status.kind === 'recommendation' && status.open,
-      )
-    })
+    await browser.waitUntil(
+      async () => {
+        const visibility = await getOverlayVisibility()
+        return visibility.some(
+          (status) =>
+            status.kind === 'recommendation' &&
+            status.open &&
+            status.ready &&
+            status.visibilityObserved &&
+            status.visible &&
+            status.displayed &&
+            status.withinMonitorBounds === true,
+        )
+      },
+      {
+        timeoutMsg:
+          'Overlay button did not produce a ready, OS-visible assistant inside the target monitor',
+      },
+    )
 
     await toggle.click()
-    await browser.waitUntil(async () => {
-      const visibility = (await browser.executeAsync((done) => {
-        window.__TAURI_INTERNALS__
-          ?.invoke('get_overlay_visibility', {})
-          .then(done)
-      })) as Array<{ kind: string; open: boolean }>
-      return visibility.some(
-        (status) => status.kind === 'recommendation' && !status.open,
-      )
-    })
+    await browser.waitUntil(
+      async () => {
+        const visibility = await getOverlayVisibility()
+        return visibility.some(
+          (status) =>
+            status.kind === 'recommendation' &&
+            !status.open &&
+            status.visibilityObserved &&
+            !status.visible &&
+            !status.displayed,
+        )
+      },
+      {
+        timeoutMsg: 'Overlay button did not hide the native assistant window',
+      },
+    )
     await expect(toggle).toHaveAttribute('aria-pressed', 'false')
   })
 

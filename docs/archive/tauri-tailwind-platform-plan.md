@@ -2,7 +2,7 @@
 
 > 状态（2026-07-24）：阶段 1 和阶段 2 已完成；阶段 3 部分完成。本文件合并原
 > 原 Windows 与 macOS 两份计划已合并，本文保留为历史实施与平台验收记录，不是当前发布流程的唯一入口。
-> 当前操作步骤以 `docs/windows-build-test.md`、`docs/macos-build-test.md` 和项目状态文档为准。
+> 当前操作步骤以 `docs/platforms/windows/build-test.md`、`docs/platforms/macos/build-test.md` 和项目状态文档为准。
 
 ## 产品目标
 
@@ -105,8 +105,8 @@ Mac App Store。
 
 ## 文档与交付
 
-- `docs/tailwind-v4-migration-design.md` 记录 token、窗口响应式规则、组件边界、依赖取舍、i18n/overlay 数据流和 E2E 架构设计。
-- `docs/windows-build-test.md` 是 Windows 当前操作指南；`docs/macos-build-test.md` 是 macOS 当前操作指南。
+- `docs/ui/tailwind-v4-migration-design.md` 记录 token、窗口响应式规则、组件边界、依赖取舍、i18n/overlay 数据流和 E2E 架构设计。
+- `docs/platforms/windows/build-test.md` 是 Windows 当前操作指南；`docs/platforms/macos/build-test.md` 是 macOS 当前操作指南。
 - 项目状态文档记录实际运行过的命令和剩余验收，不把计划内容写成已完成证据。
 - 提交前至少执行：
 

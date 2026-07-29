@@ -110,6 +110,9 @@ Verify the analysis workflow:
 
 Verify data and overlay behavior:
 
+These checks accept the current phase-1 Desktop overlay. They do not prove game-window identity,
+capture, client-area tracking, or Game-attached overlay behavior.
+
 - Filter and sort the Tier and Pairs pages.
 - Change the Draft strategy and use the replay controls.
 - Open the Tier and recommendation native overlays independently.
@@ -164,14 +167,22 @@ The current E2E suite covers:
 - Tier and Pairs filtering and the same-hero exclusion toggle.
 - Screenshot upload, recognition completion, candidate acceptance, and layout reset dialog.
 - Draft strategy switching and opening a native Tier overlay window.
-- Creating and closing the assistant overlay through its button, plus registering and restoring the
-  default `Tab` shortcut configuration.
+- Creating the assistant overlay through its button and waiting for frontend ready, Tauri
+  `is_visible()`, `displayed`, and valid target-monitor bounds; closing it and waiting for the
+  native window to become hidden; plus registering and restoring the default `Tab` shortcut
+  configuration.
 
-The overlay assertions currently prove window-handle creation and Rust lifecycle state only. They
-do not prove that the operating system marks the overlay visible or that the transparent WebView
-contains rendered pixels. Do not report a visual pass from `npm run test:tauri` alone. See
-[Windows native overlay visual validation issue](windows-overlay-visual-validation-incident.md)
+The overlay assertions now reject the former “window handle exists but the OS window is hidden”
+false positive without switching WebDriver into the overlay WebView. They still do not prove that
+the transparent WebView contains non-transparent panel pixels. Do not report a visual pass from
+`npm run test:tauri` alone. See
+[Windows native overlay visual validation issue](../../overlays/incidents/windows-visual-validation.md)
 for the open incident, captured evidence, and the required visual acceptance criteria.
+
+A repeatable production/installed-app evidence harness is specified by the
+[shared overlay production acceptance design](../../overlays/production-acceptance/shared.md) and its
+[Windows adapter](../../overlays/production-acceptance/windows.md). Those commands are not current
+operator instructions until the scripts and focused tests are implemented.
 
 The WDIO-enabled binary is test-only and must not be published or used as the release artifact.
 
@@ -248,10 +259,11 @@ not fail the build, but route or page-level lazy loading remains a follow-up opt
 - Recognition projects the resource-defined layout from the screenshot resolution, treats narrow
   screenshots as centered `4:3` letterboxed viewports, and retains manual fixed-layout calibration
   as a fallback.
-- The application does not capture or follow the game window. It registers one configurable
-  OS-global shortcut for the recommendation overlay, with Trigger and Hold modes.
-- Native Tier and recommendation overlays are user-opened analysis views, not automatic in-game
-  HUD tracking. The internal layout overlay kind is not exposed as a separate user control.
+- The application does not capture or follow the game window. Its phase-1 Desktop overlay registers
+  one configurable OS-global shortcut for the recommendation overlay, with Trigger and Hold modes.
+- Native Tier and recommendation overlays are user-opened Desktop analysis views, not automatic
+  Game-attached HUD tracking. The internal layout overlay kind is not exposed as a separate user
+  control.
 - Recognition accuracy needs a larger independently labelled screenshot set.
 - Windrun, DatDota, local VPK-derived images, and desktop icon sources require licence review before
   redistribution.

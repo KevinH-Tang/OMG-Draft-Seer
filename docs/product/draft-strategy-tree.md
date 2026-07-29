@@ -339,7 +339,7 @@ const pairScenario = Object.fromEntries(
 确定性策略 mask，然后在每个决策点将 beam 裁剪到固定宽度。`topK = 20` 可以作为第一版的
 显示宽度和 beam 候选宽度，但应在结果中标记 beam 是近似搜索。
 
-最终五 Pick 评分继续使用当前 `recommendation-metrics.md` 的公式。Tier 和 Pair 只用于即时
+最终五 Pick 评分继续使用当前 `recommendation-model.md` 的公式。Tier 和 Pair 只用于即时
 候选排序、mask 和搜索裁剪，不进入最终 Score。Pair-first 的即时 Pair 值是原始 Pair WR，
 完整 Score 仍按 page1 的 Base、Pair/Triple logit 公式独立计算。
 

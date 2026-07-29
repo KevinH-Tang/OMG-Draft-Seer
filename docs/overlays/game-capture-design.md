@@ -1,6 +1,8 @@
 # Cross-Platform Game Capture And Overlay Design
 
-**Status:** Proposed design. This document does not describe a shipped feature.
+**Status:** Proposed phase-2 design. This document does not describe a shipped feature. The current
+release target is the Desktop overlay documented in
+[`lifecycle.md`](lifecycle.md).
 
 ## Purpose
 
@@ -8,6 +10,13 @@ Page 1 currently accepts a user-selected PNG or JPEG, creates an `ImageBitmap`, 
 to `src/workers/recognizer.worker.ts`. The worker crops the versioned 60-slot layout and ranks
 icons locally. This design adds an opt-in desktop source that refreshes that same input while a
 Dota 2 Ability Draft window is open, plus an external read-only recommendation overlay.
+
+This is the second stage of the overlay roadmap. Stage 1, Desktop overlay, positions the existing
+windows in display/desktop coordinates and is the only current development, release, and acceptance
+target. Its full-display recommendation/layout windows use the main application's target monitor;
+the Tier window retains its desktop-coordinate behavior. Stage 2, Game-attached overlay, adds
+verified game-window identity and geometry tracking without replacing the existing
+content-readiness and revisioned visibility lifecycle.
 
 The baseline analysis mode is one capture attempt per second (1 Hz). A separately profiled
 low-latency video-frame mode may process the latest frame at display rate, but it is not the same
@@ -221,10 +230,19 @@ whole-display stream or `CGWindowListCreateImage` when a window is unavailable.
 
 ### External Overlay Placement
 
-The shared `OverlayController` owns a transparent, always-on-top, mouse-pass-through native window
-whose React content is the existing recommendation/tier overlay. It is an external companion
-window, not a renderer hook: it cannot guarantee Steam-style pixel-perfect placement in exclusive
-fullscreen, and must report that limitation in the UI.
+The existing `OverlayLifecycle` remains responsible for overlay kind, open/close intent, content
+readiness, revisions, shortcut semantics, and the React content handoff. A separate
+`OverlayPlacement` boundary owns target identity, physical bounds, display eligibility, geometry
+updates, and detach. This roadmap names the current display-level policy
+`DesktopMonitorPlacement` and the future platform adapters `GameWindowPlacement`; these names define
+the intended extension boundary and do not claim that a same-named interface already exists.
+Placement decisions must not leak into React content components or duplicate the lifecycle state
+machine.
+
+The resulting transparent, always-on-top, mouse-pass-through native window uses the existing
+recommendation/tier content. It is an external companion window, not a renderer hook: it cannot
+guarantee Steam-style pixel-perfect placement in exclusive fullscreen, and must report that
+limitation in the UI.
 
 On Windows, place a transparent topmost Tauri window against the Dota window's client bounds,
 convert coordinates with the monitor's DPI, and update it when the target bounds or DPI changes.
@@ -233,6 +251,19 @@ mouse-pass-through, set an appropriate floating window level, and allow it to jo
 full-screen Space. It must track the selected game's screen and content frame without stealing
 focus. If the game is in a display/full-screen configuration that blocks external overlays, hide
 the overlay and keep capture/analysis available rather than placing it over another Space.
+
+The placement contract reports at least the selected target identity, current physical client
+bounds, eligibility, scale/DPI, and a detach reason. It produces geometry changes independently of
+capture frames and invalidates the target on process relaunch, window recreation, minimize, source
+loss, permission/integrity mismatch, or unsupported full-screen behavior. It must never silently
+fall back to `DesktopMonitorPlacement`; switching back to Desktop overlay is an explicit user mode
+change.
+
+On Windows, normal process/window discovery, WGC capture, geometry observation, and an external
+topmost window are designed to run without administrator privileges. If Dota is elevated while the
+app is not, report an integrity-level mismatch and suspend attachment rather than requesting
+elevation by default. DLL injection, process-memory reads, input synthesis, renderer hooks, and
+kernel drivers remain outside the design.
 
 Overlay geometry updates are event-driven or low-frequency geometry checks, independent of the
 1 Hz frame-analysis timer. The overlay should show recommendations, not raw captured pixels. It is
@@ -283,14 +314,15 @@ mechanics to `App.tsx`. A shared `GameCaptureController` owns target tracking, f
 revision, fingerprint contract, frame acknowledgement, and cleanup. A separate
 `GameStateController` owns GSI configuration, localhost listening, authentication, schema decoding,
 and state freshness. A `DraftStateFusion` policy combines their typed outputs. Windows and macOS
-implement only target resolution, frame production, permissions, and native overlay placement. The
+implement only target resolution, frame production, permissions, and `GameWindowPlacement`. The
+shared existing overlay lifecycle remains authoritative for display intent and readiness. The
 browser adapter reports `unsupported`; upload remains unchanged.
 
 | Layer                              | Responsibility                                                                                                             |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `src-tauri/src/capture/mod.rs`     | Platform-neutral `GameCaptureBackend` contract, state machine, scheduler, frame validation, and serializable status types. |
-| `src-tauri/src/capture/windows.rs` | Win32 target resolver, WGC/D3D11 session, and Windows overlay geometry.                                                    |
-| `src-tauri/src/capture/macos.rs`   | ScreenCaptureKit bridge, macOS permission checks, and `NSPanel`/`NSWindow` overlay geometry.                               |
+| `src-tauri/src/capture/windows.rs` | Win32 target resolver, WGC/D3D11 session, and the Windows `GameWindowPlacement` adapter.                                   |
+| `src-tauri/src/capture/macos.rs`   | ScreenCaptureKit bridge, macOS permission checks, and the macOS `GameWindowPlacement` adapter.                             |
 | `src-tauri/src/gsi/mod.rs`         | Localhost HTTP listener, configuration inspection, auth validation, bounded JSON decoding, and source freshness.           |
 | `src/platform/game-capture.ts`     | Tauri/browser adapter, status subscription, explicit start/stop/retry, and layout updates.                                 |
 | `src/platform/game-state.ts`       | Tauri/browser adapter for GSI status and validated state updates.                                                          |
@@ -395,8 +427,10 @@ overlays can be unavailable in protected or exclusive full-screen modes.
 
 ## Delivery Plan
 
-1. Add platform-neutral capture, GSI, fusion, recording, target, frame, layout, and overlay types
-   plus browser no-op adapters. Unit-test independent source transitions and fusion policy.
+1. Add platform-neutral capture, GSI, fusion, recording, target, frame, layout, and
+   `OverlayPlacement` contracts plus browser no-op adapters. Reuse the current overlay lifecycle;
+   do not create a second open/ready/revision state machine. Unit-test independent source
+   transitions and fusion policy.
 2. Implement fakeable Windows and macOS target resolvers. Test approval, multiple windows, process
    relaunch/PID reuse, process exit, stale `HWND`/`CGWindowID`, and permission denial without Dota.
 3. Build independent 1 Hz spikes against controlled test windows: WGC/D3D11 on Windows and

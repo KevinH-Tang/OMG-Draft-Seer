@@ -81,6 +81,27 @@ export function calculateWinRate(
     : undefined
 }
 
+type StatRecord = { picks: number; wins: number }
+
+function buildStatsMap<T extends StatRecord, K>(
+  records: T[],
+  cache: WeakMap<T[], Map<K, T>>,
+  keyOf: (record: T) => K,
+): Map<K, T> {
+  const cached = cache.get(records)
+  if (cached) return cached
+
+  const stats = new Map<K, T>()
+  for (const record of records) {
+    if (calculateWinRate(record.picks, record.wins) === undefined) continue
+    const key = keyOf(record)
+    const previous = stats.get(key)
+    if (!previous || record.picks > previous.picks) stats.set(key, record)
+  }
+  cache.set(records, stats)
+  return stats
+}
+
 export function calculateLogit(value: number): number | undefined {
   if (!Number.isFinite(value) || value < 0 || value > 1) return undefined
   if (value === 0) return Number.NEGATIVE_INFINITY
@@ -137,56 +158,31 @@ export function calculateLogitBase(winRates: number[]): number | undefined {
 export function buildAbilityStatsMap(
   abilityStats: AbilityStats[],
 ): Map<number, AbilityStats> {
-  const cached = ABILITY_STATS_MAP_CACHE.get(abilityStats)
-  if (cached) return cached
-
-  const stats = new Map<number, AbilityStats>()
-  for (const stat of abilityStats) {
-    if (calculateWinRate(stat.picks, stat.wins) === undefined) continue
-    const previous = stats.get(stat.abilityId)
-    if (!previous || stat.picks > previous.picks)
-      stats.set(stat.abilityId, stat)
-  }
-  ABILITY_STATS_MAP_CACHE.set(abilityStats, stats)
-  return stats
+  return buildStatsMap(
+    abilityStats,
+    ABILITY_STATS_MAP_CACHE,
+    (stat) => stat.abilityId,
+  )
 }
 
 export function buildPairStatsMap(
   pairStats: PairStats[],
 ): Map<string, PairStats> {
-  const cached = PAIR_STATS_MAP_CACHE.get(pairStats)
-  if (cached) return cached
-
-  const pairs = new Map<string, PairStats>()
-  for (const pair of pairStats) {
-    if (calculateWinRate(pair.picks, pair.wins) === undefined) continue
-    const key = abilityPairKey(pair.abilityIdOne, pair.abilityIdTwo)
-    const previous = pairs.get(key)
-    if (!previous || pair.picks > previous.picks) pairs.set(key, pair)
-  }
-  PAIR_STATS_MAP_CACHE.set(pairStats, pairs)
-  return pairs
+  return buildStatsMap(pairStats, PAIR_STATS_MAP_CACHE, (pair) =>
+    abilityPairKey(pair.abilityIdOne, pair.abilityIdTwo),
+  )
 }
 
 export function buildTripletStatsMap(
   tripletStats: TripletStats[],
 ): Map<string, TripletStats> {
-  const cached = TRIPLET_STATS_MAP_CACHE.get(tripletStats)
-  if (cached) return cached
-
-  const triplets = new Map<string, TripletStats>()
-  for (const triplet of tripletStats) {
-    if (calculateWinRate(triplet.picks, triplet.wins) === undefined) continue
-    const key = abilityTripletKey(
+  return buildStatsMap(tripletStats, TRIPLET_STATS_MAP_CACHE, (triplet) =>
+    abilityTripletKey(
       triplet.abilityIdOne,
       triplet.abilityIdTwo,
       triplet.abilityIdThree,
-    )
-    const previous = triplets.get(key)
-    if (!previous || triplet.picks > previous.picks) triplets.set(key, triplet)
-  }
-  TRIPLET_STATS_MAP_CACHE.set(tripletStats, triplets)
-  return triplets
+    ),
+  )
 }
 
 export function calculatePairSynergy(
@@ -319,9 +315,7 @@ export function buildAbilityPairList(
     const abilities = new Map(
       snapshot.abilities.map((ability) => [ability.id, ability]),
     )
-    const stats = new Map(
-      snapshot.abilityStats.map((stat) => [stat.abilityId, stat]),
-    )
+    const stats = buildAbilityStatsMap(snapshot.abilityStats)
     const pairs = buildPairStatsMap(snapshot.pairStats)
     const triplets = buildTripletStatsMap(snapshot.tripletStats ?? [])
     const hiddenTripleMap = buildHiddenTripleMap(

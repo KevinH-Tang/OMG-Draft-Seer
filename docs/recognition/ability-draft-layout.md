@@ -8,7 +8,7 @@
 - 每个槽位的透视外框 `outerQuad`。
 - 用于模板匹配的内框 `matchQuad`。
 
-本文是布局几何的唯一规范来源。资源获取和重新解析方法见 `dota2-ability-draft-resource-parsing.md`；该文档不重复定义相机、槽位和模型顶面几何。
+本文是布局几何的唯一规范来源。资源获取和重新解析方法见 `ability-draft-resource-parsing.md`；该文档不重复定义相机、槽位和模型顶面几何。
 
 ## 核心结论
 

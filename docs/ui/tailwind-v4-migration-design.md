@@ -84,7 +84,7 @@ Tier/Pairs 筛选、截图识别和布局确认、Draft 策略以及原生浮层
 
 macOS 的 `macos-private-api` 透明浮层只能直接分发，不能提交 Mac App Store。当前项目采用
 GitHub Releases 的免费 arm64 DMG 策略，不使用 Developer ID 签名或公证，并同时发布 SHA-256。
-WKWebView 的透明、点击穿透、多 Space 与 Gatekeeper 首次启动路径由 `macos-build-test.md` 的
+WKWebView 的透明、点击穿透、多 Space 与 Gatekeeper 首次启动路径由 `docs/platforms/macos/build-test.md` 的
 发布前手工验收覆盖；Windows 保持持续 E2E 门禁。
 
 ## 依赖取舍

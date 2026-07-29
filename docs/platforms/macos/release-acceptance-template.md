@@ -25,6 +25,10 @@ the release evidence or pull request; do not add credentials or user data.
 
 ## Apple Silicon
 
+This record accepts the current phase-1 Desktop overlay only. It does not claim that the app can
+identify or follow a Dota window, join its full-screen Space, or provide Game-attached overlay
+behavior.
+
 | Field                           | Value |
 | ------------------------------- | ----- |
 | macOS version and build         |       |
@@ -44,7 +48,8 @@ the release evidence or pull request; do not add credentials or user data.
 - [ ] Locale changes synchronized to both already-open native overlays.
 - [ ] Tier and recommendation overlays were transparent, borderless, always on top, visible across
       Spaces, excluded from the Dock, and passed cursor events through.
-- [ ] The overlay check was repeated with a full-screen app and multiple Spaces.
+- [ ] The Desktop overlay check was repeated with a full-screen app and multiple Spaces; the result
+      was not recorded as Game-attached overlay support.
 
 Notes and native errors:
 

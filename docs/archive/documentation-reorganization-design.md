@@ -1,6 +1,7 @@
 # Documentation Reorganization Design
 
-**Status:** Approved for the current documentation cleanup.
+**Status:** Archived after the documentation cleanup completed. This is a historical design record,
+not a current documentation map.
 
 ## Goal
 

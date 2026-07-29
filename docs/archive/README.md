@@ -1,7 +1,13 @@
 # Archived Documentation
 
-These records are preserved for historical context and audit traceability. They are not current
-product specifications, release procedures, or validation evidence. Use the maintained documents in
-the parent directory as the source of truth.
+This directory is a deletion queue, not a source of current requirements or operator procedures.
+The [documentation index](../README.md) and the maintained replacements below are authoritative.
 
-- `PLAN.md`: merged Tauri/Tailwind implementation plan with Windows x86_64 and macOS arm64 platform sections.
+| Record                                                                        | Why it is archived                                                                                                                   | Maintained replacement                                                                                                                                                                                         | Delete when                                                                                                  |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [Tauri/Tailwind platform plan](tauri-tailwind-platform-plan.md)               | Its first two implementation phases are complete and its remaining platform checks are tracked by current status and platform guides | [UI migration design](../ui/tailwind-v4-migration-design.md), [project status](../project/status.md), [Windows guide](../platforms/windows/build-test.md), and [macOS guide](../platforms/macos/build-test.md) | Open acceptance items are fully represented in maintained documents and historical audit is no longer needed |
+| [Documentation reorganization design](documentation-reorganization-design.md) | The approved directory and merge decisions have been implemented                                                                     | [Documentation index](../README.md)                                                                                                                                                                            | The resulting structure and link migration have been reviewed in version control                             |
+| [Documentation reorganization plan](documentation-reorganization-plan.md)     | Every implementation and verification task is complete                                                                               | [Documentation index](../README.md)                                                                                                                                                                            | The resulting structure and link migration have been reviewed in version control                             |
+
+Do not add new operational instructions here. If an archived record still contains unique current
+requirements, move those requirements to the appropriate maintained document before deletion.

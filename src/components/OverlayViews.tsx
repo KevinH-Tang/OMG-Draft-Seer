@@ -9,12 +9,15 @@ import { buildAbilityTierList, type TierEntry } from '../core/tiers'
 import i18n from '../i18n'
 import {
   createOverlayChannel,
+  canMarkOverlayReady,
   isDesktopRuntime,
   markNativeOverlayReady,
   readOverlayState,
   resizeNativeOverlay,
   scheduleOverlayReadyAfterPaint,
+  scheduleOverlayReadyRetry,
   setNativeOverlayInteractionRegion,
+  shouldObserveOverlayPanel,
   type OverlayKind,
   type OverlayMessage,
   type OverlayState,
@@ -444,6 +447,9 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
   const [state, setState] = useState<OverlayState>(() =>
     restoreOverlayState(kind),
   )
+  const [snapshotSettled, setSnapshotSettled] = useState(false)
+  const [contentSynchronized, setContentSynchronized] = useState(false)
+  const contentReady = canMarkOverlayReady(snapshotSettled, contentSynchronized)
 
   useLayoutEffect(() => {
     document.documentElement.classList.add('overlay-document')
@@ -462,6 +468,9 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
         if (active) setSnapshot(nextSnapshot)
       })
       .catch(() => undefined)
+      .finally(() => {
+        if (active) setSnapshotSettled(true)
+      })
     return () => {
       active = false
     }
@@ -481,6 +490,7 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
         const message = event.data
         if (message?.type === 'overlay-state' && message.kind === kind) {
           setState(normalizeOverlayState(message.state))
+          setContentSynchronized(true)
           window.clearInterval(retry)
         }
       }
@@ -494,13 +504,21 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
   }, [kind])
 
   useEffect(() => {
-    if (!isDesktopRuntime()) return
-    return scheduleOverlayReadyAfterPaint(() => {
-      void markNativeOverlayReady(kind).catch((error: unknown) => {
-        console.error(`Failed to mark ${kind} overlay ready`, error)
-      })
+    if (!isDesktopRuntime() || !contentReady) return
+    let disposeRetry: () => void = () => undefined
+    const disposePaint = scheduleOverlayReadyAfterPaint(() => {
+      disposeRetry = scheduleOverlayReadyRetry(
+        () => markNativeOverlayReady(kind),
+        (error: unknown) => {
+          console.error(`Failed to mark ${kind} overlay ready`, error)
+        },
+      )
     })
-  }, [kind])
+    return () => {
+      disposePaint()
+      disposeRetry()
+    }
+  }, [contentReady, kind])
 
   useEffect(() => {
     void instance.changeLanguage(state.locale)
@@ -508,9 +526,12 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
 
   useEffect(() => {
     if (
-      !isDesktopRuntime() ||
-      kind === 'layout' ||
-      typeof ResizeObserver === 'undefined'
+      !shouldObserveOverlayPanel(
+        isDesktopRuntime(),
+        kind,
+        contentReady,
+        typeof ResizeObserver !== 'undefined',
+      )
     )
       return
     const panel = document.querySelector<HTMLElement>('[data-overlay-panel]')
@@ -541,7 +562,7 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
       observer.disconnect()
       if (frame !== undefined) window.cancelAnimationFrame(frame)
     }
-  }, [kind])
+  }, [contentReady, kind])
 
   const abilitiesById = useMemo(
     () => new Map(snapshot.abilities.map((ability) => [ability.id, ability])),
@@ -550,12 +571,14 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
   return (
     <Tooltip.Provider delayDuration={250} skipDelayDuration={150}>
       <main className={`overlay-root overlay-root-${kind}`}>
-        <FloatingOverlay
-          kind={kind}
-          state={state}
-          snapshot={snapshot}
-          abilities={abilitiesById}
-        />
+        {contentReady && (
+          <FloatingOverlay
+            kind={kind}
+            state={state}
+            snapshot={snapshot}
+            abilities={abilitiesById}
+          />
+        )}
       </main>
     </Tooltip.Provider>
   )

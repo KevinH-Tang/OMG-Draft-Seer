@@ -1,43 +1,74 @@
 # Documentation Index
 
-The root [README](../README.md) is the user-facing entry point. This directory contains maintained
-specifications, platform guides, status records, and explicitly labelled future or historical design
-records. Superseded plans belong in the archive and must not be presented as current instructions.
+The root [README](../README.md) is the user-facing entry point. Maintained documentation is grouped
+by ownership below. `archive/` is a deletion queue for superseded records and is never an
+authoritative source for current procedures.
 
-## Maintained Documents
+## Project
 
-| Document                                                                                    | Use it for                                                                                                                   | Update when                                                                         |
-| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| [Project status](project-status.md)                                                         | Current scope, validation state, repository responsibilities, and open handoff items                                         | A feature, platform check, generated asset, or release condition changes            |
-| [Project skill inventory](project-skills.md)                                                | Repository-local skills and installed official Codex plugin skills                                                           | A local skill, installed plugin, marketplace snapshot, or skill list changes        |
-| [Overlay lifecycle state machine](overlay-lifecycle-state-machine.md)                       | Current overlay open/close states, shortcut event flow, diagnostic evidence, and cross-platform invariants                   | Overlay ownership, shortcut delivery, readiness, or window lifecycle changes        |
-| [Windows overlay visual validation incident](windows-overlay-visual-validation-incident.md) | Open Windows production overlay visibility issue, E2E false-positive boundary, diagnostic evidence, and acceptance criteria  | Windows overlay rendering, native visibility evidence, or visual validation changes |
-| [Recommendation metrics](recommendation-metrics.md)                                         | The five-pick `Score`, Pair/Triple interactions, and displayed metrics                                                       | Recommendation logic or its tests change                                            |
-| [Score analysis](score-analysis.md)                                                         | Tradeoffs, statistical risks, and the improvement roadmap for recommendation scoring                                         | The scoring model, validation evidence, or model roadmap changes                    |
-| [Draft strategy tree](draft-strategy-tree.md)                                               | The 10-player serpentine draft model, all-player policies, pool masking, and Top20 ranking                                   | Draft-state implementation, strategy behavior, or masking assumptions change        |
-| [Windows build and validation](windows-build-test.md)                                       | Windows setup, Tauri builds, and manual acceptance checks                                                                    | Windows requirements or desktop release steps change                                |
-| [macOS build and release validation](macos-build-test.md)                                   | Apple Silicon prerequisites, unsigned GitHub Release integrity, Gatekeeper first-open steps, and WKWebView manual acceptance | macOS requirements, release process, or manual checks change                        |
-| [macOS release acceptance template](macos-release-acceptance-template.md)                   | Per-candidate Apple Silicon integrity, first-open, and overlay evidence                                                      | An unsigned macOS release candidate is accepted                                     |
-| [Tailwind v4 and Tauri migration design](tailwind-v4-migration-design.md)                   | Tauri-first delivery phases, design tokens, localization, and native E2E architecture                                        | UI architecture, desktop test strategy, or migration scope changes                  |
-| [UI placement guidelines](ui-placement-guidelines.md)                                       | UI element placement, page hierarchy, responsive layout, and consistency checks                                              | Shared layout rules or the page shell changes                                       |
-| [Dota 2 Ability Draft layout geometry](dota2-ability-draft-layout.md)                       | Authoritative camera, world-coordinate, plane, slot, and crop-quad geometry specification                                    | Projection inputs, resource geometry, or runtime layout behavior change             |
-| [Dota 2 Ability Draft resource parsing](dota2-ability-draft-resource-parsing.md)            | Read-only Source 2 extraction and comparison workflow for refreshing camera, Panorama, scene, slot, and model inputs         | The inspected Dota 2 build, relevant resource CRCs, or extraction tools change      |
+| Document                             | Purpose                                                                 | Status     |
+| ------------------------------------ | ----------------------------------------------------------------------- | ---------- |
+| [Project status](project/status.md)  | Current scope, validation evidence, responsibilities, and open handoffs | Maintained |
+| [Skill inventory](project/skills.md) | Repository skills and installed official plugin snapshot                | Maintained |
 
-## Future Design
+## Product Model
 
-| Document                                                          | Use it for                                                                                       | Status                               |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------ |
-| [Game capture and overlay design](game-capture-overlay-design.md) | Proposed Windows/macOS ARM game-window tracking, GSI, capture, and external overlay architecture | Future design; not a shipped feature |
+| Document                                                | Purpose                                                                | Status     |
+| ------------------------------------------------------- | ---------------------------------------------------------------------- | ---------- |
+| [Recommendation model](product/recommendation-model.md) | Score formulas, inputs, snapshot audit, risks, and improvement roadmap | Maintained |
+| [Draft strategy tree](product/draft-strategy-tree.md)   | Ten-player draft state, policies, masking, and Top20 ranking           | Maintained |
 
-## Historical Archive
+## Recognition
 
-These records preserve implementation and audit history but are not current procedures:
+| Document                                                                        | Purpose                                                            | Status     |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------- |
+| [Ability Draft layout geometry](recognition/ability-draft-layout.md)            | Camera, world-coordinate, plane, slot, and crop-quad specification | Maintained |
+| [Ability Draft resource parsing](recognition/ability-draft-resource-parsing.md) | Read-only Source 2 extraction and comparison workflow              | Maintained |
 
-- [Merged Tauri/Tailwind and platform plan](archive/PLAN.md)
+## Overlays
 
-## Local Guides
+| Document                                                                              | Purpose                                                                         | Status                                  |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------- |
+| [Lifecycle state machine](overlays/lifecycle.md)                                      | Current Desktop overlay ownership, readiness, shortcuts, and placement boundary | Maintained                              |
+| [Game capture and attached-overlay design](overlays/game-capture-design.md)           | Proposed phase-2 target tracking, capture, GSI, and game-attached placement     | Future design; not shipped              |
+| [Shared production-acceptance design](overlays/production-acceptance/shared.md)       | Cross-platform scenarios, evidence, privacy, and completion semantics           | Approved design; implementation pending |
+| [Windows production-acceptance adapter](overlays/production-acceptance/windows.md)    | Windows artifacts, processes, DPI-aware screenshots, and environment matrix     | Approved design; implementation pending |
+| [macOS production-acceptance adapter](overlays/production-acceptance/macos.md)        | macOS artifacts, quarantine, screenshots, Spaces, and evidence                  | Approved design; implementation pending |
+| [Windows visual-validation incident](overlays/incidents/windows-visual-validation.md) | Open production and installed-package visual acceptance gap                     | Open until acceptance evidence exists   |
 
-- [Golden screenshot fixtures](../tests/fixtures/README.md) describes fixture filenames, labels, and
+Acceptance designs are contracts, not operator commands. Move implemented procedures into the
+platform guides only after the corresponding scripts and tests exist.
+
+## Platform Guides
+
+| Document                                                                            | Purpose                                                          | Status              |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------- |
+| [Windows build and validation](platforms/windows/build-test.md)                     | Windows setup, Tauri builds, E2E, packaging, and manual checks   | Maintained          |
+| [macOS build and release validation](platforms/macos/build-test.md)                 | Apple Silicon build, integrity, Gatekeeper, and WKWebView checks | Maintained          |
+| [macOS release acceptance template](platforms/macos/release-acceptance-template.md) | Per-candidate integrity, first-open, and overlay evidence        | Maintained template |
+
+## UI
+
+| Document                                                              | Purpose                                                        | Status                   |
+| --------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------ |
+| [UI placement guidelines](ui/placement-guidelines.md)                 | Page hierarchy, spacing, responsive layout, and consistency    | Maintained               |
+| [Tailwind v4 and Tauri migration](ui/tailwind-v4-migration-design.md) | Implemented architecture and remaining phase-3 acceptance work | Maintained design record |
+
+## Active Development Records
+
+| Document                                                                                         | Purpose                                     | Status                           |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------- | -------------------------------- |
+| [Overlay delivery stability design](development/overlay-delivery-stability/design.md)            | Approved boundary for current overlay fixes | Active while work is uncommitted |
+| [Overlay delivery stability plan](development/overlay-delivery-stability/implementation-plan.md) | Execution and verification record           | Active while work is uncommitted |
+
+## Archive
+
+[Archived documentation](archive/README.md) lists superseded records, maintained replacements, and
+deletion conditions. Archived files are retained only for short-term history and audit context.
+
+## Related Repository Guides
+
+- [Golden screenshot fixtures](../tests/fixtures/README.md) defines fixture filenames, labels, and
   redistribution requirements.
 - [Desktop icon source](../src-tauri/icons/README.md) records the source and generation method for
   bundled desktop icons.
@@ -46,8 +77,9 @@ These records preserve implementation and audit history but are not current proc
 
 - Keep user-facing behavior, supported platforms, and common commands synchronized with the root
   README.
-- Update the recommendation metrics document and tests together with any visible scoring change.
-- Mark unimplemented behavior as a limitation or open item. Do not document plans as shipped
+- Update the recommendation model and its tests together with any visible scoring change.
+- Mark unimplemented behavior as a limitation or open item; never present designs as shipped
   features.
-- Record validation claims with the platform, date, and commands that were actually run.
-- Keep generated reports and runtime snapshots reproducible from the scripts in `package.json`.
+- Record validation claims with the platform, date, and commands that actually ran.
+- Move superseded records to `archive/`, document their replacement and deletion condition, then
+  remove them in a separately reviewed cleanup.

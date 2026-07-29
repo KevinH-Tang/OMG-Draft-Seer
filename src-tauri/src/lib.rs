@@ -166,14 +166,54 @@ struct OverlayShortcutStatus {
 struct OverlayVisibilityStatus {
     kind: String,
     open: bool,
+    ready: bool,
+    visible: bool,
+    visibility_observed: bool,
     displayed: bool,
     revision: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    position: Option<OverlayPosition>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    size: Option<OverlaySize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    monitor: Option<OverlayMonitor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target_monitor: Option<OverlayMonitor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    within_monitor_bounds: Option<bool>,
+}
+
+#[derive(Clone, Copy, Serialize)]
+struct OverlayPosition {
+    x: i32,
+    y: i32,
+}
+
+#[derive(Clone, Copy, Serialize)]
+struct OverlaySize {
+    width: u32,
+    height: u32,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OverlayMonitor {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    position: OverlayPosition,
+    size: OverlaySize,
+    scale_factor: f64,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct OverlayDisplayTarget {
     revision: u64,
     show: bool,
+}
+
+struct OverlayReconcileError {
+    target: Option<OverlayDisplayTarget>,
+    error: String,
 }
 
 struct OverlayLifecycle {
@@ -228,11 +268,20 @@ impl OverlayLifecycle {
     }
 
     fn status(&self, kind: &str, label: &str) -> OverlayVisibilityStatus {
+        let ready = self.ready.contains(label);
         OverlayVisibilityStatus {
             kind: kind.to_owned(),
             open: self.is_open_requested(label),
-            displayed: self.should_show(label),
+            ready,
+            visible: false,
+            visibility_observed: false,
+            displayed: false,
             revision: self.revisions.get(label).copied().unwrap_or_default(),
+            position: None,
+            size: None,
+            monitor: None,
+            target_monitor: None,
+            within_monitor_bounds: None,
         }
     }
 
@@ -266,23 +315,31 @@ impl OverlayLifecycle {
         self.request_close(label)
     }
 
-    fn fail_display(&mut self, label: &str) {
-        self.ready.remove(label);
-        if self.is_open_requested(label) {
-            self.request_close(label);
+    fn fail_display_if_current(&mut self, label: &str, revision: u64) -> bool {
+        if !self.is_current_open(label, revision) {
+            return false;
         }
+        self.ready.remove(label);
+        self.request_close(label);
+        true
     }
 
+    #[cfg(test)]
     fn should_show(&self, label: &str) -> bool {
         self.is_open_requested(label) && self.ready.contains(label)
     }
 }
 
-fn all_overlay_statuses(lifecycle: &OverlayLifecycle) -> Vec<OverlayVisibilityStatus> {
+fn all_overlay_statuses(
+    app: &tauri::AppHandle,
+    lifecycle: &OverlayLifecycle,
+) -> Vec<OverlayVisibilityStatus> {
     ["recommendation", "tier", "layout"]
         .into_iter()
         .filter_map(|kind| {
-            overlay_window_config(kind).map(|(label, ..)| lifecycle.status(kind, label))
+            overlay_window_config(kind).map(|(label, ..)| {
+                observe_overlay_status(app, label, lifecycle.status(kind, label))
+            })
         })
         .collect()
 }
@@ -347,10 +404,145 @@ fn overlay_kind(label: &str) -> Option<&'static str> {
     }
 }
 
-fn emit_overlay_visibility(app: &tauri::AppHandle, status: &OverlayVisibilityStatus) {
-    if let Err(error) = app.emit(OVERLAY_VISIBILITY_EVENT, status.clone()) {
+fn overlay_event_message(label: &str, revision: u64, event: &str, result: &str) -> String {
+    format!("overlay label={label} revision={revision} event={event} result={result}")
+}
+
+fn overlay_fits_monitor(
+    window_position: (i32, i32),
+    window_size: (u32, u32),
+    monitor_position: (i32, i32),
+    monitor_size: (u32, u32),
+) -> bool {
+    let window_left = i64::from(window_position.0);
+    let window_top = i64::from(window_position.1);
+    let window_right = window_left + i64::from(window_size.0);
+    let window_bottom = window_top + i64::from(window_size.1);
+    let monitor_left = i64::from(monitor_position.0);
+    let monitor_top = i64::from(monitor_position.1);
+    let monitor_right = monitor_left + i64::from(monitor_size.0);
+    let monitor_bottom = monitor_top + i64::from(monitor_size.1);
+
+    window_left >= monitor_left
+        && window_top >= monitor_top
+        && window_right <= monitor_right
+        && window_bottom <= monitor_bottom
+}
+
+fn overlay_display_confirmed(ready: bool, visibility_observed: bool, visible: bool) -> bool {
+    ready && visibility_observed && visible
+}
+
+fn overlay_monitor(monitor: &tauri::Monitor) -> OverlayMonitor {
+    OverlayMonitor {
+        name: monitor.name().cloned(),
+        position: OverlayPosition {
+            x: monitor.position().x,
+            y: monitor.position().y,
+        },
+        size: OverlaySize {
+            width: monitor.size().width,
+            height: monitor.size().height,
+        },
+        scale_factor: monitor.scale_factor(),
+    }
+}
+
+fn target_overlay_monitor(app: &tauri::AppHandle) -> Option<tauri::Monitor> {
+    app.get_webview_window("main")
+        .and_then(|window| window.current_monitor().ok().flatten())
+}
+
+fn observe_overlay_status(
+    app: &tauri::AppHandle,
+    label: &str,
+    mut status: OverlayVisibilityStatus,
+) -> OverlayVisibilityStatus {
+    let Some(window) = app.get_webview_window(label) else {
+        return status;
+    };
+
+    match window.is_visible() {
+        Ok(visible) => {
+            status.visible = visible;
+            status.visibility_observed = true;
+        }
+        Err(error) => eprintln!(
+            "overlay label={label} revision={} event=is_visible error={error}",
+            status.revision
+        ),
+    }
+    status.position = window
+        .outer_position()
+        .ok()
+        .map(|position| OverlayPosition {
+            x: position.x,
+            y: position.y,
+        });
+    status.size = window.inner_size().ok().map(|size| OverlaySize {
+        width: size.width,
+        height: size.height,
+    });
+    status.monitor = window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .map(|monitor| overlay_monitor(&monitor));
+    status.target_monitor = target_overlay_monitor(app).map(|monitor| overlay_monitor(&monitor));
+    status.within_monitor_bounds = match (&status.position, &status.size, &status.target_monitor) {
+        (Some(position), Some(size), Some(monitor)) => Some(overlay_fits_monitor(
+            (position.x, position.y),
+            (size.width, size.height),
+            (monitor.position.x, monitor.position.y),
+            (monitor.size.width, monitor.size.height),
+        )),
+        _ => None,
+    };
+    status.displayed = status.open
+        && overlay_display_confirmed(status.ready, status.visibility_observed, status.visible);
+    status
+}
+
+fn emit_overlay_visibility(
+    app: &tauri::AppHandle,
+    status: OverlayVisibilityStatus,
+) -> OverlayVisibilityStatus {
+    let observed = overlay_label(&status.kind)
+        .map(|label| observe_overlay_status(app, label, status.clone()))
+        .unwrap_or(status);
+    eprintln!(
+        "overlay label={} revision={} event=status requested={} ready={} visibility_observed={} visible={} displayed={} position={:?} size={:?} monitor={:?} target_monitor={:?} within_monitor_bounds={:?}",
+        overlay_label(&observed.kind).unwrap_or("unknown"),
+        observed.revision,
+        observed.open,
+        observed.ready,
+        observed.visibility_observed,
+        observed.visible,
+        observed.displayed,
+        observed.position.map(|value| (value.x, value.y)),
+        observed.size.map(|value| (value.width, value.height)),
+        observed.monitor.as_ref().map(|value| (
+            value.name.as_deref(),
+            value.position.x,
+            value.position.y,
+            value.size.width,
+            value.size.height,
+            value.scale_factor,
+        )),
+        observed.target_monitor.as_ref().map(|value| (
+            value.name.as_deref(),
+            value.position.x,
+            value.position.y,
+            value.size.width,
+            value.size.height,
+            value.scale_factor,
+        )),
+        observed.within_monitor_bounds,
+    );
+    if let Err(error) = app.emit(OVERLAY_VISIBILITY_EVENT, observed.clone()) {
         eprintln!("failed to emit overlay visibility: {error}");
     }
+    observed
 }
 
 fn emit_current_status(
@@ -364,8 +556,33 @@ fn emit_current_status(
         .lock()
         .map_err(|_| "overlay visibility state is unavailable".to_owned())?
         .status(kind, label);
-    emit_overlay_visibility(app, &status);
-    Ok(status)
+    Ok(emit_overlay_visibility(app, status))
+}
+
+fn set_overlay_window_visibility(
+    window: &WebviewWindow,
+    label: &str,
+    revision: u64,
+    visible: bool,
+) -> Result<(), String> {
+    let (event, operation) = if visible {
+        ("show", window.show())
+    } else {
+        ("hide", window.hide())
+    };
+    match operation {
+        Ok(()) => {
+            eprintln!("{}", overlay_event_message(label, revision, event, "ok"));
+            Ok(())
+        }
+        Err(error) => {
+            eprintln!(
+                "{} error={error}",
+                overlay_event_message(label, revision, event, "error")
+            );
+            Err(error.to_string())
+        }
+    }
 }
 
 fn requested_overlay_size(
@@ -401,6 +618,12 @@ fn fullscreen_overlay_position(app: &tauri::AppHandle) -> PhysicalPosition<i32> 
         .unwrap_or_else(|| PhysicalPosition::new(0, 0))
 }
 
+fn fullscreen_overlay_bounds(
+    app: &tauri::AppHandle,
+) -> Option<(PhysicalPosition<i32>, PhysicalSize<u32>)> {
+    target_overlay_monitor(app).map(|monitor| (*monitor.position(), *monitor.size()))
+}
+
 fn prepare_overlay_window(app: &tauri::AppHandle, kind: &str) -> Result<WebviewWindow, String> {
     let (label, default_width, default_height, x, y) =
         overlay_window_config(kind).ok_or_else(|| format!("unknown overlay kind: {kind}"))?;
@@ -408,6 +631,7 @@ fn prepare_overlay_window(app: &tauri::AppHandle, kind: &str) -> Result<WebviewW
         window
             .set_always_on_top(true)
             .map_err(|error| error.to_string())?;
+        eprintln!("overlay label={label} event=reuse");
         return Ok(window);
     }
 
@@ -445,37 +669,56 @@ fn prepare_overlay_window(app: &tauri::AppHandle, kind: &str) -> Result<WebviewW
                 current.mark_loading(window.label());
                 current.status(kind, window.label())
             });
+            if let Some(status) = &loading_status {
+                eprintln!(
+                    "overlay label={} revision={} event=page_load_started",
+                    window.label(),
+                    status.revision
+                );
+            }
             if let Err(error) = window.set_ignore_cursor_events(true) {
                 eprintln!(
                     "failed to restore cursor pass-through for {}: {error}",
                     window.label()
                 );
             }
-            let visibility_result = if loading_status.as_ref().is_some_and(|status| status.open) {
-                window.show()
-            } else {
-                window.hide()
-            };
-            if let Err(error) = visibility_result {
+            let loading_target = loading_status
+                .as_ref()
+                .map(|status| (status.revision, status.open))
+                .unwrap_or_default();
+            if let Err(error) = set_overlay_window_visibility(
+                &window,
+                window.label(),
+                loading_target.0,
+                loading_target.1,
+            ) {
                 eprintln!(
                     "failed to reconcile loading overlay {}: {error}",
                     window.label()
                 );
             }
             if let Some(status) = loading_status {
-                emit_overlay_visibility(window.app_handle(), &status);
+                emit_overlay_visibility(window.app_handle(), status);
             }
             return;
         }
         if matches!(payload.event(), PageLoadEvent::Finished) {
-            if let Ok(mut current) = lifecycle.0.lock() {
-                current.mark_ready(window.label());
-            }
+            let revision = lifecycle
+                .0
+                .lock()
+                .ok()
+                .map(|current| current.display_target(window.label()).revision)
+                .unwrap_or_default();
+            eprintln!(
+                "overlay label={} revision={} event=page_load_finished",
+                window.label(),
+                revision
+            );
             if let Err(error) =
-                reconcile_and_emit_status(window.app_handle(), kind, window.label(), &lifecycle)
+                emit_current_status(window.app_handle(), kind, window.label(), &lifecycle)
             {
                 eprintln!(
-                    "failed to finish loading overlay {}: {error}",
+                    "failed to report loaded overlay {}: {error}",
                     window.label()
                 );
             }
@@ -483,6 +726,21 @@ fn prepare_overlay_window(app: &tauri::AppHandle, kind: &str) -> Result<WebviewW
     })
     .build()
     .map_err(|error| error.to_string())?;
+
+    let revision = app
+        .try_state::<OverlayLifecycleState>()
+        .and_then(|lifecycle| {
+            lifecycle
+                .0
+                .lock()
+                .ok()
+                .map(|current| current.display_target(label).revision)
+        })
+        .unwrap_or_default();
+    eprintln!(
+        "{}",
+        overlay_event_message(label, revision, "created", "ok")
+    );
 
     window
         .set_ignore_cursor_events(true)
@@ -494,22 +752,29 @@ fn reconcile_overlay_window(
     window: &WebviewWindow,
     lifecycle: &OverlayLifecycleState,
     label: &str,
-) -> Result<OverlayDisplayTarget, String> {
+) -> Result<OverlayDisplayTarget, OverlayReconcileError> {
     loop {
         let target = lifecycle
             .0
             .lock()
-            .map_err(|_| "overlay visibility state is unavailable".to_owned())?
+            .map_err(|_| OverlayReconcileError {
+                target: None,
+                error: "overlay visibility state is unavailable".to_owned(),
+            })?
             .display_target(label);
-        if target.show {
-            window.show().map_err(|error| error.to_string())?;
-        } else {
-            window.hide().map_err(|error| error.to_string())?;
-        }
+        set_overlay_window_visibility(window, label, target.revision, target.show).map_err(
+            |error| OverlayReconcileError {
+                target: Some(target),
+                error,
+            },
+        )?;
         let current = lifecycle
             .0
             .lock()
-            .map_err(|_| "overlay visibility state is unavailable".to_owned())?
+            .map_err(|_| OverlayReconcileError {
+                target: Some(target),
+                error: "overlay visibility state is unavailable".to_owned(),
+            })?
             .display_target(label);
         if current == target {
             return Ok(current);
@@ -524,7 +789,7 @@ fn reconcile_and_emit_status(
     lifecycle: &OverlayLifecycleState,
 ) -> Result<OverlayVisibilityStatus, String> {
     if let Some(window) = app.get_webview_window(label) {
-        reconcile_overlay_window(&window, lifecycle, label)?;
+        reconcile_overlay_window(&window, lifecycle, label).map_err(|failure| failure.error)?;
     }
     emit_current_status(app, kind, label, lifecycle)
 }
@@ -585,19 +850,34 @@ fn complete_overlay_open(
     lifecycle: &OverlayLifecycleState,
 ) -> Result<OverlayVisibilityStatus, String> {
     let label = overlay_label(kind)?;
-    let physical_overlay_position = if kind == "layout" || kind == "recommendation" {
-        fullscreen_overlay_position(app)
-    } else {
-        PhysicalPosition::new(0, 0)
-    };
+    let fullscreen_bounds = (kind == "layout" || kind == "recommendation")
+        .then(|| fullscreen_overlay_bounds(app))
+        .flatten();
 
     let operation = (|| {
-        let window = prepare_overlay_window(app, kind)?;
-        if let Some(size) = physical_overlay_size {
-            window.set_size(size).map_err(|error| error.to_string())?;
+        let window = prepare_overlay_window(app, kind).map_err(|error| OverlayReconcileError {
+            target: None,
+            error,
+        })?;
+        if let Some(size) = fullscreen_bounds
+            .map(|(_, size)| size)
+            .or(physical_overlay_size)
+        {
+            let position = fullscreen_bounds
+                .map(|(position, _)| position)
+                .unwrap_or_else(|| fullscreen_overlay_position(app));
             window
-                .set_position(physical_overlay_position)
-                .map_err(|error| error.to_string())?;
+                .set_size(size)
+                .map_err(|error| OverlayReconcileError {
+                    target: None,
+                    error: error.to_string(),
+                })?;
+            window
+                .set_position(position)
+                .map_err(|error| OverlayReconcileError {
+                    target: None,
+                    error: error.to_string(),
+                })?;
         }
 
         reconcile_overlay_window(&window, lifecycle, label)
@@ -614,8 +894,8 @@ fn complete_overlay_open(
             }
             current.status(kind, label)
         };
-        emit_overlay_visibility(app, &status);
-        return Err(error);
+        emit_overlay_visibility(app, status);
+        return Err(error.error);
     }
 
     emit_current_status(app, kind, label, lifecycle)
@@ -652,6 +932,32 @@ async fn open_overlay(
     .map_err(|error| error.to_string())?
 }
 
+fn fail_overlay_ready(
+    app: &tauri::AppHandle,
+    kind: &str,
+    label: &str,
+    window: &WebviewWindow,
+    lifecycle: &OverlayLifecycleState,
+    expected_revision: u64,
+    error: String,
+) -> Result<bool, String> {
+    {
+        let mut current = lifecycle
+            .0
+            .lock()
+            .map_err(|_| "overlay visibility state is unavailable".to_owned())?;
+        current.fail_display_if_current(label, expected_revision);
+    }
+    if let Err(hide_error) = reconcile_overlay_window(window, lifecycle, label) {
+        eprintln!(
+            "failed to hide {label} after ready failure: {}",
+            hide_error.error
+        );
+    }
+    emit_current_status(app, kind, label, lifecycle)?;
+    Err(error)
+}
+
 #[tauri::command]
 fn mark_overlay_ready(
     app: tauri::AppHandle,
@@ -660,32 +966,65 @@ fn mark_overlay_ready(
 ) -> Result<bool, String> {
     let label = overlay_label(&kind)?;
     let Some(window) = app.get_webview_window(label) else {
-        return Ok(false);
+        let status = {
+            let mut current = lifecycle
+                .0
+                .lock()
+                .map_err(|_| "overlay visibility state is unavailable".to_owned())?;
+            let target = current.display_target(label);
+            if !target.show {
+                return Ok(false);
+            }
+            current.fail_display_if_current(label, target.revision);
+            current.status(&kind, label)
+        };
+        emit_overlay_visibility(&app, status);
+        return Err(format!(
+            "overlay window {label} is unavailable after frontend ready"
+        ));
     };
     lifecycle
         .0
         .lock()
         .map_err(|_| "overlay visibility state is unavailable".to_owned())
         .map(|mut current| current.mark_ready(label))?;
+    let revision = lifecycle
+        .0
+        .lock()
+        .map_err(|_| "overlay visibility state is unavailable".to_owned())?
+        .display_target(label)
+        .revision;
+    eprintln!("overlay label={label} revision={revision} event=frontend_ready");
     match reconcile_overlay_window(&window, &lifecycle, label) {
         Ok(target) => {
-            emit_current_status(&app, &kind, label, &lifecycle)?;
-            Ok(target.show)
+            let status = emit_current_status(&app, &kind, label, &lifecycle)?;
+            if target.show && !status.displayed {
+                return fail_overlay_ready(
+                    &app,
+                    &kind,
+                    label,
+                    &window,
+                    &lifecycle,
+                    target.revision,
+                    format!("overlay {label} did not become OS-visible after frontend ready"),
+                );
+            }
+            Ok(status.displayed)
         }
         Err(error) => {
-            let status = {
-                let mut current = lifecycle
-                    .0
-                    .lock()
-                    .map_err(|_| "overlay visibility state is unavailable".to_owned())?;
-                current.fail_display(label);
-                current.status(&kind, label)
-            };
-            emit_overlay_visibility(&app, &status);
-            if let Err(hide_error) = window.hide() {
-                eprintln!("failed to hide {label} after ready failure: {hide_error}");
-            }
-            Err(error)
+            let failed_revision = error
+                .target
+                .map(|target| target.revision)
+                .unwrap_or(revision);
+            fail_overlay_ready(
+                &app,
+                &kind,
+                label,
+                &window,
+                &lifecycle,
+                failed_revision,
+                error.error,
+            )
         }
     }
 }
@@ -727,13 +1066,14 @@ async fn toggle_overlay(
 
 #[tauri::command]
 fn get_overlay_visibility(
+    app: tauri::AppHandle,
     lifecycle: tauri::State<'_, OverlayLifecycleState>,
 ) -> Result<Vec<OverlayVisibilityStatus>, String> {
     let current = lifecycle
         .0
         .lock()
         .map_err(|_| "overlay visibility state is unavailable".to_owned())?;
-    Ok(all_overlay_statuses(&current))
+    Ok(all_overlay_statuses(&app, &current))
 }
 
 fn apply_overlay_shortcut_action(
@@ -1034,7 +1374,8 @@ fn set_overlay_viewport(
         current.viewport = next_viewport;
         physical_size
     };
-    let position = fullscreen_overlay_position(&app);
+    let (position, physical_size) = fullscreen_overlay_bounds(&app)
+        .unwrap_or_else(|| (fullscreen_overlay_position(&app), physical_size));
     for (_, label) in FULLSCREEN_OVERLAY_KINDS {
         let Some(window) = app.get_webview_window(label) else {
             continue;
@@ -1046,7 +1387,7 @@ fn set_overlay_viewport(
         window
             .set_position(position)
             .map_err(|error| error.to_string())?;
-        reconcile_overlay_window(&window, &lifecycle, label)?;
+        reconcile_overlay_window(&window, &lifecycle, label).map_err(|failure| failure.error)?;
     }
     Ok(())
 }
@@ -1231,7 +1572,12 @@ pub fn run() {
                             return;
                         }
                     };
-                    emit_overlay_visibility(window.app_handle(), &status);
+                    eprintln!(
+                        "overlay label={} revision={} event=destroyed",
+                        window.label(),
+                        status.revision
+                    );
+                    emit_overlay_visibility(window.app_handle(), status);
                 }
                 return;
             }
@@ -1257,7 +1603,7 @@ pub fn run() {
                 .lock()
             {
                 lifecycle.invalidate_overlays();
-                all_overlay_statuses(&lifecycle)
+                all_overlay_statuses(window.app_handle(), &lifecycle)
             } else {
                 eprintln!("overlay visibility state is unavailable");
                 Vec::new()
@@ -1266,12 +1612,12 @@ pub fn run() {
             for label in OVERLAY_WINDOW_LABELS {
                 if let Some(overlay) = window.app_handle().get_webview_window(label) {
                     if let Err(error) = reconcile_overlay_window(&overlay, &lifecycle, label) {
-                        eprintln!("failed to reconcile {label}: {error}");
+                        eprintln!("failed to reconcile {label}: {}", error.error);
                     }
                 }
             }
             for status in statuses {
-                emit_overlay_visibility(window.app_handle(), &status);
+                emit_overlay_visibility(window.app_handle(), status);
             }
         })
         .setup(|app| {
@@ -1439,10 +1785,11 @@ pub fn run() {
 mod tests {
     use super::{
         begin_windows_shortcut_cycle, cursor_is_inside_interaction_region,
-        finish_windows_shortcut_cycle, overlay_kind, requested_overlay_size,
-        update_overlay_shortcut_mode, update_overlay_shortcut_registration, windows_virtual_key,
-        OverlayInteractionRegion, OverlayLifecycle, OverlayShortcutAction, OverlayShortcutMode,
-        OverlayShortcutRegistration, OverlayShortcutRegistrationRequest,
+        finish_windows_shortcut_cycle, overlay_display_confirmed, overlay_event_message,
+        overlay_fits_monitor, overlay_kind, requested_overlay_size, update_overlay_shortcut_mode,
+        update_overlay_shortcut_registration, windows_virtual_key, OverlayDisplayTarget,
+        OverlayInteractionRegion, OverlayLifecycle, OverlayReconcileError, OverlayShortcutAction,
+        OverlayShortcutMode, OverlayShortcutRegistration, OverlayShortcutRegistrationRequest,
         OverlayShortcutStateMachine, OverlayViewport, FULLSCREEN_OVERLAY_KINDS,
     };
     use std::cell::Cell;
@@ -1829,7 +2176,7 @@ mod tests {
     }
 
     #[test]
-    fn loading_and_hidden_overlays_reassert_cursor_pass_through() {
+    fn page_load_keeps_frontend_ready_separate_and_restores_cursor_pass_through() {
         let source = include_str!("lib.rs");
         let page_load = source
             .split_once(".on_page_load")
@@ -1848,9 +2195,50 @@ mod tests {
 
         assert!(page_load.contains("set_ignore_cursor_events(true)"));
         assert!(page_load.contains("PageLoadEvent::Finished"));
-        assert!(page_load.contains("mark_ready"));
-        assert!(page_load.contains("reconcile_and_emit_status"));
+        assert!(!page_load.contains("mark_ready"));
         assert!(hidden_branch.contains("set_ignore_cursor_events(true)"));
+    }
+
+    #[test]
+    fn overlay_lifecycle_logs_include_revision_and_native_operation_results() {
+        assert_eq!(
+            overlay_event_message("overlay-tier", 7, "created", "ok"),
+            "overlay label=overlay-tier revision=7 event=created result=ok"
+        );
+        assert_eq!(
+            overlay_event_message("overlay-tier", 8, "show", "error"),
+            "overlay label=overlay-tier revision=8 event=show result=error"
+        );
+    }
+
+    #[test]
+    fn overlay_geometry_must_fit_inside_its_monitor() {
+        assert!(overlay_fits_monitor(
+            (-1920, 0),
+            (1920, 1080),
+            (-1920, 0),
+            (1920, 1080)
+        ));
+        assert!(!overlay_fits_monitor(
+            (-1920, 0),
+            (2560, 1440),
+            (-1920, 0),
+            (1920, 1080)
+        ));
+        assert!(!overlay_fits_monitor(
+            (0, 0),
+            (1920, 1080),
+            (-1920, 0),
+            (1920, 1080)
+        ));
+    }
+
+    #[test]
+    fn displayed_state_requires_a_successful_os_visibility_observation() {
+        assert!(overlay_display_confirmed(true, true, true));
+        assert!(!overlay_display_confirmed(true, false, false));
+        assert!(!overlay_display_confirmed(true, true, false));
+        assert!(!overlay_display_confirmed(false, true, true));
     }
 
     #[test]
@@ -1977,12 +2365,42 @@ mod tests {
         lifecycle.mark_ready(label);
         let previous = lifecycle.display_target(label).revision;
 
-        lifecycle.fail_display(label);
+        assert!(lifecycle.fail_display_if_current(label, previous));
 
         let current = lifecycle.display_target(label);
         assert!(!current.show);
         assert!(!lifecycle.ready.contains(label));
         assert!(!lifecycle.requested_open.contains(label));
         assert!(current.revision > previous);
+    }
+
+    #[test]
+    fn stale_ready_failure_does_not_close_a_newer_open_request() {
+        let label = "overlay-recommendation";
+        let mut lifecycle = OverlayLifecycle {
+            requested_open: HashSet::new(),
+            ready: HashSet::new(),
+            revisions: HashMap::new(),
+            viewport: OverlayViewport::default(),
+        };
+        let stale_revision = lifecycle.request_open(label);
+        lifecycle.mark_ready(label);
+        lifecycle.request_close(label);
+        let current_revision = lifecycle.request_open(label);
+
+        let failure = OverlayReconcileError {
+            target: Some(OverlayDisplayTarget {
+                revision: stale_revision,
+                show: true,
+            }),
+            error: "show failed".to_owned(),
+        };
+        let failed_revision = failure
+            .target
+            .expect("a native show failure should retain its target revision")
+            .revision;
+
+        assert!(!lifecycle.fail_display_if_current(label, failed_revision));
+        assert!(lifecycle.is_current_open(label, current_revision));
     }
 }

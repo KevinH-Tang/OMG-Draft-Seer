@@ -176,6 +176,9 @@ const DEBUG_MATCH_CANDIDATES = 5
 const RECOGNITION_TIMEOUT_MS = 30_000
 const PAIR_ROW_HEIGHT = 52
 const LAYOUT_MODE_STORAGE_KEY = 'omg-layout-mode-v1'
+const LAYOUT_OVERRIDES_STORAGE_KEY = 'omg-layout-overrides-v1'
+const LAYOUT_FILE_STORAGE_KEY = 'omg-layout-file-v1'
+const LAYOUT_PROFILE_STORAGE_KEY = 'omg-layout-profile-v1'
 const OVERLAY_KINDS: OverlayKind[] = ['recommendation', 'tier', 'layout']
 
 type ImageSize = Pick<LayoutDocument, 'width' | 'height'>
@@ -215,6 +218,45 @@ function buildScaledLayout(
     document.height,
     imageSize.width,
     imageSize.height,
+  )
+}
+
+function createLayoutDocument(
+  slots: readonly RuntimeSlot[],
+  imageSize: ImageSize,
+): LayoutDocument {
+  return {
+    version: 1,
+    width: imageSize.width,
+    height: imageSize.height,
+    slots: slots.map(({ category, rect }) => ({ category, rect })),
+  }
+}
+
+function buildConfirmedDraftPool(
+  slots: readonly RecognizedSlot[],
+): InitialDraftPool {
+  const pool: Record<keyof InitialDraftPool, number[]> = {
+    heroIds: [],
+    abilityIds: [],
+    ultimateIds: [],
+  }
+  for (const slot of slots) {
+    if (slot.selectedAbilityId === undefined) continue
+    const key =
+      slot.category === 'hero'
+        ? 'heroIds'
+        : slot.category === 'ability'
+          ? 'abilityIds'
+          : 'ultimateIds'
+    pool[key].push(slot.selectedAbilityId)
+  }
+  return pool
+}
+
+function findCandidateGroup(candidatePools: BuildCandidatePools, id: number) {
+  return BUILD_PICK_GROUPS.find((group) =>
+    candidatePools[group.key].includes(id),
   )
 }
 
@@ -393,7 +435,7 @@ function MainApp() {
     () =>
       readStoredJson(
         storage,
-        'omg-layout-overrides-v1',
+        LAYOUT_OVERRIDES_STORAGE_KEY,
         {} as Record<number, Rect>,
       ),
   )
@@ -411,7 +453,11 @@ function MainApp() {
   const [importedLayout, setImportedLayout] = useState<
     LayoutDocument | undefined
   >(() => {
-    const saved = readStoredJson<unknown>(storage, 'omg-layout-file-v1', null)
+    const saved = readStoredJson<unknown>(
+      storage,
+      LAYOUT_FILE_STORAGE_KEY,
+      null,
+    )
     return parseLayoutDocument(saved) ?? undefined
   })
   const importedLayoutRef = useRef(importedLayout)
@@ -583,9 +629,7 @@ function MainApp() {
         ultimateIds: 0,
       }
       const next = current.filter((id) => {
-        const group = BUILD_PICK_GROUPS.find((item) =>
-          candidatePools[item.key].includes(id),
-        )
+        const group = findCandidateGroup(candidatePools, id)
         if (!group || selectedCounts[group.key] >= group.limit) return false
         selectedCounts[group.key] += 1
         return true
@@ -725,27 +769,7 @@ function MainApp() {
   }, [snapshot])
   const draftPoolInfo = useMemo(() => {
     if (activePage !== 'draft') return rankedDraftPoolInfo
-    const confirmedPool: InitialDraftPool = {
-      heroIds: deferredSlots
-        .filter(
-          (slot) =>
-            slot.category === 'hero' && slot.selectedAbilityId !== undefined,
-        )
-        .map((slot) => slot.selectedAbilityId!),
-      abilityIds: deferredSlots
-        .filter(
-          (slot) =>
-            slot.category === 'ability' && slot.selectedAbilityId !== undefined,
-        )
-        .map((slot) => slot.selectedAbilityId!),
-      ultimateIds: deferredSlots
-        .filter(
-          (slot) =>
-            slot.category === 'ultimate' &&
-            slot.selectedAbilityId !== undefined,
-        )
-        .map((slot) => slot.selectedAbilityId!),
-    }
+    const confirmedPool = buildConfirmedDraftPool(deferredSlots)
     const confirmedErrors = validateInitialDraftPool(
       confirmedPool,
       snapshot.abilities,
@@ -1034,9 +1058,9 @@ function MainApp() {
   }
 
   function resetLayout() {
-    storage.removeItem('omg-layout-profile-v1')
-    storage.removeItem('omg-layout-overrides-v1')
-    storage.removeItem('omg-layout-file-v1')
+    storage.removeItem(LAYOUT_PROFILE_STORAGE_KEY)
+    storage.removeItem(LAYOUT_OVERRIDES_STORAGE_KEY)
+    storage.removeItem(LAYOUT_FILE_STORAGE_KEY)
     setLayoutOverrides({})
     layoutOverridesRef.current = {}
     setImportedLayout(undefined)
@@ -1045,12 +1069,7 @@ function MainApp() {
   }
 
   function saveLayout() {
-    const payload: LayoutDocument = {
-      version: 1,
-      width: imageSize.width,
-      height: imageSize.height,
-      slots: layout.map(({ category, rect }) => ({ category, rect })),
-    }
+    const payload = createLayoutDocument(layout, imageSize)
     fileAdapter.downloadText(
       `omg-layout-${imageSize.width}x${imageSize.height}.json`,
       JSON.stringify(payload, null, 2),
@@ -1069,8 +1088,8 @@ function MainApp() {
       importedLayoutRef.current = parsed
       setLayoutOverrides({})
       layoutOverridesRef.current = {}
-      writeStoredJson(storage, 'omg-layout-file-v1', parsed)
-      storage.removeItem('omg-layout-overrides-v1')
+      writeStoredJson(storage, LAYOUT_FILE_STORAGE_KEY, parsed)
+      storage.removeItem(LAYOUT_OVERRIDES_STORAGE_KEY)
       setError(undefined)
       toast.success(t('layout.loaded'))
     } catch {
@@ -1108,15 +1127,10 @@ function MainApp() {
     if (
       !hasManualLayout(importedLayoutRef.current, layoutOverridesRef.current)
     ) {
-      const projectedBaseline: LayoutDocument = {
-        version: 1,
-        width: imageSize.width,
-        height: imageSize.height,
-        slots: layout.map(({ category, rect }) => ({ category, rect })),
-      }
+      const projectedBaseline = createLayoutDocument(layout, imageSize)
       importedLayoutRef.current = projectedBaseline
       setImportedLayout(projectedBaseline)
-      writeStoredJson(storage, 'omg-layout-file-v1', projectedBaseline)
+      writeStoredJson(storage, LAYOUT_FILE_STORAGE_KEY, projectedBaseline)
     }
     const point = imagePoint(event)
     setDragState({
@@ -1186,7 +1200,7 @@ function MainApp() {
   function finishDrag() {
     writeStoredJson(
       storage,
-      'omg-layout-overrides-v1',
+      LAYOUT_OVERRIDES_STORAGE_KEY,
       layoutOverridesRef.current,
     )
     setDragState(undefined)
@@ -1311,9 +1325,7 @@ function MainApp() {
   )
 
   function toggleSelected(id: number) {
-    const group = BUILD_PICK_GROUPS.find((item) =>
-      candidatePools[item.key].includes(id),
-    )
+    const group = findCandidateGroup(candidatePools, id)
     if (!group) return
     setSelectedIds((current) => {
       if (current.includes(id)) return current.filter((item) => item !== id)

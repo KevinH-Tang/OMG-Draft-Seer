@@ -16,15 +16,17 @@ statistics, and generate a data-backed recommendation.
   screenshots and a committed `2560x1440` fixed-layout fallback.
 - Local runtime data: a bundled Windrun snapshot, icon signatures, hero templates, and cached icons.
 - The browser build must be served over HTTP. Direct `file://` usage is not supported.
-- The Tauri desktop build can open independent Tier and recommendation overlays. They stay above
-  other windows and ignore cursor events; the browser build uses fixed, mouse-transparent panels.
+- The current phase-1 Desktop overlay can open independent Tier and recommendation windows. They
+  stay above other windows and ignore cursor events; the browser build uses fixed,
+  mouse-transparent panels.
 - Page two's assistant overlay combines the Tier box, candidate Tier list, Pair/Triple recommendations,
   and the five-pick build score. Its `Tab` shortcut supports `Trigger` and `Hold` modes configured in
   Settings. The desktop build registers `Tab` as an OS-global hotkey, while the browser build listens
   only when its window is focused.
 - Closing the desktop main window hides it to the system tray. Use the tray icon to restore it or
   the tray menu to quit; an optional setting starts the app minimized after sign-in.
-- The app does not capture the game window.
+- The app does not capture or attach overlays to the game window. A phase-2 Game-attached overlay
+  remains a future design, not a shipped capability.
 - Static interface text supports 简体中文 and English. Chinese is the first-run default; the header selector persists the choice locally and synchronizes open desktop overlays.
 
 ## Quick Start
@@ -56,10 +58,10 @@ npm run preview
 
 The desktop shell requires Rust `1.90` or newer and the platform dependencies required by Tauri.
 Windows also needs the MSVC toolchain, Visual Studio C++ build tools, and WebView2. See the
-[Windows build and validation guide](docs/windows-build-test.md) for the complete setup. macOS
+[Windows build and validation guide](docs/platforms/windows/build-test.md) for the complete setup. macOS
 requires Xcode Command Line Tools and an Apple Silicon Rust target. GitHub Releases publish an
 unsigned arm64 DMG with a SHA-256 file; they do not require an Apple Developer membership. See the
-[macOS build and release validation guide](docs/macos-build-test.md).
+[macOS build and release validation guide](docs/platforms/macos/build-test.md).
 
 ```sh
 npm run desktop:dev
@@ -129,14 +131,14 @@ Page two separately ranks eligible Pair and Triple records from the current reco
 Their displayed combination score is the observed group win rate, with the individual logit base,
 synergy lift, and sample count shown alongside it. This does not replace the five-pick score above.
 
-See [Recommendation metrics](docs/recommendation-metrics.md) for the formulas, thresholds, and
+See [Recommendation model](docs/product/recommendation-model.md) for the formulas, thresholds, and
 test coverage.
 
 The Draft Replay page also simulates the shared 10-player serpentine pool. It applies either
 `tier-first` or `pair-first` to every player position, calculates up to 20 legal candidates at
 each of the 50 global picks, and consumes the top candidate to produce a deterministic replay.
 The model is an explicit strategy simulation, not a prediction of actual opponent behavior. See
-[Draft strategy tree](docs/draft-strategy-tree.md) for the state and ranking rules.
+[Draft strategy tree](docs/product/draft-strategy-tree.md) for the state and ranking rules.
 
 ## Data Pipeline
 
@@ -201,7 +203,7 @@ npm run test:tauri
 ```
 
 On an Apple Silicon macOS release environment, build the release candidate and perform the manual acceptance
-check in [macOS build and release validation](docs/macos-build-test.md):
+check in [macOS build and release validation](docs/platforms/macos/build-test.md):
 
 ```sh
 npm run desktop:build
@@ -239,25 +241,26 @@ are intentionally excluded from version control.
 - Screenshot recognition still needs broader, independently labelled accuracy evaluation.
 - Draft Replay uses a deterministic 50-position strategy simulation with an up-to-20 candidate
   ranking at each position; it does not claim to predict the actual choices of the other players.
-- There is no game-window capture. Closing the desktop main window keeps the process and global
-  shortcut available in the system tray until the user chooses Quit. The browser shortcut is
-  limited to the focused browser window. Overlays are information-only and do not interact with
-  the game window.
+- There is no game-window capture or Game-attached overlay. Closing the desktop main window keeps
+  the process and global shortcut available in the system tray until the user chooses Quit. The
+  browser shortcut is limited to the focused browser window. Current Desktop overlays are
+  information-only and do not interact with or follow the game window.
 - Windrun data, DatDota icons, the local VPK-derived hero images, and the desktop favicon require
   source and redistribution licence review before release.
 - Tauri bundles build on the validated platforms, but full installer, target-WebView, DPI, and
-  end-to-end screenshot validation remains tracked in [project status](docs/project-status.md).
+  end-to-end screenshot validation remains tracked in [project status](docs/project/status.md).
 
 ## Documentation
 
 - [Documentation index](docs/README.md)
-- [Project status and handoff notes](docs/project-status.md)
-- [Overlay lifecycle state machine](docs/overlay-lifecycle-state-machine.md)
-- [Recommendation metrics](docs/recommendation-metrics.md)
-- [Draft strategy tree](docs/draft-strategy-tree.md)
-- [Windows build and validation](docs/windows-build-test.md)
-- [macOS build and release validation](docs/macos-build-test.md)
-- [Tailwind v4 and Tauri migration design](docs/tailwind-v4-migration-design.md)
+- [Project status and handoff notes](docs/project/status.md)
+- [Overlay lifecycle state machine](docs/overlays/lifecycle.md)
+- [Future game capture and Game-attached overlay design](docs/overlays/game-capture-design.md)
+- [Recommendation model](docs/product/recommendation-model.md)
+- [Draft strategy tree](docs/product/draft-strategy-tree.md)
+- [Windows build and validation](docs/platforms/windows/build-test.md)
+- [macOS build and release validation](docs/platforms/macos/build-test.md)
+- [Tailwind v4 and Tauri migration design](docs/ui/tailwind-v4-migration-design.md)
 - [Golden screenshot fixtures](tests/fixtures/README.md)
 - [Desktop icon source](src-tauri/icons/README.md)
 
