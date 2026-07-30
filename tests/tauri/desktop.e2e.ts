@@ -1,6 +1,11 @@
 import { browser, $, expect } from '@wdio/globals'
+import { execFile as execFileCallback } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { promisify } from 'node:util'
+
+const execFile = promisify(execFileCallback)
+let mainWindowHandle: string
 
 const screenshotPath = resolve(
   'tests/fixtures/{241DAD27-9A37-4364-BF08-68998F993992}.jpg',
@@ -16,10 +21,56 @@ interface OverlayVisibilityStatus {
   withinMonitorBounds?: boolean
 }
 
+interface OverlayShortcutStatus {
+  shortcut: string
+  registered: boolean
+  mode: string
+}
+
 async function getOverlayVisibility(): Promise<OverlayVisibilityStatus[]> {
   return (await browser.executeAsync((done) => {
     window.__TAURI_INTERNALS__?.invoke('get_overlay_visibility', {}).then(done)
   })) as OverlayVisibilityStatus[]
+}
+
+async function getOverlayShortcutStatus(): Promise<OverlayShortcutStatus> {
+  return (await browser.executeAsync((done) => {
+    window.__TAURI_INTERNALS__
+      ?.invoke('get_overlay_shortcut_status', {})
+      .then(done)
+  })) as OverlayShortcutStatus
+}
+
+async function closeRecommendationOverlay() {
+  await browser.executeAsync((done) => {
+    window.__TAURI_INTERNALS__
+      ?.invoke('close_overlay', { kind: 'recommendation' })
+      .then(done)
+  })
+}
+
+async function switchToMainWindow() {
+  const handles = await browser.getWindowHandles()
+  if (!mainWindowHandle || !handles.includes(mainWindowHandle)) {
+    throw new Error('The OMG-Draft-Seer main window handle is unavailable')
+  }
+  await browser.switchToWindow(mainWindowHandle)
+}
+
+async function pressWindowsGlobalF8() {
+  if (process.platform !== 'win32') {
+    throw new Error('The native global-shortcut E2E is Windows-only')
+  }
+  await execFile(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      "$shell = New-Object -ComObject WScript.Shell; $shell.SendKeys('{F8}')",
+    ],
+    { windowsHide: true },
+  )
 }
 
 async function setScreenshotInput() {
@@ -55,6 +106,27 @@ describe('Tauri desktop application', () => {
         timeoutMsg: 'OMG-Draft-Seer main window did not become ready',
       },
     )
+    mainWindowHandle = await browser.getWindowHandle()
+  })
+
+  beforeEach(async () => {
+    await switchToMainWindow()
+  })
+
+  after(async () => {
+    await switchToMainWindow()
+    await browser.executeAsync((done) => {
+      window.localStorage.setItem('omg-overlay-shortcut-key-v1', 'Tab')
+      window.__TAURI_INTERNALS__
+        ?.invoke('set_overlay_shortcut', {
+          shortcut: 'Tab',
+          enabled: true,
+          mode: 'trigger',
+        })
+        .then(done)
+        .catch(() => done())
+    })
+    await closeRecommendationOverlay()
   })
 
   it('switches pages through the native WebView navigation', async () => {
@@ -155,7 +227,8 @@ describe('Tauri desktop application', () => {
       },
     )
 
-    await toggle.click()
+    await switchToMainWindow()
+    await (await $('[data-testid="overlay-toggle-recommendation"]')).click()
     await browser.waitUntil(
       async () => {
         const visibility = await getOverlayVisibility()
@@ -205,7 +278,8 @@ describe('Tauri desktop application', () => {
     await expect(strategy).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('registers and restores the native assistant shortcut', async () => {
+  it('toggles the assistant overlay through the native global shortcut', async () => {
+    await closeRecommendationOverlay()
     await (await $('[data-testid="nav-analysis"]')).click()
     await (await $('[data-testid="open-settings"]')).click()
     await (await $('[data-testid="overlay-shortcut-capture"]')).click()
@@ -217,6 +291,57 @@ describe('Tauri desktop application', () => {
         ).includes('F8'),
       { timeoutMsg: 'F8 shortcut was not saved in Settings' },
     )
+    await browser.waitUntil(
+      async () => {
+        const status = await getOverlayShortcutStatus()
+        return (
+          status.shortcut === 'F8' &&
+          status.registered &&
+          status.mode === 'trigger'
+        )
+      },
+      { timeoutMsg: 'F8 shortcut was not registered by the native shell' },
+    )
+    await (await $('[data-testid="settings-back"]')).click()
+
+    await pressWindowsGlobalF8()
+    await browser.waitUntil(
+      async () => {
+        const visibility = await getOverlayVisibility()
+        return visibility.some(
+          (status) =>
+            status.kind === 'recommendation' &&
+            status.open &&
+            status.ready &&
+            status.visibilityObserved &&
+            status.visible &&
+            status.displayed &&
+            status.withinMonitorBounds === true,
+        )
+      },
+      {
+        timeoutMsg:
+          'F8 did not produce a ready, OS-visible assistant inside the target monitor',
+      },
+    )
+
+    await pressWindowsGlobalF8()
+    await browser.waitUntil(
+      async () => {
+        const visibility = await getOverlayVisibility()
+        return visibility.some(
+          (status) =>
+            status.kind === 'recommendation' &&
+            !status.open &&
+            status.visibilityObserved &&
+            !status.visible &&
+            !status.displayed,
+        )
+      },
+      { timeoutMsg: 'F8 did not hide the native assistant window' },
+    )
+
+    await (await $('[data-testid="open-settings"]')).click()
     await (await $('[data-testid="overlay-shortcut-reset"]')).click()
     await browser.waitUntil(
       async () =>
@@ -224,6 +349,13 @@ describe('Tauri desktop application', () => {
           await $('[data-testid="overlay-shortcut-capture"]').getText()
         ).includes('Tab'),
       { timeoutMsg: 'Default Tab shortcut was not restored' },
+    )
+    await browser.waitUntil(
+      async () => {
+        const status = await getOverlayShortcutStatus()
+        return status.shortcut === 'Tab' && status.registered
+      },
+      { timeoutMsg: 'Default Tab shortcut was not restored natively' },
     )
     await (await $('[data-testid="settings-back"]')).click()
     await expect($('[data-testid="nav-analysis"]')).toHaveAttribute(

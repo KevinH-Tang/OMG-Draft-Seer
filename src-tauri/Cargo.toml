@@ -19,7 +19,7 @@ tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-tauri = { version = "2.11.5", features = ["macos-private-api", "tray-icon"] }
+tauri = { version = "2.11.5", features = ["tray-icon"] }
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-wdio = { version = "1", optional = true }
 tauri-plugin-wdio-webdriver = { version = "1", optional = true }
@@ -30,3 +30,6 @@ tauri-plugin-single-instance = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_UI_Input_KeyboardAndMouse"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri = { version = "2.11.5", features = ["macos-private-api"] }

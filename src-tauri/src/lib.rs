@@ -624,6 +624,30 @@ fn fullscreen_overlay_bounds(
     target_overlay_monitor(app).map(|monitor| (*monitor.position(), *monitor.size()))
 }
 
+fn main_webview_browser_args(windows: &[tauri::utils::config::WindowConfig]) -> Option<&str> {
+    windows
+        .iter()
+        .find(|window| window.label == "main")
+        .and_then(|window| window.additional_browser_args.as_deref())
+        .filter(|args| !args.trim().is_empty())
+}
+
+fn wait_for_overlay_window_creation(window: &WebviewWindow) -> Result<(), String> {
+    let (created_tx, created_rx) = mpsc::sync_channel(1);
+    window
+        .run_on_main_thread(move || {
+            let _ = created_tx.send(());
+        })
+        .map_err(|error| error.to_string())?;
+    created_rx
+        .recv()
+        .map_err(|_| "overlay window creation barrier was cancelled".to_owned())?;
+    window
+        .is_visible()
+        .map(|_| ())
+        .map_err(|error| format!("overlay window was not created by the native runtime: {error}"))
+}
+
 fn prepare_overlay_window(app: &tauri::AppHandle, kind: &str) -> Result<WebviewWindow, String> {
     let (label, default_width, default_height, x, y) =
         overlay_window_config(kind).ok_or_else(|| format!("unknown overlay kind: {kind}"))?;
@@ -635,7 +659,7 @@ fn prepare_overlay_window(app: &tauri::AppHandle, kind: &str) -> Result<WebviewW
         return Ok(window);
     }
 
-    let window = WebviewWindowBuilder::new(
+    let mut window_builder = WebviewWindowBuilder::new(
         app,
         label,
         WebviewUrl::App(format!("index.html?overlay={kind}").into()),
@@ -649,83 +673,101 @@ fn prepare_overlay_window(app: &tauri::AppHandle, kind: &str) -> Result<WebviewW
     .position(x, y)
     .decorations(false)
     .shadow(false)
-    .always_on_top(true)
-    .visible_on_all_workspaces(true)
-    .skip_taskbar(true)
-    .focused(false)
-    // The window is only created for an open request. Starting WebView2 hidden
-    // can suspend its bootstrap script before it reports overlay readiness.
-    .visible(true)
-    .transparent(true)
-    .on_page_load(|window, payload| {
-        let Some(kind) = overlay_kind(window.label()) else {
-            return;
-        };
-        let Some(lifecycle) = window.app_handle().try_state::<OverlayLifecycleState>() else {
-            return;
-        };
-        if matches!(payload.event(), PageLoadEvent::Started) {
-            let loading_status = lifecycle.0.lock().ok().map(|mut current| {
-                current.mark_loading(window.label());
-                current.status(kind, window.label())
-            });
-            if let Some(status) = &loading_status {
-                eprintln!(
-                    "overlay label={} revision={} event=page_load_started",
+    .always_on_top(true);
+    #[cfg(target_os = "macos")]
+    {
+        window_builder = window_builder.visible_on_all_workspaces(true);
+    }
+    #[cfg(target_os = "windows")]
+    {
+        window_builder = window_builder.skip_taskbar(true);
+    }
+    if let Some(browser_args) = main_webview_browser_args(&app.config().app.windows) {
+        // WebView2 requires every environment sharing a data directory to use
+        // the same CoreWebView2EnvironmentOptions as the configured main window.
+        window_builder = window_builder.additional_browser_args(browser_args);
+    }
+    let window = window_builder
+        .focused(false)
+        // The window is only created for an open request. Starting WebView2 hidden
+        // can suspend its bootstrap script before it reports overlay readiness.
+        .visible(true)
+        .transparent(true)
+        .on_page_load(|window, payload| {
+            let Some(kind) = overlay_kind(window.label()) else {
+                return;
+            };
+            let Some(lifecycle) = window.app_handle().try_state::<OverlayLifecycleState>() else {
+                return;
+            };
+            if matches!(payload.event(), PageLoadEvent::Started) {
+                let loading_status = lifecycle.0.lock().ok().map(|mut current| {
+                    current.mark_loading(window.label());
+                    current.status(kind, window.label())
+                });
+                if let Some(status) = &loading_status {
+                    eprintln!(
+                        "overlay label={} revision={} event=page_load_started",
+                        window.label(),
+                        status.revision
+                    );
+                }
+                if let Err(error) = window.set_ignore_cursor_events(true) {
+                    eprintln!(
+                        "failed to restore cursor pass-through for {}: {error}",
+                        window.label()
+                    );
+                }
+                let loading_target = loading_status
+                    .as_ref()
+                    .map(|status| (status.revision, status.open))
+                    .unwrap_or_default();
+                if let Err(error) = set_overlay_window_visibility(
+                    &window,
                     window.label(),
-                    status.revision
-                );
+                    loading_target.0,
+                    loading_target.1,
+                ) {
+                    eprintln!(
+                        "failed to reconcile loading overlay {}: {error}",
+                        window.label()
+                    );
+                }
+                if let Some(status) = loading_status {
+                    emit_overlay_visibility(window.app_handle(), status);
+                }
+                return;
             }
-            if let Err(error) = window.set_ignore_cursor_events(true) {
+            if matches!(payload.event(), PageLoadEvent::Finished) {
+                let revision = lifecycle
+                    .0
+                    .lock()
+                    .ok()
+                    .map(|current| current.display_target(window.label()).revision)
+                    .unwrap_or_default();
                 eprintln!(
-                    "failed to restore cursor pass-through for {}: {error}",
-                    window.label()
+                    "overlay label={} revision={} event=page_load_finished",
+                    window.label(),
+                    revision
                 );
+                if let Err(error) =
+                    emit_current_status(window.app_handle(), kind, window.label(), &lifecycle)
+                {
+                    eprintln!(
+                        "failed to report loaded overlay {}: {error}",
+                        window.label()
+                    );
+                }
             }
-            let loading_target = loading_status
-                .as_ref()
-                .map(|status| (status.revision, status.open))
-                .unwrap_or_default();
-            if let Err(error) = set_overlay_window_visibility(
-                &window,
-                window.label(),
-                loading_target.0,
-                loading_target.1,
-            ) {
-                eprintln!(
-                    "failed to reconcile loading overlay {}: {error}",
-                    window.label()
-                );
-            }
-            if let Some(status) = loading_status {
-                emit_overlay_visibility(window.app_handle(), status);
-            }
-            return;
-        }
-        if matches!(payload.event(), PageLoadEvent::Finished) {
-            let revision = lifecycle
-                .0
-                .lock()
-                .ok()
-                .map(|current| current.display_target(window.label()).revision)
-                .unwrap_or_default();
-            eprintln!(
-                "overlay label={} revision={} event=page_load_finished",
-                window.label(),
-                revision
-            );
-            if let Err(error) =
-                emit_current_status(window.app_handle(), kind, window.label(), &lifecycle)
-            {
-                eprintln!(
-                    "failed to report loaded overlay {}: {error}",
-                    window.label()
-                );
-            }
-        }
-    })
-    .build()
-    .map_err(|error| error.to_string())?;
+        })
+        .build()
+        .map_err(|error| error.to_string())?;
+
+    // Building through a RuntimeHandle only queues `CreateWindow`. Tauri adds
+    // the detached handle to its manager immediately, before Tao/Wry adds the
+    // real window to the event-loop store. Keep all later setters, getters and
+    // WDIO window discovery behind a same-producer main-thread barrier.
+    wait_for_overlay_window_creation(&window)?;
 
     let revision = app
         .try_state::<OverlayLifecycleState>()
@@ -2197,6 +2239,21 @@ mod tests {
         assert!(page_load.contains("PageLoadEvent::Finished"));
         assert!(!page_load.contains("mark_ready"));
         assert!(hidden_branch.contains("set_ignore_cursor_events(true)"));
+    }
+
+    #[test]
+    fn overlay_webview_environment_uses_the_main_window_browser_args() {
+        let mut main = tauri::utils::config::WindowConfig::default();
+        main.additional_browser_args = Some("--shared-webview-option".to_owned());
+        let mut secondary = tauri::utils::config::WindowConfig::default();
+        secondary.label = "secondary".to_owned();
+        secondary.additional_browser_args = Some("--unrelated-option".to_owned());
+
+        assert_eq!(
+            super::main_webview_browser_args(&[secondary, main]),
+            Some("--shared-webview-option")
+        );
+        assert_eq!(super::main_webview_browser_args(&[]), None);
     }
 
     #[test]

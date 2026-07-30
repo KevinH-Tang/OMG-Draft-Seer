@@ -56,10 +56,11 @@ platform guides only after the corresponding scripts and tests exist.
 
 ## Active Development Records
 
-| Document                                                                                         | Purpose                                     | Status                           |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------- | -------------------------------- |
-| [Overlay delivery stability design](development/overlay-delivery-stability/design.md)            | Approved boundary for current overlay fixes | Active while work is uncommitted |
-| [Overlay delivery stability plan](development/overlay-delivery-stability/implementation-plan.md) | Execution and verification record           | Active while work is uncommitted |
+| Document                                                                                         | Purpose                                                        | Status                          |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- | ------------------------------- |
+| [Overlay delivery stability design](development/overlay-delivery-stability/design.md)            | Approved boundary for current overlay fixes                    | Implemented; retained for audit |
+| [Overlay delivery stability plan](development/overlay-delivery-stability/implementation-plan.md) | Execution and verification record                              | Implemented; retained for audit |
+| [Overlay platform API audit](development/overlay-platform-api-audit.md)                          | Current fixes, platform differences, and remaining workarounds | Maintained                      |
 
 ## Archive
 

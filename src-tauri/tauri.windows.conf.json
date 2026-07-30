@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "OMG-Draft-Seer",
+        "width": 720,
+        "height": 540,
+        "minWidth": 720,
+        "minHeight": 540,
+        "resizable": true,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-backgrounding-occluded-windows"
+      }
+    ]
+  }
+}

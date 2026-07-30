@@ -10,7 +10,6 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "macOSPrivateApi": true,
     "withGlobalTauri": true,
     "windows": [
       {
@@ -20,8 +19,7 @@
         "height": 540,
         "minWidth": 720,
         "minHeight": 540,
-        "resizable": true,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-backgrounding-occluded-windows"
+        "resizable": true
       }
     ],
     "security": {
