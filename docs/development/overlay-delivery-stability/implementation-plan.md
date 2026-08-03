@@ -215,9 +215,10 @@ desktop CI jobs after Rust setup.
 - [x] **Step 2: Correct maintained behavior records**
 
 Update the Windows guide to state that the desktop app registers the configurable global
-recommendation shortcut, supports Trigger/Hold, and still does not capture or follow the game
-window. Record Hold-entry close, worker dispatch, content-gated ready, live viewport resize,
-and cursor recovery in the lifecycle document and current project status.
+recommendation shortcut, supports Trigger/Hold, and does not automatically capture or follow the
+game window. Record the explicit one-shot screenshot source separately from the future
+Game-attached overlay, along with Hold-entry close, worker dispatch, content-gated ready, live
+viewport resize, and cursor recovery in the lifecycle document and current project status.
 
 - [x] **Step 3: Format and run focused checks**
 

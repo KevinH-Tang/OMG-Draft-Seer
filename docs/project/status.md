@@ -1,7 +1,7 @@
 # Project Status
 
 > Audit baseline and cross-platform validation: 2026-07-24. Overlay lifecycle implementation and
-> Apple Silicon native smoke evidence: 2026-07-28. Pre-commit validation: 2026-07-29.
+> Apple Silicon native smoke evidence: 2026-07-28. Pre-commit validation: 2026-08-03.
 
 This document records the current implementation boundary, validated repository inputs, and open
 handoff items. It is a status record, not a product roadmap.
@@ -22,9 +22,10 @@ consumes Top1 for the deterministic path. The implementation boundary and assump
 in [Draft strategy tree](../product/draft-strategy-tree.md).
 
 Layout is projected from resource geometry and the screenshot resolution, with manual fixed-layout
-calibration retained as a fallback. The project does not capture or attach to a game window. Its
-current phase-1 Desktop overlay uses display/desktop coordinates; full-display recommendation and
-layout windows target the main application window's monitor. The Tauri shell
+calibration retained as a fallback. On Windows desktop, the analysis page can explicitly capture one
+eligible visible `dota2.exe` window as a one-shot screenshot source. The project does not automatically
+track or attach an overlay to a game window. Its current phase-1 Desktop overlay uses display/desktop
+coordinates; full-display recommendation and layout windows target the main application's monitor. The Tauri shell
 exposes independent Tier, recommendation, and layout overlay windows with always-on-top and
 cursor-pass-through behavior. Its configurable OS-global shortcut controls the recommendation
 overlay in Trigger or Hold mode even while the main window is hidden; the browser build uses a
@@ -116,6 +117,17 @@ repository-pinned Rust/Cargo `1.90.0` MSVC toolchain:
   `docs/platforms/windows/build-test.md`.
 - `npm run format:check` remains blocked by repository-wide Prettier debt outside this focused
   documentation correction. Native WDIO E2E and installed-package smoke tests were not run.
+
+On 2026-08-03, the Windows one-shot capture path was revalidated after its window-selection and
+process-identity fixes:
+
+- Rustfmt and Clippy with warnings denied passed; the isolated Rust target ran 37 unit tests with
+  zero failures.
+- `npm test` passed 26 test files and 137 tests; `npm run build` passed with only the existing
+  large-chunk warning.
+- A live Dota capture smoke was not repeated in this run because no `dota2.exe` process was
+  available. The focused smoke evidence recorded in the Windows build skill remains separate from
+  this automated validation.
 
 Also on 2026-07-24, local macOS Apple Silicon validation completed:
 
@@ -244,9 +256,9 @@ endpoints; whether a fuller private export exists is not documented in this repo
   relation database. Track a full-export, pagination, or match-level-data path with the upstream
   project.
 
-Wails, Go-native UI, game-window capture, and Game-attached overlay placement remain outside the
-current implementation. Native global shortcuts are implemented only for Desktop recommendation-
-overlay Trigger/Hold control; they do not capture the game, bind the overlay to Dota, or add in-game
+Wails, Go-native UI, automatic game-window tracking, and Game-attached overlay placement remain
+outside the current implementation. Native global shortcuts are implemented only for Desktop
+recommendation-overlay Trigger/Hold control; they do not bind the overlay to Dota or add in-game
 input handling.
 
 ## Intentional Cleanup

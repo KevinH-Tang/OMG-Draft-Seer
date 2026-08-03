@@ -82,6 +82,37 @@ Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
 If a port is occupied, inspect the owning PID and command line before stopping it. Do not use a
 blanket `taskkill` against all `node.exe` processes because another task may own them.
 
+## Dota 2 Window Capture Smoke Test
+
+Dota 2 screenshot validation is a Windows desktop/window-manager test, not only a Rust or WebView
+test. In a managed Codex sandbox, an ordinary PowerShell process may run under a restricted desktop
+context and fail to enumerate the interactive user's HWNDs. It can report that `dota2.exe` is running
+with `MainWindowHandle = 0` even while the user can see Dota 2 and the application can capture it.
+
+Run Win32 window enumeration and any real capture smoke test with an elevated user session or an
+approved `require_escalated` shell command. The elevation is required for test observation of the
+interactive desktop; it is not a requirement that the production application run as administrator.
+Use a read-only justification such as "allow the native Dota 2 window capture smoke test to inspect
+the interactive desktop and return an in-memory PNG". Do not treat a non-elevated empty HWND result
+as evidence that Dota 2 is unfocused, missing, or unsupported.
+
+The capture path does not require Dota 2 to be the foreground window. A valid smoke test should use
+a visible, restored window in windowed or borderless mode, allow the OMG-Draft-Seer window to be
+foreground if the capture button is used, and verify that the returned PNG has non-zero dimensions.
+Minimized, DWM-cloaked, exclusive-fullscreen, protected, or non-presenting game surfaces may still
+fail by design; report those separately from a sandbox window-enumeration failure.
+
+For a focused native check, record all of the following:
+
+1. The elevated/non-elevated execution context.
+2. The Dota process ID and verified HWND, preferably including `SDL_app`, title, and client size.
+3. Whether Dota 2 was foreground or background during capture.
+4. The native result and PNG dimensions/byte presence; keep the image in memory unless a fixture is
+   explicitly requested.
+
+After the smoke test, stop only the exact debug/Vite/Cargo processes started for the run and confirm
+that ports `5173`, `4173`, and `4445` are released.
+
 ## Vite URL Debugging
 
 ### Development URL
@@ -367,6 +398,10 @@ behavior changes:
 - `npm run test:tauri`: passed; all 5 native E2E cases passed. WDIO still printed an
   after-session `Failed to clear mock store: ... sessionId` warning, but the session exited with
   code 0 and no validation case failed.
+- Elevated native Dota 2 capture smoke test: passed on 2026-08-03 against a background borderless
+  `SDL_app` window at `2560x1440`; the PNG was returned in memory without requiring Dota 2 focus.
+  The same window was invisible to the ordinary managed sandbox probe, so that probe is
+  inconclusive when it reports no HWND.
 - `npm run format:rust:check`, `npm run lint:rust`, and `npm run verify:runtime`: passed.
 - `npm run format:check`: blocked by the existing workspace formatting baseline; it reported 95
   files and was not treated as a native compile failure.

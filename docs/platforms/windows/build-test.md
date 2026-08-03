@@ -259,8 +259,10 @@ not fail the build, but route or page-level lazy loading remains a follow-up opt
 - Recognition projects the resource-defined layout from the screenshot resolution, treats narrow
   screenshots as centered `4:3` letterboxed viewports, and retains manual fixed-layout calibration
   as a fallback.
-- The application does not capture or follow the game window. Its phase-1 Desktop overlay registers
-  one configurable OS-global shortcut for the recommendation overlay, with Trigger and Hold modes.
+- The analysis page can explicitly capture one eligible visible `dota2.exe` window as a one-shot
+  screenshot source. The application does not automatically follow the game window or attach its
+  phase-1 Desktop overlay to it; that overlay registers one configurable OS-global shortcut for the
+  recommendation overlay, with Trigger and Hold modes.
 - Native Tier and recommendation overlays are user-opened Desktop analysis views, not automatic
   Game-attached HUD tracking. The internal layout overlay kind is not exposed as a separate user
   control.

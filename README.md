@@ -25,8 +25,9 @@ statistics, and generate a data-backed recommendation.
   only when its window is focused.
 - Closing the desktop main window hides it to the system tray. Use the tray icon to restore it or
   the tray menu to quit; an optional setting starts the app minimized after sign-in.
-- The app does not capture or attach overlays to the game window. A phase-2 Game-attached overlay
-  remains a future design, not a shipped capability.
+- On Windows desktop, the analysis page can explicitly capture one eligible visible `dota2.exe`
+  window as a one-shot screenshot source. Automatic game-window tracking and Game-attached overlays
+  remain future capabilities, not shipped behavior.
 - Static interface text supports 简体中文 and English. Chinese is the first-run default; the header selector persists the choice locally and synchronizes open desktop overlays.
 
 ## Quick Start
