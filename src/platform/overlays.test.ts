@@ -28,8 +28,6 @@ const overlayState: OverlayState = {
   candidatePools: { heroIds: [], abilityIds: [], ultimateIds: [] },
   combinationRecommendations: [],
   locale: 'zh-CN',
-  recommendations: [],
-  selectedIds: [],
   tierCategory: 'all',
   tierQuery: '',
 }

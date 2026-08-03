@@ -15,6 +15,8 @@ use tauri_plugin_global_shortcut::{
     Code, GlobalShortcutExt, Shortcut, ShortcutEvent, ShortcutState,
 };
 
+mod capture;
+
 const MAX_LAYOUT_OVERLAY_DIMENSION: u32 = 16_384;
 const AUTOSTART_ARG: &str = "--minimized";
 const OVERLAY_VISIBILITY_EVENT: &str = "omg-draft-seer-overlay-visibility";
@@ -1807,7 +1809,8 @@ pub fn run() {
             set_overlay_interaction_region,
             set_overlay_viewport,
             set_overlay_shortcut,
-            get_overlay_shortcut_status
+            get_overlay_shortcut_status,
+            capture::capture_dota2_screenshot
         ])
         .build(tauri::generate_context!())
         .expect("error while building OMG-Draft-Seer");

@@ -141,7 +141,7 @@ export function TierListPage({
       <PageHeader
         titleId="tier-page-title"
         eyebrow={t('tiers.step')}
-        title={t('tiers.title')}
+        title={t('nav.database')}
         description={
           <>
             {t('common.patch')} {snapshot.patch} ·{' '}
@@ -151,7 +151,6 @@ export function TierListPage({
         aside={
           <>
             <Layers size={21} aria-hidden="true" />
-            <span>{t('tiers.percentile')}</span>
             <OverlayToggleButton
               kind="recommendation"
               open={overlayOpen}

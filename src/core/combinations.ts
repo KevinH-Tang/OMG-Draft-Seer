@@ -2,6 +2,7 @@ import type {
   Ability,
   AbilityStats,
   CombinationRecommendation,
+  RecognizedSlot,
   Snapshot,
 } from '../types'
 import {
@@ -16,6 +17,62 @@ import {
 } from './pairs'
 
 const ABILITIES_MAP_CACHE = new WeakMap<Ability[], Map<number, Ability>>()
+
+export interface CombinationRecommendationOptions {
+  limit: number
+  minWinRate: number
+  minSynergy: number
+}
+
+export const MAX_COMBINATION_RECOMMENDATIONS = 30
+
+export const DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS: CombinationRecommendationOptions =
+  {
+    limit: MAX_COMBINATION_RECOMMENDATIONS,
+    minWinRate: 0.55,
+    minSynergy: 0.05,
+  }
+
+export function normalizeCombinationRecommendationOptions(
+  value: unknown,
+): CombinationRecommendationOptions {
+  if (!value || typeof value !== 'object')
+    return DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS
+  const options = value as Partial<CombinationRecommendationOptions>
+  return {
+    limit:
+      Number.isFinite(options.limit) && Number(options.limit) > 0
+        ? Math.min(
+            Math.floor(Number(options.limit)),
+            MAX_COMBINATION_RECOMMENDATIONS,
+          )
+        : DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS.limit,
+    minWinRate:
+      Number.isFinite(options.minWinRate) &&
+      Number(options.minWinRate) >= 0 &&
+      Number(options.minWinRate) <= 1
+        ? Number(options.minWinRate)
+        : DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS.minWinRate,
+    minSynergy:
+      Number.isFinite(options.minSynergy) &&
+      Number(options.minSynergy) >= -1 &&
+      Number(options.minSynergy) <= 1
+        ? Number(options.minSynergy)
+        : DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS.minSynergy,
+  }
+}
+
+export function collectConfirmedCombinationCandidateIds(
+  slots: readonly RecognizedSlot[],
+): number[] {
+  return [
+    ...new Set(
+      slots.flatMap((slot) =>
+        slot.selectedAbilityId === undefined ? [] : [slot.selectedAbilityId],
+      ),
+    ),
+  ]
+}
 
 function buildAbilitiesMap(abilities: Ability[]): Map<number, Ability> {
   const cached = ABILITIES_MAP_CACHE.get(abilities)
@@ -71,10 +128,9 @@ function recommendAbilityCombinationsInternal(
   candidateIds: readonly number[],
   selectedIds: readonly number[],
   snapshot: Snapshot,
-  limit: number,
-  type?: CombinationRecommendation['type'],
+  options: CombinationRecommendationOptions,
 ): CombinationRecommendation[] {
-  if (limit <= 0) return []
+  if (options.limit <= 0) return []
 
   const candidateSet = new Set([...candidateIds, ...selectedIds])
   const stats = buildAbilityStatsMap(snapshot.abilityStats)
@@ -82,9 +138,7 @@ function recommendAbilityCombinationsInternal(
   const selectedSet = new Set(selectedIds)
   const recommendations: CombinationRecommendation[] = []
 
-  for (const pair of type === 'triple'
-    ? []
-    : buildPairStatsMap(snapshot.pairStats).values()) {
+  for (const pair of buildPairStatsMap(snapshot.pairStats).values()) {
     if (
       pair.picks < MIN_ABILITY_PAIR_PICKS ||
       !candidateSet.has(pair.abilityIdOne) ||
@@ -105,9 +159,9 @@ function recommendAbilityCombinationsInternal(
     if (recommendation) recommendations.push(recommendation)
   }
 
-  for (const triple of type === 'pair'
-    ? []
-    : buildTripletStatsMap(snapshot.tripletStats ?? []).values()) {
+  for (const triple of buildTripletStatsMap(
+    snapshot.tripletStats ?? [],
+  ).values()) {
     if (
       triple.picks < MIN_ABILITY_PAIR_PICKS ||
       !candidateSet.has(triple.abilityIdOne) ||
@@ -130,6 +184,11 @@ function recommendAbilityCombinationsInternal(
   }
 
   return recommendations
+    .filter(
+      (recommendation) =>
+        recommendation.winRate > options.minWinRate &&
+        recommendation.synergy > options.minSynergy,
+    )
     .sort(
       (left, right) =>
         right.score - left.score ||
@@ -139,33 +198,19 @@ function recommendAbilityCombinationsInternal(
         left.type.localeCompare(right.type) ||
         left.abilityIds.join(':').localeCompare(right.abilityIds.join(':')),
     )
-    .slice(0, limit)
+    .slice(0, options.limit)
 }
 
 export function recommendAbilityCombinations(
   candidateIds: readonly number[],
   selectedIds: readonly number[],
   snapshot: Snapshot,
-  limit = 8,
+  options: Partial<CombinationRecommendationOptions> = {},
 ): CombinationRecommendation[] {
   return recommendAbilityCombinationsInternal(
     candidateIds,
     selectedIds,
     snapshot,
-    limit,
-  )
-}
-
-export function recommendAbilityPairs(
-  candidateIds: readonly number[],
-  selectedIds: readonly number[],
-  snapshot: Snapshot,
-): CombinationRecommendation[] {
-  return recommendAbilityCombinationsInternal(
-    candidateIds,
-    selectedIds,
-    snapshot,
-    Number.MAX_SAFE_INTEGER,
-    'pair',
+    normalizeCombinationRecommendationOptions(options),
   )
 }

@@ -573,7 +573,7 @@ export function DraftReplayPage({
         <PageHeader
           titleId="draft-page-title"
           eyebrow={ui('draft.step')}
-          title={ui('draft.title')}
+          title={ui('nav.draft')}
           aside={
             <>
               <Play size={21} aria-hidden="true" />
@@ -634,7 +634,7 @@ export function DraftReplayPage({
       <PageHeader
         titleId="draft-page-title"
         eyebrow={ui('draft.step')}
-        title={ui('draft.title')}
+        title={ui('nav.draft')}
         description={
           <>
             {ui('common.patch')} {snapshot.patch} · {ui(poolSourceKey)} ·{' '}

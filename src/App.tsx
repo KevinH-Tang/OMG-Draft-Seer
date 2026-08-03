@@ -13,13 +13,13 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTranslation } from 'react-i18next'
 import {
   Bug,
-  CircleCheck,
   CircleAlert,
   Download,
   FolderOpen,
   GitFork,
   Layers,
   LayoutPanelTop,
+  MonitorDown,
   Play,
   RefreshCw,
   RotateCcw,
@@ -40,7 +40,6 @@ import {
   scaleLayoutToCanvas,
   scaleRect,
   slotLabel,
-  ULTIMATE_SLOT_ORDER,
   validateScreenshotDimensions,
   type LayoutDocument,
   type RuntimeSlot,
@@ -48,11 +47,13 @@ import {
 import { buildProjectedLayout, quadBounds } from './core/projective-layout'
 import { buildAbilityPairList, type AbilityPairEntry } from './core/pairs'
 import {
+  collectConfirmedCombinationCandidateIds,
+  DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS,
+  normalizeCombinationRecommendationOptions,
   recommendAbilityCombinations,
-  recommendAbilityPairs,
+  type CombinationRecommendationOptions,
 } from './core/combinations'
 import {
-  recommendBuilds,
   scoreDraftBuild,
   type BuildCandidatePools,
 } from './core/recommendation'
@@ -80,6 +81,11 @@ import {
   missingRuntimeCapabilities,
 } from './platform/capabilities'
 import { getBrowserFileAdapter } from './platform/files'
+import {
+  captureDota2Screenshot,
+  capturedScreenshotToFile,
+  isWindowsDesktopRuntime,
+} from './platform/capture'
 import {
   closeNativeOverlay,
   createOverlayChannel,
@@ -121,10 +127,7 @@ import {
   type OverlayShortcutMode,
   type OverlayShortcutModeRequestState,
 } from './platform/shortcuts'
-import {
-  BuildRecommendationsPage,
-  BUILD_PICK_GROUPS,
-} from './components/BuildRecommendationsPage'
+import { BuildRecommendationsPage } from './components/BuildRecommendationsPage'
 import { DraftReplayPage } from './components/DraftReplayPage'
 import { DebugCropPreview } from './components/DebugCropPreview'
 import { ManualAbilityPool } from './components/ManualAbilityPool'
@@ -179,6 +182,7 @@ const LAYOUT_MODE_STORAGE_KEY = 'omg-layout-mode-v1'
 const LAYOUT_OVERRIDES_STORAGE_KEY = 'omg-layout-overrides-v1'
 const LAYOUT_FILE_STORAGE_KEY = 'omg-layout-file-v1'
 const LAYOUT_PROFILE_STORAGE_KEY = 'omg-layout-profile-v1'
+const COMBINATION_OPTIONS_STORAGE_KEY = 'omg-combination-options-v1'
 const OVERLAY_KINDS: OverlayKind[] = ['recommendation', 'tier', 'layout']
 
 type ImageSize = Pick<LayoutDocument, 'width' | 'height'>
@@ -252,12 +256,6 @@ function buildConfirmedDraftPool(
     pool[key].push(slot.selectedAbilityId)
   }
   return pool
-}
-
-function findCandidateGroup(candidatePools: BuildCandidatePools, id: number) {
-  return BUILD_PICK_GROUPS.find((group) =>
-    candidatePools[group.key].includes(id),
-  )
 }
 
 function hasManualLayout(
@@ -379,6 +377,7 @@ function MainApp() {
   const storage = useMemo(getBrowserStorage, [])
   const fileAdapter = useMemo(getBrowserFileAdapter, [])
   const runtimeCapabilities = useMemo(detectRuntimeCapabilities, [])
+  const windowsCaptureAvailable = useMemo(isWindowsDesktopRuntime, [])
   const inputRef = useRef<HTMLInputElement>(null)
   const [screenshotUrl, setScreenshotUrl] = useState<string>()
   const [slots, setSlots] = useState<RecognizedSlot[]>([])
@@ -386,7 +385,6 @@ function MainApp() {
   const [loading, setLoading] = useState(false)
   const [overlayRecognitionStatus, setOverlayRecognitionStatus] =
     useState<OverlayRecognitionStatus>('idle')
-  const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [snapshot, setSnapshot] = useState<Snapshot>(demoSnapshot)
   const [iconSignatures, setIconSignatures] = useState<IconSignature[]>([])
   const [tierCategory, setTierCategory] = useState<TierCategory>('all')
@@ -398,6 +396,20 @@ function MainApp() {
     direction: SortDirection
   }>({ key: 'synergy', direction: 'desc' })
   const [activePage, setActivePage] = useState<AppPage>('analysis')
+  const [combinationOptions, setCombinationOptions] =
+    useState<CombinationRecommendationOptions>(() => {
+      const storedOptions = normalizeCombinationRecommendationOptions(
+        readStoredJson(
+          storage,
+          COMBINATION_OPTIONS_STORAGE_KEY,
+          DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS,
+        ),
+      )
+      return {
+        ...storedOptions,
+        limit: DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS.limit,
+      }
+    })
   const nativeOverlayProjectionRef = useRef(closedOverlayProjection())
   const [overlayVisibility, setOverlayVisibility] = useState<
     Record<OverlayKind, boolean>
@@ -409,6 +421,7 @@ function MainApp() {
   const [debugSlotIndex, setDebugSlotIndex] = useState<number>()
   const [manualSlotIndex, setManualSlotIndex] = useState<number>()
   const [uploadedFile, setUploadedFile] = useState<File>()
+  const [capturingDota2, setCapturingDota2] = useState(false)
   const [imageSize, setImageSize] = useState<ImageSize>(DEFAULT_IMAGE_SIZE)
   const [calibrationOpen, setCalibrationOpen] = useState(false)
   const [layoutMode, setLayoutMode] = useState<LayoutMode>(() =>
@@ -483,6 +496,14 @@ function MainApp() {
       .then(setSnapshot)
       .catch(() => setError(t('errors.snapshotUnavailable')))
   }, [])
+
+  useEffect(() => {
+    writeStoredJson(
+      storage,
+      COMBINATION_OPTIONS_STORAGE_KEY,
+      combinationOptions,
+    )
+  }, [combinationOptions, storage])
 
   useEffect(() => {
     fetch(appResourceUrl('/data/icon-signatures.json'))
@@ -577,7 +598,6 @@ function MainApp() {
     [abilitiesById],
   )
   const deferredSlots = useDeferredValue(slots)
-  const deferredSelectedIds = useDeferredValue(selectedIds)
   const candidateTierInfo = useMemo(() => {
     const tiers = new Map<number, { rank: number; tier: AbilityTier }>()
     for (const category of ['hero', 'ability', 'ultimate'] as const) {
@@ -597,46 +617,17 @@ function MainApp() {
       ),
     [snapshot],
   )
-  const candidatePools = useMemo<BuildCandidatePools>(() => {
-    return collectCandidatePools(slots, candidateTierInfo, abilitiesById)
-  }, [abilitiesById, candidateTierInfo, slots])
   const overlayCandidatePools = useMemo(
     () => collectCandidatePools(slots, candidateTierInfo, abilitiesById, true),
     [abilitiesById, candidateTierInfo, slots],
   )
-  const deferredCandidatePools = useDeferredValue(candidatePools)
   const combinationCandidateIds = useMemo(
-    () => [
-      ...new Set([
-        ...candidatePools.heroIds,
-        ...candidatePools.abilityIds,
-        ...candidatePools.ultimateIds,
-        ...slots.flatMap((slot) =>
-          slot.candidates.slice(0, 3).map((candidate) => candidate.abilityId),
-        ),
-      ]),
-    ],
-    [candidatePools, slots],
+    () => collectConfirmedCombinationCandidateIds(slots),
+    [slots],
   )
   const deferredCombinationCandidateIds = useDeferredValue(
     combinationCandidateIds,
   )
-  useEffect(() => {
-    setSelectedIds((current) => {
-      const selectedCounts: Record<keyof BuildCandidatePools, number> = {
-        heroIds: 0,
-        abilityIds: 0,
-        ultimateIds: 0,
-      }
-      const next = current.filter((id) => {
-        const group = findCandidateGroup(candidatePools, id)
-        if (!group || selectedCounts[group.key] >= group.limit) return false
-        selectedCounts[group.key] += 1
-        return true
-      })
-      return next.length === current.length ? current : next
-    })
-  }, [candidatePools])
   const fixedLayout = useMemo(
     () =>
       buildScaledLayout(
@@ -684,38 +675,22 @@ function MainApp() {
       }),
     [layoutOverlaySlots, overlayTierInfo, overlayTopTenIds, slots],
   )
-  const recommendations = useMemo(
-    () =>
-      recommendBuilds(deferredCandidatePools, deferredSelectedIds, snapshot),
-    [deferredCandidatePools, deferredSelectedIds, snapshot],
-  )
   const combinationRecommendations = useMemo(
     () =>
       recommendAbilityCombinations(
         deferredCombinationCandidateIds,
-        deferredSelectedIds,
+        [],
         snapshot,
+        combinationOptions,
       ),
-    [deferredCombinationCandidateIds, deferredSelectedIds, snapshot],
-  )
-  const overlayPairRecommendations = useMemo(
-    () =>
-      recommendAbilityPairs(
-        deferredCombinationCandidateIds,
-        deferredSelectedIds,
-        snapshot,
-      ),
-    [deferredCombinationCandidateIds, deferredSelectedIds, snapshot],
+    [combinationOptions, deferredCombinationCandidateIds, snapshot],
   )
   const overlayState = useMemo<OverlayState>(
     () => ({
       recognitionStatus: overlayRecognitionStatus,
       candidatePools: overlayCandidatePools,
       combinationRecommendations,
-      pairRecommendations: overlayPairRecommendations,
       locale,
-      recommendations,
-      selectedIds,
       tierCategory,
       tierQuery,
       layout: layoutOverlaySlots,
@@ -726,10 +701,7 @@ function MainApp() {
       overlayRecognitionStatus,
       overlayCandidatePools,
       combinationRecommendations,
-      overlayPairRecommendations,
       locale,
-      recommendations,
-      selectedIds,
       tierCategory,
       tierQuery,
       imageSize,
@@ -932,7 +904,6 @@ function MainApp() {
     setUploadedFile(file)
     setError(undefined)
     setSlots([])
-    setSelectedIds([])
     setManualSlotIndex(undefined)
     setCalibrationOpen(true)
     setLoading(true)
@@ -1011,7 +982,12 @@ function MainApp() {
           finishWorker()
           return
         }
-        setSlots(event.data.slots)
+        setSlots(
+          event.data.slots.map((slot) => ({
+            ...slot,
+            selectedAbilityId: slot.candidates[0]?.abilityId,
+          })),
+        )
         setOverlayRecognitionStatus('ready')
         setDebugSlotIndex(0)
         setLoading(false)
@@ -1054,6 +1030,20 @@ function MainApp() {
       setError(t('errors.unreadableScreenshot'))
       setOverlayRecognitionStatus('error')
       setLoading(false)
+    }
+  }
+
+  async function handleDota2Capture() {
+    if (!windowsCaptureAvailable || capturingDota2) return
+    setCapturingDota2(true)
+    setError(undefined)
+    try {
+      const capture = await captureDota2Screenshot()
+      await handleUpload(capturedScreenshotToFile(capture))
+    } catch {
+      setError(t('errors.dota2CaptureFailed'))
+    } finally {
+      setCapturingDota2(false)
     }
   }
 
@@ -1296,19 +1286,6 @@ function MainApp() {
     )
   }
 
-  function acceptSuggestions() {
-    setSlots((current) => {
-      let changed = false
-      const next = current.map((slot) => {
-        const selectedAbilityId = slot.candidates[0]?.abilityId
-        if (slot.selectedAbilityId === selectedAbilityId) return slot
-        changed = true
-        return { ...slot, selectedAbilityId }
-      })
-      return changed ? next : current
-    })
-  }
-
   const handleManualOpenChange = useCallback(
     (slotIndex: number, open: boolean) => {
       setManualSlotIndex(open ? slotIndex : undefined)
@@ -1323,18 +1300,6 @@ function MainApp() {
     },
     [],
   )
-
-  function toggleSelected(id: number) {
-    const group = findCandidateGroup(candidatePools, id)
-    if (!group) return
-    setSelectedIds((current) => {
-      if (current.includes(id)) return current.filter((item) => item !== id)
-      const selectedInGroup = current.filter((item) =>
-        candidatePools[group.key].includes(item),
-      )
-      return selectedInGroup.length < group.limit ? [...current, id] : current
-    })
-  }
 
   function sortPairEntries(key: PairSortKey) {
     setPairSort((current) => {
@@ -1369,30 +1334,6 @@ function MainApp() {
           (candidate) => candidate.abilityId === expectedAbilityId,
         )
       : -1
-  const analysisSlots = useMemo(() => {
-    const heroes = slots.filter((slot) => slot.category === 'hero')
-    const abilities = slots.filter((slot) => slot.category === 'ability')
-    const ultimates = slots.filter((slot) => slot.category === 'ultimate')
-    const orderedUltimates = ULTIMATE_SLOT_ORDER.map(
-      (position) => ultimates[position],
-    ).filter((slot): slot is RecognizedSlot => slot !== undefined)
-    const rowCount = Math.max(
-      heroes.length,
-      Math.ceil(abilities.length / 3),
-      ultimates.length,
-    )
-
-    return Array.from({ length: rowCount }, (_, row) => [
-      heroes[row],
-      abilities[row * 3],
-      abilities[row * 3 + 1],
-      abilities[row * 3 + 2],
-      orderedUltimates[row],
-    ])
-      .flat()
-      .filter((slot): slot is RecognizedSlot => slot !== undefined)
-  }, [slots])
-
   function updateReplayStep(step: number) {
     const maxStep = draftSimulation?.frames.at(-1)?.step ?? 0
     const nextStep = Math.max(0, Math.min(maxStep, Math.round(step)))
@@ -1637,7 +1578,7 @@ function MainApp() {
               {activePage === 'layout' && (
                 <div className="mt-5 border-t border-border-subtle pt-[18px]">
                   <p className="eyebrow">{t('layout.step')}</p>
-                  <h2>{t('layout.title')}</h2>
+                  <h2>{t('nav.layout')}</h2>
                 </div>
               )}
               <input
@@ -1652,14 +1593,37 @@ function MainApp() {
               />
               {!screenshotUrl ? (
                 activePage === 'analysis' ? (
-                  <button
-                    className="mt-[18px] grid min-h-[245px] w-full place-content-center place-items-center gap-2 rounded-md border border-dashed border-border-strong bg-surface text-center text-text-muted transition-colors hover:border-accent hover:bg-surface-raised"
-                    onClick={() => inputRef.current?.click()}
-                  >
-                    <Upload size={25} />
-                    <span>{t('analysis.uploadScreenshot')}</span>
-                    <small>{t('analysis.uploadHint')}</small>
-                  </button>
+                  <div className="mt-[18px] grid gap-2 min-[700px]:grid-cols-2">
+                    <button
+                      className={cn(
+                        'grid min-h-[220px] w-full place-content-center place-items-center gap-2 rounded-md border border-dashed border-border-strong bg-surface text-center text-text-muted transition-colors hover:border-accent hover:bg-surface-raised',
+                        !windowsCaptureAvailable && 'min-[700px]:col-span-2',
+                      )}
+                      type="button"
+                      onClick={() => inputRef.current?.click()}
+                    >
+                      <Upload size={25} />
+                      <span>{t('analysis.uploadScreenshot')}</span>
+                      <small>{t('analysis.uploadHint')}</small>
+                    </button>
+                    {windowsCaptureAvailable && (
+                      <button
+                        className="grid min-h-[220px] w-full place-content-center place-items-center gap-2 rounded-md border border-dashed border-accent bg-accent-soft text-center text-text transition-colors hover:border-accent hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-60"
+                        data-testid="capture-dota2"
+                        type="button"
+                        disabled={capturingDota2 || loading}
+                        onClick={() => void handleDota2Capture()}
+                      >
+                        <MonitorDown size={25} />
+                        <span>
+                          {capturingDota2
+                            ? t('analysis.captureDota2Loading')
+                            : t('analysis.captureDota2')}
+                        </span>
+                        <small>{t('analysis.captureDota2Hint')}</small>
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <div className="mt-[18px] grid min-h-[245px] place-content-center gap-2 rounded-md border border-dashed border-border-strong bg-surface px-5 text-center text-text-muted">
                     <LayoutPanelTop size={24} />
@@ -1778,18 +1742,27 @@ function MainApp() {
                         </Tooltip.Content>
                       </Tooltip.Portal>
                     </Tooltip.Root>
-                    {activePage === 'analysis' && slots.length > 0 && (
+                    {activePage === 'analysis' && windowsCaptureAvailable && (
                       <Tooltip.Root>
                         <Tooltip.Trigger asChild>
                           <button
                             className="grid size-8 place-items-center self-start rounded-sm border border-border-strong bg-surface-raised text-text hover:border-accent hover:bg-accent-soft min-[600px]:justify-self-end"
-                            data-testid="accept-suggestions"
+                            data-testid="capture-dota2"
                             type="button"
-                            title={t('analysis.confirm')}
-                            aria-label={t('analysis.confirm')}
-                            onClick={acceptSuggestions}
+                            title={
+                              capturingDota2
+                                ? t('analysis.captureDota2Loading')
+                                : t('analysis.captureDota2')
+                            }
+                            aria-label={
+                              capturingDota2
+                                ? t('analysis.captureDota2Loading')
+                                : t('analysis.captureDota2')
+                            }
+                            disabled={capturingDota2 || loading}
+                            onClick={() => void handleDota2Capture()}
                           >
-                            <CircleCheck size={17} />
+                            <MonitorDown size={17} />
                           </button>
                         </Tooltip.Trigger>
                         <Tooltip.Portal>
@@ -1798,7 +1771,9 @@ function MainApp() {
                             side="right"
                             sideOffset={7}
                           >
-                            {t('analysis.confirm')}
+                            {capturingDota2
+                              ? t('analysis.captureDota2Loading')
+                              : t('analysis.captureDota2')}
                             <Tooltip.Arrow
                               className="fill-surface"
                               width={12}
@@ -1946,7 +1921,7 @@ function MainApp() {
 
               {activePage === 'analysis' && slots.length > 0 && (
                 <ManualAbilityPool
-                  slots={analysisSlots}
+                  slots={slots}
                   abilities={abilitiesById}
                   manualSlotIndex={manualSlotIndex}
                   onOpenChange={handleManualOpenChange}
@@ -2049,14 +2024,11 @@ function MainApp() {
 
         {activePage === 'build' && (
           <BuildRecommendationsPage
-            candidatePools={candidatePools}
-            candidateTierInfo={candidateTierInfo}
-            selectedIds={selectedIds}
             combinationRecommendations={combinationRecommendations}
-            recommendations={recommendations}
+            recommendationOptions={combinationOptions}
             abilities={abilitiesById}
             assistantOverlayOpen={overlayVisibility.recommendation}
-            onToggleSelected={toggleSelected}
+            onRecommendationOptionsChange={setCombinationOptions}
             onToggleOverlay={toggleOverlay}
           />
         )}

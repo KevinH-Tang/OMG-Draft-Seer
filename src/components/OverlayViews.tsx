@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { demoSnapshot } from '../data/demoSnapshot'
 import { isHeroAbility } from '../core/ability-category'
 import { cropCenter, FIXED_SLOT_LAYOUT, type RuntimeSlot } from '../core/layout'
-import { buildAbilityTierList, type TierEntry } from '../core/tiers'
+import { buildAbilityTierList, TIER_ORDER, type TierEntry } from '../core/tiers'
 import i18n from '../i18n'
 import {
   createOverlayChannel,
@@ -37,10 +37,7 @@ const EMPTY_OVERLAY_STATE: OverlayState = {
   recognitionStatus: 'idle',
   candidatePools: { heroIds: [], abilityIds: [], ultimateIds: [] },
   combinationRecommendations: [],
-  pairRecommendations: [],
   locale: 'zh-CN',
-  recommendations: [],
-  selectedIds: [],
   tierCategory: 'all',
   tierQuery: '',
   layout: [...FIXED_SLOT_LAYOUT],
@@ -54,12 +51,6 @@ function normalizeOverlayState(state: OverlayState | undefined): OverlayState {
         ...EMPTY_OVERLAY_STATE,
         ...state,
         combinationRecommendations: state.combinationRecommendations ?? [],
-        pairRecommendations:
-          state.pairRecommendations ??
-          state.combinationRecommendations?.filter(
-            (recommendation) => recommendation.type === 'pair',
-          ) ??
-          [],
       }
     : EMPTY_OVERLAY_STATE
 }
@@ -171,55 +162,20 @@ function LayoutOverlayView({ state }: { state: OverlayState }) {
   )
 }
 
-function OverlayTierRow({
-  entry,
-  index,
-  fill,
-}: {
-  entry: TierEntry
-  index: number
-  fill: number
-}) {
+function OverlayTierAbility({ entry }: { entry: TierEntry }) {
   const isHero = isHeroAbility(entry.ability)
-  const tierColor = TIER_STROKE_COLORS[entry.tier]
 
   return (
     <div
-      className="relative grid h-9 min-w-0 grid-cols-[20px_30px_minmax(0,1fr)_34px_52px] items-center gap-1.5 overflow-hidden border-t border-border-subtle px-1 text-[11px]"
+      className="size-8"
       title={`${entry.ability.name} · ${entry.tier} · ${(entry.winRate * 100).toFixed(1)}% ${ui('common.winRate')}`}
     >
-      <span
-        className="absolute inset-y-0 left-0 opacity-35"
-        style={{
-          width: `${fill}%`,
-          background: `linear-gradient(90deg, color-mix(in srgb, ${tierColor} 55%, transparent), transparent)`,
-        }}
-        aria-hidden="true"
-      />
-      <span className="relative font-mono text-[10px] text-text-muted">
-        {index + 1}
-      </span>
       <SkillIcon
-        compact
         abilityId={entry.ability.id}
         shortName={entry.ability.shortName}
         name={entry.ability.name}
         isHero={isHero}
       />
-      <strong className="relative truncate font-medium text-text">
-        {entry.ability.name}
-      </strong>
-      <span
-        className={cn(
-          'relative grid size-5 place-items-center border border-current font-mono text-[10px] font-bold',
-          TIER_TEXT_CLASSES[entry.tier],
-        )}
-      >
-        {entry.tier}
-      </span>
-      <strong className="relative text-right font-mono text-[11px] text-text-strong">
-        {(entry.winRate * 100).toFixed(1)}%
-      </strong>
     </div>
   )
 }
@@ -260,9 +216,14 @@ function OverlayTierContent({
         ),
     [candidateIds, entriesById],
   )
-  const highestWinRate = visibleEntries[0]?.winRate ?? 0
-  const lowestWinRate = visibleEntries.at(-1)?.winRate ?? highestWinRate
-  const winRateRange = highestWinRate - lowestWinRate
+  const entriesByTier = useMemo(
+    () =>
+      TIER_ORDER.map((tier) => ({
+        tier,
+        entries: visibleEntries.filter((entry) => entry.tier === tier),
+      })).filter((group) => group.entries.length > 0),
+    [visibleEntries],
+  )
   const emptyMessage =
     state.recognitionStatus === 'recognizing'
       ? ui('overlay.recognizingScreenshot')
@@ -273,28 +234,27 @@ function OverlayTierContent({
           : ui('common.noCandidates')
 
   return (
-    <section className="mt-2" data-testid="overlay-tier-box">
-      <header className="flex items-center gap-2 pb-1.5 text-[11px] text-text-muted">
-        <strong className="text-xs text-text">
-          {ui('overlay.tier')} · {ui('common.winRate')}
-        </strong>
-        <span>{ui('overlay.currentCandidates')}</span>
-        <span className="font-mono">{visibleEntries.length}</span>
-        <span className="ml-auto">
-          {ui('common.patch')} {snapshot.patch}
-        </span>
-      </header>
-      {visibleEntries.map((entry, index) => (
-        <OverlayTierRow
-          key={entry.ability.id}
-          entry={entry}
-          index={index}
-          fill={
-            winRateRange === 0
-              ? 100
-              : 42 + ((entry.winRate - lowestWinRate) / winRateRange) * 58
-          }
-        />
+    <section className="mt-1" data-testid="overlay-tier-box">
+      {entriesByTier.map(({ tier, entries: tierEntries }) => (
+        <section
+          className="grid grid-cols-[32px_minmax(0,1fr)] items-start gap-1 border-t border-border-subtle py-1.5 first:border-t-0"
+          key={tier}
+          aria-label={ui('tiers.tierLabel', { tier })}
+        >
+          <strong
+            className={cn(
+              'grid size-8 place-items-center border border-current bg-accent-soft text-base leading-none',
+              TIER_TEXT_CLASSES[tier],
+            )}
+          >
+            {tier}
+          </strong>
+          <div className="flex min-w-0 flex-wrap items-start gap-1">
+            {tierEntries.map((entry) => (
+              <OverlayTierAbility key={entry.ability.id} entry={entry} />
+            ))}
+          </div>
+        </section>
       ))}
       {visibleEntries.length === 0 && (
         <p className="m-0 border-t border-border-subtle py-3 text-center text-[11px] text-text-muted">
@@ -312,10 +272,6 @@ function OverlayCombinationContent({
   recommendations: readonly CombinationRecommendation[]
   abilities: ReadonlyMap<number, Ability>
 }) {
-  const pairRecommendations = recommendations.filter(
-    (recommendation) => recommendation.type === 'pair',
-  )
-
   return (
     <section
       className="mt-3 border-t border-border pt-2"
@@ -323,15 +279,19 @@ function OverlayCombinationContent({
     >
       <header className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold text-text">
-          {ui('common.pair')} · {ui('overlay.recommendation')}
+          {ui('overlay.combinationRecommendations')}
         </span>
         <span className="font-mono text-[10px] text-text-muted">
-          {ui('common.score')}
+          {ui('common.combinationWinRate')}
         </span>
       </header>
-      {pairRecommendations.length > 0 ? (
-        <div className="grid gap-1.5 pt-1.5">
-          {pairRecommendations.map((recommendation, index) => (
+      {recommendations.length > 0 ? (
+        <div
+          className="mt-1.5 grid max-h-[465px] gap-1.5 overflow-y-auto overscroll-contain"
+          data-testid="overlay-combination-recommendations-scroll"
+          aria-label={ui('overlay.combinationRecommendations')}
+        >
+          {recommendations.map((recommendation, index) => (
             <article
               className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border-subtle pb-1.5 last:border-b-0 last:pb-0"
               key={`${recommendation.type}-${recommendation.abilityIds.join('-')}`}
@@ -429,9 +389,7 @@ export function FloatingOverlay({
           <OverlayTierContent state={state} snapshot={snapshot} />
           {!isTier && state.recognitionStatus === 'ready' && (
             <OverlayCombinationContent
-              recommendations={
-                state.pairRecommendations ?? state.combinationRecommendations
-              }
+              recommendations={state.combinationRecommendations}
               abilities={abilities}
             />
           )}

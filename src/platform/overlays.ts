@@ -3,7 +3,7 @@ import type { BuildCandidatePools } from '../core/recommendation'
 import type { RuntimeSlot } from '../core/layout'
 import type { AbilityTier, TierCategory } from '../core/tiers'
 import type { AppLocale } from '../i18n'
-import type { CombinationRecommendation, Recommendation } from '../types'
+import type { CombinationRecommendation } from '../types'
 import type { OverlayShortcutMode } from './shortcuts'
 
 export type OverlayKind = 'recommendation' | 'tier' | 'layout'
@@ -55,10 +55,7 @@ export interface OverlayState {
   recognitionStatus: OverlayRecognitionStatus
   candidatePools: BuildCandidatePools
   combinationRecommendations: CombinationRecommendation[]
-  pairRecommendations?: CombinationRecommendation[]
   locale: AppLocale
-  recommendations: Recommendation[]
-  selectedIds: number[]
   tierCategory: TierCategory
   tierQuery: string
   layout?: RuntimeSlot[]

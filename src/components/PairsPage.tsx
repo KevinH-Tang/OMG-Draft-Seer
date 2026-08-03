@@ -185,7 +185,7 @@ export function PairsPage({
       <PageHeader
         titleId="pairs-page-title"
         eyebrow={t('pairs.step')}
-        title={t('pairs.title')}
+        title={t('nav.pairs')}
         description={
           <>
             {t('common.patch')} {snapshot.patch} ·{' '}
