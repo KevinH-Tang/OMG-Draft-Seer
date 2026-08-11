@@ -1,30 +1,60 @@
-use serde::Serialize;
+const CAPTURE_PAYLOAD_MAGIC: &[u8; 4] = b"ODS1";
+const CAPTURE_PAYLOAD_HEADER_LEN: usize = 36;
 
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default)]
+struct CaptureTimings {
+    total_us: u32,
+    window_scan_us: u32,
+    setup_us: u32,
+    frame_wait_us: u32,
+    surface_copy_us: u32,
+    png_encode_us: u32,
+}
+
+#[derive(Clone, Debug)]
 pub struct CapturedScreenshot {
-    pub data: String,
-    pub mime_type: &'static str,
-    pub file_name: &'static str,
+    pub png: Vec<u8>,
     pub width: u32,
     pub height: u32,
+    timings: CaptureTimings,
+}
+
+impl CapturedScreenshot {
+    fn into_payload(self) -> Vec<u8> {
+        let mut payload = Vec::with_capacity(CAPTURE_PAYLOAD_HEADER_LEN + self.png.len());
+        payload.extend_from_slice(CAPTURE_PAYLOAD_MAGIC);
+        for value in [
+            self.width,
+            self.height,
+            self.timings.total_us,
+            self.timings.window_scan_us,
+            self.timings.setup_us,
+            self.timings.frame_wait_us,
+            self.timings.surface_copy_us,
+            self.timings.png_encode_us,
+        ] {
+            payload.extend_from_slice(&value.to_le_bytes());
+        }
+        payload.extend_from_slice(&self.png);
+        payload
+    }
 }
 
 #[cfg(target_os = "windows")]
 mod windows_capture {
-    use super::CapturedScreenshot;
-    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use super::{CaptureTimings, CapturedScreenshot};
     use std::{
         collections::HashMap,
         mem::size_of,
         path::Path,
+        sync::{mpsc, OnceLock},
         thread,
         time::{Duration, Instant},
     };
     use windows::{
         core::{factory, Interface, BOOL, PWSTR},
         Graphics::{
-            Capture::{Direct3D11CaptureFramePool, GraphicsCaptureItem},
+            Capture::{Direct3D11CaptureFramePool, GraphicsCaptureItem, GraphicsCaptureSession},
             DirectX::{Direct3D11::IDirect3DDevice, DirectXPixelFormat},
             Imaging::{BitmapEncoder, SoftwareBitmap},
             SizeInt32,
@@ -64,6 +94,29 @@ mod windows_capture {
     const FRAME_TIMEOUT: Duration = Duration::from_secs(3);
     const MIN_WINDOW_WIDTH: u32 = 320;
     const MIN_WINDOW_HEIGHT: u32 = 200;
+    const SESSION_IDLE_TIMEOUT: Duration = Duration::from_secs(2);
+
+    struct CaptureRequest {
+        response: mpsc::SyncSender<Result<CapturedScreenshot, String>>,
+    }
+
+    struct ActiveCapture {
+        hwnd: HWND,
+        process_identity: ProcessIdentity,
+        window_width: u32,
+        window_height: u32,
+        width: u32,
+        height: u32,
+        pool: Direct3D11CaptureFramePool,
+        session: GraphicsCaptureSession,
+    }
+
+    struct CaptureManager {
+        device: IDirect3DDevice,
+        active: Option<ActiveCapture>,
+    }
+
+    static CAPTURE_WORKER: OnceLock<mpsc::Sender<CaptureRequest>> = OnceLock::new();
 
     struct WinRtGuard {
         initialized: bool,
@@ -88,21 +141,209 @@ mod windows_capture {
     }
 
     pub fn capture() -> Result<CapturedScreenshot, String> {
-        let _runtime = WinRtGuard::new()?;
-        let window = find_dota2_window()?;
-        if !is_current_dota_window(&window) {
-            return Err(
-                "The Dota 2 window changed while it was being selected. Try again.".to_owned(),
-            );
+        let sender = CAPTURE_WORKER.get_or_init(|| {
+            let (sender, receiver) = mpsc::channel::<CaptureRequest>();
+            thread::Builder::new()
+                .name("omg-capture".to_owned())
+                .spawn(move || capture_worker(receiver))
+                .expect("failed to start screenshot capture worker");
+            sender
+        });
+        let (response, receiver) = mpsc::sync_channel(1);
+        sender
+            .send(CaptureRequest { response })
+            .map_err(|_| "the screenshot capture worker stopped".to_owned())?;
+        receiver
+            .recv()
+            .map_err(|_| "the screenshot capture worker stopped".to_owned())?
+    }
+
+    fn capture_worker(receiver: mpsc::Receiver<CaptureRequest>) {
+        let runtime = match WinRtGuard::new() {
+            Ok(runtime) => runtime,
+            Err(error) => {
+                while let Ok(request) = receiver.recv() {
+                    let _ = request.response.send(Err(error.clone()));
+                }
+                return;
+            }
+        };
+        let mut manager = match CaptureManager::new() {
+            Ok(manager) => manager,
+            Err(error) => {
+                while let Ok(request) = receiver.recv() {
+                    let _ = request.response.send(Err(error.clone()));
+                }
+                drop(runtime);
+                return;
+            }
+        };
+        loop {
+            let request = if manager.active.is_some() {
+                match receiver.recv_timeout(SESSION_IDLE_TIMEOUT) {
+                    Ok(request) => request,
+                    Err(mpsc::RecvTimeoutError::Timeout) => {
+                        manager.close_active();
+                        continue;
+                    }
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                }
+            } else {
+                match receiver.recv() {
+                    Ok(request) => request,
+                    Err(_) => break,
+                }
+            };
+            let result = manager.capture();
+            let _ = request.response.send(result);
         }
-        let (bytes, width, height) = capture_window(window.hwnd)?;
-        Ok(CapturedScreenshot {
-            data: STANDARD.encode(bytes),
-            mime_type: "image/png",
-            file_name: "dota2-capture.png",
-            width,
-            height,
-        })
+    }
+
+    impl CaptureManager {
+        fn new() -> Result<Self, String> {
+            Ok(Self {
+                device: create_graphics_device()?,
+                active: None,
+            })
+        }
+
+        fn close_active(&mut self) {
+            if let Some(active) = self.active.take() {
+                let _ = active.session.Close();
+                let _ = active.pool.Close();
+            }
+        }
+
+        fn capture(&mut self) -> Result<CapturedScreenshot, String> {
+            let started_at = Instant::now();
+            let window_scan_started_at = Instant::now();
+            let window = find_dota2_window()?;
+            let window_scan_us = elapsed_us(window_scan_started_at);
+            if !is_current_dota_window(&window) {
+                return Err(
+                    "The Dota 2 window changed while it was being selected. Try again.".to_owned(),
+                );
+            }
+            let mut screenshot = self.capture_window(&window)?;
+            screenshot.timings.window_scan_us = window_scan_us;
+            screenshot.timings.total_us = elapsed_us(started_at);
+            Ok(screenshot)
+        }
+
+        fn capture_window(
+            &mut self,
+            window: &WindowCandidate,
+        ) -> Result<CapturedScreenshot, String> {
+            let setup_started_at = Instant::now();
+            let reuse = self.active.as_ref().is_some_and(|active| {
+                active.hwnd == window.hwnd
+                    && active.process_identity.matches(&window.process_identity)
+                    && active.window_width == window.width
+                    && active.window_height == window.height
+            });
+            if !reuse {
+                self.close_active();
+                let interop: IGraphicsCaptureItemInterop = factory::<GraphicsCaptureItem, _>()
+                    .map_err(|error| {
+                        format!("failed to access the capture item factory: {error}")
+                    })?;
+                let item: GraphicsCaptureItem = unsafe { interop.CreateForWindow(window.hwnd) }
+                    .map_err(|error| {
+                        format!("failed to create a capture item for Dota 2: {error}")
+                    })?;
+                let item_size = item
+                    .Size()
+                    .map_err(|error| format!("failed to read the Dota 2 window size: {error}"))?;
+                let width = u32::try_from(item_size.Width)
+                    .ok()
+                    .filter(|value| *value > 0)
+                    .ok_or_else(|| "Dota 2 returned an invalid window width.".to_owned())?;
+                let height = u32::try_from(item_size.Height)
+                    .ok()
+                    .filter(|value| *value > 0)
+                    .ok_or_else(|| "Dota 2 returned an invalid window height.".to_owned())?;
+                let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(
+                    &self.device,
+                    DirectXPixelFormat::B8G8R8A8UIntNormalized,
+                    2,
+                    SizeInt32 {
+                        Width: width as i32,
+                        Height: height as i32,
+                    },
+                )
+                .map_err(|error| format!("failed to create the capture frame pool: {error}"))?;
+                let session = pool
+                    .CreateCaptureSession(&item)
+                    .map_err(|error| format!("failed to create the capture session: {error}"))?;
+                let _ = session.SetIsCursorCaptureEnabled(false);
+                session
+                    .StartCapture()
+                    .map_err(|error| format!("failed to start Dota 2 capture: {error}"))?;
+                self.active = Some(ActiveCapture {
+                    hwnd: window.hwnd,
+                    process_identity: window.process_identity.clone(),
+                    window_width: window.width,
+                    window_height: window.height,
+                    width,
+                    height,
+                    pool,
+                    session,
+                });
+            }
+            let setup_us = elapsed_us(setup_started_at);
+            let frame_wait_started_at = Instant::now();
+            let deadline = Instant::now() + FRAME_TIMEOUT;
+            let frame = loop {
+                let active = self.active.as_ref().expect("active capture should exist");
+                match active.pool.TryGetNextFrame() {
+                    Ok(frame) => break frame,
+                    Err(error) if Instant::now() >= deadline => {
+                        self.close_active();
+                        return Err(format!("timed out waiting for the Dota 2 frame: {error}"));
+                    }
+                    Err(_) => {}
+                }
+                thread::sleep(Duration::from_millis(10));
+            };
+            let frame_wait_us = elapsed_us(frame_wait_started_at);
+            let surface = frame
+                .Surface()
+                .map_err(|error| format!("failed to read the captured surface: {error}"))?;
+            let surface_copy_started_at = Instant::now();
+            let bitmap = SoftwareBitmap::CreateCopyFromSurfaceAsync(&surface)
+                .map_err(|error| format!("failed to prepare the captured bitmap: {error}"))?
+                .get()
+                .map_err(|error| format!("failed to convert the captured bitmap: {error}"))?;
+            let surface_copy_us = elapsed_us(surface_copy_started_at);
+            let png_encode_started_at = Instant::now();
+            let png = encode_png(&bitmap)?;
+            let png_encode_us = elapsed_us(png_encode_started_at);
+            let _ = frame.Close();
+            Ok(CapturedScreenshot {
+                png,
+                width: self
+                    .active
+                    .as_ref()
+                    .expect("active capture should exist")
+                    .width,
+                height: self
+                    .active
+                    .as_ref()
+                    .expect("active capture should exist")
+                    .height,
+                timings: CaptureTimings {
+                    setup_us,
+                    frame_wait_us,
+                    surface_copy_us,
+                    png_encode_us,
+                    ..CaptureTimings::default()
+                },
+            })
+        }
+    }
+
+    fn elapsed_us(started_at: Instant) -> u32 {
+        u32::try_from(started_at.elapsed().as_micros()).unwrap_or(u32::MAX)
     }
 
     #[derive(Clone, Debug, PartialEq, Eq)]
@@ -392,66 +633,6 @@ mod windows_capture {
             .map_err(|error| format!("failed to cast the Windows Graphics device: {error}"))
     }
 
-    fn capture_window(window: HWND) -> Result<(Vec<u8>, u32, u32), String> {
-        let interop: IGraphicsCaptureItemInterop = factory::<GraphicsCaptureItem, _>()
-            .map_err(|error| format!("failed to access the capture item factory: {error}"))?;
-        let item: GraphicsCaptureItem = unsafe { interop.CreateForWindow(window) }
-            .map_err(|error| format!("failed to create a capture item for Dota 2: {error}"))?;
-        let item_size = item
-            .Size()
-            .map_err(|error| format!("failed to read the Dota 2 window size: {error}"))?;
-        let width = u32::try_from(item_size.Width)
-            .ok()
-            .filter(|value| *value > 0)
-            .ok_or_else(|| "Dota 2 returned an invalid window width.".to_owned())?;
-        let height = u32::try_from(item_size.Height)
-            .ok()
-            .filter(|value| *value > 0)
-            .ok_or_else(|| "Dota 2 returned an invalid window height.".to_owned())?;
-        let device = create_graphics_device()?;
-        let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(
-            &device,
-            DirectXPixelFormat::B8G8R8A8UIntNormalized,
-            2,
-            SizeInt32 {
-                Width: width as i32,
-                Height: height as i32,
-            },
-        )
-        .map_err(|error| format!("failed to create the capture frame pool: {error}"))?;
-        let session = pool
-            .CreateCaptureSession(&item)
-            .map_err(|error| format!("failed to create the capture session: {error}"))?;
-        let _ = session.SetIsCursorCaptureEnabled(false);
-        session
-            .StartCapture()
-            .map_err(|error| format!("failed to start Dota 2 capture: {error}"))?;
-
-        let deadline = Instant::now() + FRAME_TIMEOUT;
-        let frame = loop {
-            match pool.TryGetNextFrame() {
-                Ok(frame) => break frame,
-                Err(error) if Instant::now() >= deadline => {
-                    return Err(format!("timed out waiting for the Dota 2 frame: {error}"));
-                }
-                Err(_) => {}
-            }
-            thread::sleep(Duration::from_millis(10));
-        };
-        let surface = frame
-            .Surface()
-            .map_err(|error| format!("failed to read the captured surface: {error}"))?;
-        let bitmap = SoftwareBitmap::CreateCopyFromSurfaceAsync(&surface)
-            .map_err(|error| format!("failed to prepare the captured bitmap: {error}"))?
-            .get()
-            .map_err(|error| format!("failed to convert the captured bitmap: {error}"))?;
-        let bytes = encode_png(&bitmap)?;
-        let _ = frame.Close();
-        let _ = session.Close();
-        let _ = pool.Close();
-        Ok((bytes, width, height))
-    }
-
     fn encode_png(bitmap: &SoftwareBitmap) -> Result<Vec<u8>, String> {
         let stream = InMemoryRandomAccessStream::new()
             .map_err(|error| format!("failed to create an in-memory stream: {error}"))?;
@@ -590,14 +771,47 @@ mod windows_capture {
 
 #[cfg(target_os = "windows")]
 #[tauri::command]
-pub async fn capture_dota2_screenshot() -> Result<CapturedScreenshot, String> {
-    tauri::async_runtime::spawn_blocking(windows_capture::capture)
+pub async fn capture_dota2_screenshot() -> Result<tauri::ipc::Response, String> {
+    let screenshot = tauri::async_runtime::spawn_blocking(windows_capture::capture)
         .await
-        .map_err(|error| error.to_string())?
+        .map_err(|error| error.to_string())??;
+    Ok(tauri::ipc::Response::new(screenshot.into_payload()))
 }
 
 #[cfg(not(target_os = "windows"))]
 #[tauri::command]
-pub async fn capture_dota2_screenshot() -> Result<CapturedScreenshot, String> {
+pub async fn capture_dota2_screenshot() -> Result<tauri::ipc::Response, String> {
     Err("Dota 2 window capture is only available on Windows desktop.".to_owned())
+}
+
+#[cfg(test)]
+mod payload_tests {
+    use super::{CaptureTimings, CapturedScreenshot};
+
+    #[test]
+    fn binary_payload_contains_dimensions_timings_and_png() {
+        let payload = CapturedScreenshot {
+            png: vec![137, 80, 78, 71],
+            width: 1920,
+            height: 1080,
+            timings: CaptureTimings {
+                total_us: 12_000,
+                window_scan_us: 1_000,
+                setup_us: 2_000,
+                frame_wait_us: 3_000,
+                surface_copy_us: 4_000,
+                png_encode_us: 5_000,
+            },
+        }
+        .into_payload();
+
+        assert_eq!(&payload[0..4], b"ODS1");
+        assert_eq!(u32::from_le_bytes(payload[4..8].try_into().unwrap()), 1920);
+        assert_eq!(u32::from_le_bytes(payload[8..12].try_into().unwrap()), 1080);
+        assert_eq!(
+            u32::from_le_bytes(payload[12..16].try_into().unwrap()),
+            12_000
+        );
+        assert_eq!(&payload[36..], &[137, 80, 78, 71]);
+    }
 }

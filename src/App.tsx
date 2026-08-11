@@ -2,9 +2,11 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  lazy,
   useMemo,
   useRef,
   useState,
+  Suspense,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import * as AlertDialog from '@radix-ui/react-alert-dialog'
@@ -50,7 +52,7 @@ import {
   collectConfirmedCombinationCandidateIds,
   DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS,
   normalizeCombinationRecommendationOptions,
-  recommendAbilityCombinations,
+  recommendAbilityCombinationGroups,
   type CombinationRecommendationOptions,
 } from './core/combinations'
 import {
@@ -63,7 +65,10 @@ import {
   type DraftStrategyId,
   type InitialDraftPool,
 } from './core/draft-state'
-import { createDraftStrategyMap, simulateDraft } from './core/draft-tree'
+import {
+  createDraftStrategyMap,
+  type DraftSimulationResult,
+} from './core/draft-tree'
 import {
   isSupportedScreenshotFile,
   SCREENSHOT_FILE_ACCEPT,
@@ -80,7 +85,13 @@ import {
   detectRuntimeCapabilities,
   missingRuntimeCapabilities,
 } from './platform/capabilities'
+import { RecognitionWorkerClient } from './core/recognition-worker-client'
 import { getBrowserFileAdapter } from './platform/files'
+import {
+  listenWindrunSnapshotUpdated,
+  loadRuntimeSnapshot,
+  updateWindrunSnapshot,
+} from './platform/data-update'
 import {
   captureDota2Screenshot,
   capturedScreenshotToFile,
@@ -127,19 +138,12 @@ import {
   type OverlayShortcutMode,
   type OverlayShortcutModeRequestState,
 } from './platform/shortcuts'
-import { BuildRecommendationsPage } from './components/BuildRecommendationsPage'
-import { DraftReplayPage } from './components/DraftReplayPage'
 import { DebugCropPreview } from './components/DebugCropPreview'
 import { ManualAbilityPool } from './components/ManualAbilityPool'
 import { FloatingOverlay, OverlayApp } from './components/OverlayViews'
-import {
-  PairsPage,
-  type PairSortKey,
-  type SortDirection,
-} from './components/PairsPage'
+import { type PairSortKey, type SortDirection } from './components/PairsPage'
 import { SkillIcon } from './components/SkillIcon'
-import { SettingsPage, type LayoutMode } from './components/SettingsPage'
-import { TierListPage } from './components/TierListPage'
+import type { LayoutMode } from './components/SettingsPage'
 import i18n, { toAppLocale } from './i18n'
 import { cn } from './lib/cn'
 import { TIER_TEXT_CLASSES } from './lib/tier-presentation'
@@ -184,6 +188,32 @@ const LAYOUT_FILE_STORAGE_KEY = 'omg-layout-file-v1'
 const LAYOUT_PROFILE_STORAGE_KEY = 'omg-layout-profile-v1'
 const COMBINATION_OPTIONS_STORAGE_KEY = 'omg-combination-options-v1'
 const OVERLAY_KINDS: OverlayKind[] = ['recommendation', 'tier', 'layout']
+
+const BuildRecommendationsPage = lazy(() =>
+  import('./components/BuildRecommendationsPage').then((module) => ({
+    default: module.BuildRecommendationsPage,
+  })),
+)
+const DraftReplayPage = lazy(() =>
+  import('./components/DraftReplayPage').then((module) => ({
+    default: module.DraftReplayPage,
+  })),
+)
+const PairsPage = lazy(() =>
+  import('./components/PairsPage').then((module) => ({
+    default: module.PairsPage,
+  })),
+)
+const SettingsPage = lazy(() =>
+  import('./components/SettingsPage').then((module) => ({
+    default: module.SettingsPage,
+  })),
+)
+const TierListPage = lazy(() =>
+  import('./components/TierListPage').then((module) => ({
+    default: module.TierListPage,
+  })),
+)
 
 type ImageSize = Pick<LayoutDocument, 'width' | 'height'>
 
@@ -416,6 +446,9 @@ function MainApp() {
   >(() => nativeOverlayProjectionRef.current.visibility)
   const [draftStrategy, setDraftStrategy] =
     useState<DraftStrategyId>('tier-first')
+  const [draftSimulation, setDraftSimulation] =
+    useState<DraftSimulationResult>()
+  const [draftSimulationPending, setDraftSimulationPending] = useState(false)
   const [replayStep, setReplayStep] = useState(0)
   const [replayPlaying, setReplayPlaying] = useState(false)
   const [debugSlotIndex, setDebugSlotIndex] = useState<number>()
@@ -441,7 +474,17 @@ function MainApp() {
     requestedMode: overlayShortcutMode,
   })
   const recommendationVisibleRef = useRef(false)
-  const recognitionWorkerRef = useRef<Worker | undefined>(undefined)
+  const recognitionClientRef = useRef<RecognitionWorkerClient | undefined>(
+    undefined,
+  )
+  if (!recognitionClientRef.current) {
+    recognitionClientRef.current = new RecognitionWorkerClient(
+      () =>
+        new Worker(new URL('./workers/recognizer.worker.ts', import.meta.url), {
+          type: 'module',
+        }),
+    )
+  }
   const recognitionRequestRef = useRef(0)
   const screenshotUrlRef = useRef<string | undefined>(undefined)
   const [layoutOverrides, setLayoutOverrides] = useState<Record<number, Rect>>(
@@ -487,14 +530,43 @@ function MainApp() {
   )
 
   useEffect(() => {
-    fetch(appResourceUrl('/data/snapshots/latest.json'))
-      .then((response) =>
-        response.ok
-          ? (response.json() as Promise<Snapshot>)
-          : Promise.reject(new Error('no local snapshot')),
-      )
-      .then(setSnapshot)
-      .catch(() => setError(t('errors.snapshotUnavailable')))
+    let active = true
+    const controller = new AbortController()
+    loadRuntimeSnapshot(
+      appResourceUrl('/data/snapshots/latest.json'),
+      controller.signal,
+    )
+      .then((nextSnapshot) => {
+        if (active) setSnapshot(nextSnapshot)
+      })
+      .catch((fetchError: unknown) => {
+        if (fetchError instanceof Error && fetchError.name === 'AbortError')
+          return
+        if (active) setError(t('errors.snapshotUnavailable'))
+      })
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [t])
+
+  useEffect(() => {
+    let active = true
+    let unlisten: () => void = () => undefined
+    void listenWindrunSnapshotUpdated((nextSnapshot) => {
+      if (active) setSnapshot(nextSnapshot)
+    })
+      .then((dispose) => {
+        if (active) unlisten = dispose
+        else dispose()
+      })
+      .catch((listenError: unknown) => {
+        console.error('Failed to listen for Windrun data updates', listenError)
+      })
+    return () => {
+      active = false
+      unlisten()
+    }
   }, [])
 
   useEffect(() => {
@@ -506,25 +578,37 @@ function MainApp() {
   }, [combinationOptions, storage])
 
   useEffect(() => {
-    fetch(appResourceUrl('/data/icon-signatures.json'))
+    const controller = new AbortController()
+    fetch(appResourceUrl('/data/icon-signatures.json'), {
+      signal: controller.signal,
+    })
       .then((response) =>
         response.ok
           ? (response.json() as Promise<{ signatures?: IconSignature[] }>)
           : Promise.reject(new Error('no signatures')),
       )
       .then((payload) => setIconSignatures(payload.signatures ?? []))
-      .catch(() => setError(t('errors.signaturesUnavailable')))
-  }, [])
+      .catch((fetchError: unknown) => {
+        if (fetchError instanceof Error && fetchError.name === 'AbortError')
+          return
+        setError(t('errors.signaturesUnavailable'))
+      })
+    return () => controller.abort()
+  }, [t])
 
   useEffect(
     () => () => {
       recognitionRequestRef.current += 1
-      recognitionWorkerRef.current?.terminate()
+      recognitionClientRef.current?.dispose()
       if (screenshotUrlRef.current)
         URL.revokeObjectURL(screenshotUrlRef.current)
     },
     [],
   )
+
+  useEffect(() => {
+    recognitionClientRef.current?.initialize(snapshot.abilities, iconSignatures)
+  }, [iconSignatures, snapshot.abilities])
 
   useEffect(() => {
     if (!isDesktopRuntime()) return
@@ -675,9 +759,9 @@ function MainApp() {
       }),
     [layoutOverlaySlots, overlayTierInfo, overlayTopTenIds, slots],
   )
-  const combinationRecommendations = useMemo(
+  const combinationRecommendationGroups = useMemo(
     () =>
-      recommendAbilityCombinations(
+      recommendAbilityCombinationGroups(
         deferredCombinationCandidateIds,
         [],
         snapshot,
@@ -689,7 +773,7 @@ function MainApp() {
     () => ({
       recognitionStatus: overlayRecognitionStatus,
       candidatePools: overlayCandidatePools,
-      combinationRecommendations,
+      combinationRecommendationGroups,
       locale,
       tierCategory,
       tierQuery,
@@ -700,7 +784,7 @@ function MainApp() {
     [
       overlayRecognitionStatus,
       overlayCandidatePools,
-      combinationRecommendations,
+      combinationRecommendationGroups,
       locale,
       tierCategory,
       tierQuery,
@@ -775,18 +859,62 @@ function MainApp() {
           : undefined,
     }
   }, [activePage, deferredSlots, rankedDraftPoolInfo, snapshot.abilities])
-  const draftSimulation = useMemo(() => {
-    if (activePage !== 'draft' || !draftPoolInfo.pool) return undefined
-    try {
-      return simulateDraft(
-        draftPoolInfo.pool,
-        snapshot,
-        createDraftStrategyMap(draftStrategy),
-      )
-    } catch {
-      return undefined
+  useEffect(() => {
+    if (activePage !== 'draft' || !draftPoolInfo.pool) {
+      setDraftSimulation(undefined)
+      setDraftSimulationPending(false)
+      return
     }
-  }, [activePage, draftPoolInfo.pool, draftStrategy, snapshot])
+
+    let disposed = false
+    const worker = new Worker(
+      new URL('./workers/draft-replay.worker.ts', import.meta.url),
+      { type: 'module' },
+    )
+    setDraftSimulation(undefined)
+    setDraftSimulationPending(true)
+    worker.onmessage = (
+      event: MessageEvent<{
+        result?: DraftSimulationResult
+        error?: string
+      }>,
+    ) => {
+      if (disposed) return
+      if (event.data.result) {
+        setDraftSimulation(event.data.result)
+      } else {
+        setDraftSimulation(undefined)
+        setError(t('errors.recognitionFailed'))
+      }
+      setDraftSimulationPending(false)
+      worker.terminate()
+    }
+    worker.onerror = () => {
+      if (disposed) return
+      setDraftSimulation(undefined)
+      setDraftSimulationPending(false)
+      setError(t('errors.recognitionFailed'))
+      worker.terminate()
+    }
+    try {
+      worker.postMessage({
+        pool: draftPoolInfo.pool,
+        snapshot,
+        strategyByPlayer: createDraftStrategyMap(draftStrategy),
+      })
+    } catch {
+      if (!disposed) {
+        setDraftSimulation(undefined)
+        setDraftSimulationPending(false)
+        setError(t('errors.recognitionFailed'))
+      }
+      worker.terminate()
+    }
+    return () => {
+      disposed = true
+      worker.terminate()
+    }
+  }, [activePage, draftPoolInfo.pool, draftStrategy, snapshot, t])
   const draftFinalScores = useMemo(() => {
     if (!draftSimulation)
       return [] as Array<{ player: number; recommendation?: Recommendation }>
@@ -897,10 +1025,10 @@ function MainApp() {
       setError(t('errors.unsupportedScreenshot'))
       return
     }
-    const requestId = recognitionRequestRef.current + 1
+    const previousRequestId = recognitionRequestRef.current
+    const requestId = previousRequestId + 1
     recognitionRequestRef.current = requestId
-    recognitionWorkerRef.current?.terminate()
-    recognitionWorkerRef.current = undefined
+    recognitionClientRef.current?.cancel(previousRequestId)
     setUploadedFile(file)
     setError(undefined)
     setSlots([])
@@ -920,10 +1048,13 @@ function MainApp() {
       return
     }
     let bitmap: ImageBitmap | undefined
-    let worker: Worker | undefined
     let timeoutId: number | undefined
+    let stage: 'decode' | 'recognize' = 'decode'
+    let timedOut = false
+    const startedAt = performance.now()
     try {
       const decoded = await createImageBitmap(file)
+      const decodeMs = performance.now() - startedAt
       bitmap = decoded
       if (requestId !== recognitionRequestRef.current) {
         decoded.close()
@@ -948,86 +1079,63 @@ function MainApp() {
         layoutOverrides,
         nextImageSize,
       )
-      if (isDesktopRuntime()) {
-        try {
-          await setNativeOverlayViewport(nextImageSize)
-        } catch (overlayError) {
-          reportOverlayError(overlayError)
-        }
-        if (requestId !== recognitionRequestRef.current) {
-          decoded.close()
-          bitmap = undefined
-          return
-        }
-      }
+      if (isDesktopRuntime())
+        void setNativeOverlayViewport(nextImageSize).catch(reportOverlayError)
       setImageSize(nextImageSize)
       if (screenshotUrlRef.current)
         URL.revokeObjectURL(screenshotUrlRef.current)
       const nextScreenshotUrl = URL.createObjectURL(file)
       screenshotUrlRef.current = nextScreenshotUrl
       setScreenshotUrl(nextScreenshotUrl)
-      worker = new Worker(
-        new URL('./workers/recognizer.worker.ts', import.meta.url),
-        { type: 'module' },
-      )
-      recognitionWorkerRef.current = worker
-      const finishWorker = () => {
-        if (timeoutId !== undefined) window.clearTimeout(timeoutId)
-        if (recognitionWorkerRef.current === worker)
-          recognitionWorkerRef.current = undefined
-        worker?.terminate()
-      }
-      worker.onmessage = (event: MessageEvent<{ slots: RecognizedSlot[] }>) => {
-        if (requestId !== recognitionRequestRef.current) {
-          finishWorker()
-          return
-        }
-        setSlots(
-          event.data.slots.map((slot) => ({
-            ...slot,
-            selectedAbilityId: slot.candidates[0]?.abilityId,
-          })),
-        )
-        setOverlayRecognitionStatus('ready')
-        setDebugSlotIndex(0)
-        setLoading(false)
-        finishWorker()
-      }
-      worker.onerror = () => {
-        if (requestId !== recognitionRequestRef.current) {
-          finishWorker()
-          return
-        }
-        setError(t('errors.recognitionFailed'))
-        setOverlayRecognitionStatus('error')
-        setLoading(false)
-        finishWorker()
-      }
-      worker.postMessage(
-        {
-          image: decoded,
-          abilities: snapshot.abilities,
-          layout: mode === 'manual' ? manualLayout : undefined,
-          signatures: iconSignatures,
-        },
-        [decoded],
+      stage = 'recognize'
+      const client = recognitionClientRef.current
+      if (!client) throw new Error('Recognition worker is unavailable')
+      client.initialize(snapshot.abilities, iconSignatures)
+      const recognition = client.recognize(
+        requestId,
+        decoded,
+        mode === 'manual' ? manualLayout : undefined,
       )
       bitmap = undefined
-      timeoutId = window.setTimeout(() => {
-        if (requestId !== recognitionRequestRef.current) return
-        setError(t('errors.recognitionTimedOut'))
-        setOverlayRecognitionStatus('error')
-        setLoading(false)
-        finishWorker()
-      }, RECOGNITION_TIMEOUT_MS)
+      const result = await new Promise<Awaited<typeof recognition>>(
+        (resolve, reject) => {
+          timeoutId = window.setTimeout(() => {
+            timedOut = true
+            client.cancel(requestId)
+            reject(new Error('Recognition timed out'))
+          }, RECOGNITION_TIMEOUT_MS)
+          void recognition.then(resolve, reject)
+        },
+      )
+      window.clearTimeout(timeoutId)
+      timeoutId = undefined
+      if (requestId !== recognitionRequestRef.current) return
+      setSlots(
+        result.slots.map((slot) => ({
+          ...slot,
+          selectedAbilityId: slot.candidates[0]?.abilityId,
+        })),
+      )
+      setOverlayRecognitionStatus('ready')
+      setDebugSlotIndex(0)
+      setLoading(false)
+      console.info('[performance] screenshot recognition', {
+        requestId,
+        decodeMs,
+        ...result.timings,
+        endToEndMs: performance.now() - startedAt,
+      })
     } catch {
       bitmap?.close()
       if (timeoutId !== undefined) window.clearTimeout(timeoutId)
-      if (recognitionWorkerRef.current === worker)
-        recognitionWorkerRef.current = undefined
-      worker?.terminate()
       if (requestId !== recognitionRequestRef.current) return
-      setError(t('errors.unreadableScreenshot'))
+      setError(
+        timedOut
+          ? t('errors.recognitionTimedOut')
+          : stage === 'recognize'
+            ? t('errors.recognitionFailed')
+            : t('errors.unreadableScreenshot'),
+      )
       setOverlayRecognitionStatus('error')
       setLoading(false)
     }
@@ -1037,8 +1145,14 @@ function MainApp() {
     if (!windowsCaptureAvailable || capturingDota2) return
     setCapturingDota2(true)
     setError(undefined)
+    const startedAt = performance.now()
     try {
       const capture = await captureDota2Screenshot()
+      console.info('[performance] Dota 2 capture', {
+        ...capture.timings,
+        invokeMs: performance.now() - startedAt,
+        pngBytes: capture.bytes.byteLength,
+      })
       await handleUpload(capturedScreenshotToFile(capture))
     } catch {
       setError(t('errors.dota2CaptureFailed'))
@@ -1200,6 +1314,11 @@ function MainApp() {
     setLayoutMode(mode)
     writeStoredJson(storage, LAYOUT_MODE_STORAGE_KEY, mode)
     if (uploadedFile) void handleUpload(uploadedFile, mode)
+  }
+
+  async function updateDataFromWindrun() {
+    const nextSnapshot = await updateWindrunSnapshot()
+    setSnapshot(nextSnapshot)
   }
 
   function updateOverlayShortcutMode(mode: OverlayShortcutMode) {
@@ -2022,91 +2141,105 @@ function MainApp() {
           </section>
         )}
 
-        {activePage === 'build' && (
-          <BuildRecommendationsPage
-            combinationRecommendations={combinationRecommendations}
-            recommendationOptions={combinationOptions}
-            abilities={abilitiesById}
-            assistantOverlayOpen={overlayVisibility.recommendation}
-            onRecommendationOptionsChange={setCombinationOptions}
-            onToggleOverlay={toggleOverlay}
-          />
-        )}
+        <Suspense
+          fallback={
+            <div className="mt-6 border-t border-border-subtle pt-5 text-sm text-text-muted">
+              {t('analysis.slicing')}
+            </div>
+          }
+        >
+          {activePage === 'build' && (
+            <BuildRecommendationsPage
+              combinationRecommendationGroups={combinationRecommendationGroups}
+              recommendationOptions={combinationOptions}
+              abilities={abilitiesById}
+              abilityStats={snapshot.abilityStats}
+              assistantOverlayOpen={overlayVisibility.recommendation}
+              onRecommendationOptionsChange={setCombinationOptions}
+              onToggleOverlay={toggleOverlay}
+            />
+          )}
 
-        {activePage === 'draft' && (
-          <DraftReplayPage
-            simulation={draftSimulation}
-            snapshot={snapshot}
-            abilities={abilitiesById}
-            pool={draftPoolInfo.pool}
-            poolSourceKey={draftPoolInfo.sourceKey}
-            poolErrorKey={draftPoolInfo.errorKey}
-            poolErrorValues={draftPoolInfo.errorValues}
-            finalScores={draftFinalScores}
-            activeStrategy={draftStrategy}
-            onStrategyChange={setDraftStrategy}
-            replayStep={replayStep}
-            isPlaying={replayPlaying}
-            onStepChange={updateReplayStep}
-            onTogglePlaying={() => {
-              if (!draftSimulation) return
-              if (replayStep >= (draftSimulation.frames.at(-1)?.step ?? 0)) {
-                setReplayStep(0)
-                setReplayPlaying(true)
-              } else {
-                setReplayPlaying((current) => !current)
+          {activePage === 'draft' && (
+            <DraftReplayPage
+              simulation={draftSimulation}
+              simulationPending={draftSimulationPending}
+              snapshot={snapshot}
+              abilities={abilitiesById}
+              pool={draftPoolInfo.pool}
+              poolSourceKey={draftPoolInfo.sourceKey}
+              poolErrorKey={draftPoolInfo.errorKey}
+              poolErrorValues={draftPoolInfo.errorValues}
+              finalScores={draftFinalScores}
+              activeStrategy={draftStrategy}
+              onStrategyChange={setDraftStrategy}
+              replayStep={replayStep}
+              isPlaying={replayPlaying}
+              onStepChange={updateReplayStep}
+              onTogglePlaying={() => {
+                if (!draftSimulation) return
+                if (replayStep >= (draftSimulation.frames.at(-1)?.step ?? 0)) {
+                  setReplayStep(0)
+                  setReplayPlaying(true)
+                } else {
+                  setReplayPlaying((current) => !current)
+                }
+              }}
+            />
+          )}
+
+          {activePage === 'database' && (
+            <TierListPage
+              snapshot={snapshot}
+              category={tierCategory}
+              categoryCounts={tierCategoryCounts}
+              query={tierQuery}
+              groups={tierGroups}
+              filteredEntryCount={filteredTierEntries.length}
+              overlayOpen={overlayVisibility.recommendation}
+              onCategoryChange={setTierCategory}
+              onQueryChange={setTierQuery}
+              onToggleOverlay={toggleOverlay}
+            />
+          )}
+
+          {activePage === 'pairs' && (
+            <PairsPage
+              snapshot={snapshot}
+              entries={pairEntries}
+              filteredEntries={filteredPairEntries}
+              query={pairQuery}
+              excludeSameHero={excludeSameHero}
+              sort={pairSort}
+              tableRef={pairTableRef}
+              virtualRows={virtualPairRows}
+              topSpacer={pairTopSpacer}
+              bottomSpacer={pairBottomSpacer}
+              onQueryChange={setPairQuery}
+              onExcludeSameHeroToggle={() =>
+                setExcludeSameHero((current) => !current)
               }
-            }}
-          />
-        )}
+              onSort={sortPairEntries}
+            />
+          )}
 
-        {activePage === 'database' && (
-          <TierListPage
-            snapshot={snapshot}
-            category={tierCategory}
-            categoryCounts={tierCategoryCounts}
-            query={tierQuery}
-            groups={tierGroups}
-            filteredEntryCount={filteredTierEntries.length}
-            overlayOpen={overlayVisibility.recommendation}
-            onCategoryChange={setTierCategory}
-            onQueryChange={setTierQuery}
-            onToggleOverlay={toggleOverlay}
-          />
-        )}
-
-        {activePage === 'pairs' && (
-          <PairsPage
-            snapshot={snapshot}
-            entries={pairEntries}
-            filteredEntries={filteredPairEntries}
-            query={pairQuery}
-            excludeSameHero={excludeSameHero}
-            sort={pairSort}
-            tableRef={pairTableRef}
-            virtualRows={virtualPairRows}
-            topSpacer={pairTopSpacer}
-            bottomSpacer={pairBottomSpacer}
-            onQueryChange={setPairQuery}
-            onExcludeSameHeroToggle={() =>
-              setExcludeSameHero((current) => !current)
-            }
-            onSort={sortPairEntries}
-          />
-        )}
-
-        {activePage === 'settings' && (
-          <SettingsPage
-            layoutMode={layoutMode}
-            overlayShortcut={overlayShortcut}
-            overlayShortcutMode={overlayShortcutMode}
-            overlayShortcutRegistered={nativeOverlayShortcutStatus?.registered}
-            onBack={() => setActivePage('analysis')}
-            onLayoutModeChange={updateLayoutMode}
-            onOverlayShortcutChange={updateOverlayShortcut}
-            onOverlayShortcutModeChange={updateOverlayShortcutMode}
-          />
-        )}
+          {activePage === 'settings' && (
+            <SettingsPage
+              layoutMode={layoutMode}
+              overlayShortcut={overlayShortcut}
+              overlayShortcutMode={overlayShortcutMode}
+              overlayShortcutRegistered={
+                nativeOverlayShortcutStatus?.registered
+              }
+              snapshot={snapshot}
+              onBack={() => setActivePage('analysis')}
+              onDataUpdate={updateDataFromWindrun}
+              onLayoutModeChange={updateLayoutMode}
+              onOverlayShortcutChange={updateOverlayShortcut}
+              onOverlayShortcutModeChange={updateOverlayShortcutMode}
+            />
+          )}
+        </Suspense>
 
         {!isDesktopRuntime() && overlayVisibility.recommendation && (
           <FloatingOverlay

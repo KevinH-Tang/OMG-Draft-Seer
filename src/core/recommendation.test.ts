@@ -76,9 +76,8 @@ describe('build recommendations', () => {
     const [recommended] = recommendBuilds(fixedPools, [], snapshot)
     const scored = scoreDraftBuild([1, 10, -1, 3, 2], snapshot)
 
-    expect(scored?.abilityIds).toEqual(
-      expect.arrayContaining([-1, 1, 2, 3, 10]),
-    )
+    expect(scored?.abilityIds).toEqual([-1, 1, 3, 2, 10])
+    expect(scored?.pickOrderIds).toEqual([-1, 1, 3, 2, 10])
     expect(scored).toMatchObject({
       score: recommended.score,
       abilityWinRate: recommended.abilityWinRate,

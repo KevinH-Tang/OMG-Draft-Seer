@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildTemplateMatcher,
   decodeTemplateSignatures,
   rankByTemplate,
   signatureFromQuad,
@@ -150,5 +151,10 @@ describe('template matching', () => {
       )
       expect(top?.abilityId).toBe(1)
     })
+
+    const matcher = buildTemplateMatcher(abilities, templates)
+    expect(
+      rankByTemplate(template(20), abilities, category, matcher)[0]?.abilityId,
+    ).toBe(1)
   })
 })

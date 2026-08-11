@@ -527,6 +527,7 @@ function DraftTeamPanel({
 
 export interface DraftReplayPageProps {
   simulation?: DraftSimulationResult
+  simulationPending?: boolean
   snapshot: Snapshot
   abilities: ReadonlyMap<number, Ability>
   pool?: InitialDraftPool
@@ -550,6 +551,7 @@ export interface DraftReplayPageProps {
 
 export function DraftReplayPage({
   simulation,
+  simulationPending = false,
   snapshot,
   abilities,
   pool,
@@ -564,6 +566,32 @@ export function DraftReplayPage({
   onStepChange,
   onTogglePlaying,
 }: DraftReplayPageProps) {
+  if (!simulation && simulationPending && pool) {
+    return (
+      <section
+        className="mt-6 border-t border-border-subtle pt-5"
+        aria-labelledby="draft-page-title"
+        aria-busy="true"
+      >
+        <PageHeader
+          titleId="draft-page-title"
+          eyebrow={ui('draft.step')}
+          title={ui('nav.draft')}
+          aside={
+            <>
+              <Play size={21} aria-hidden="true" />
+              <span>{ui('draft.playersPicks')}</span>
+            </>
+          }
+        />
+        <div className="mt-[18px] grid min-h-[300px] place-items-center gap-2 rounded-md border border-dashed border-border-strong bg-surface px-6 text-center text-text-muted">
+          <Timer size={25} className="animate-spin" />
+          <p className="m-0 text-sm">{ui('analysis.slicing')}</p>
+        </div>
+      </section>
+    )
+  }
+
   if (!simulation || !pool) {
     return (
       <section

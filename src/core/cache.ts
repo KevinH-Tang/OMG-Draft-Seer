@@ -5,8 +5,7 @@ export function memoizeByKey<K extends object, SK, V>(
   compute: () => V,
 ): V {
   const bySubKey = cache.get(key)
-  const cached = bySubKey?.get(subKey)
-  if (cached !== undefined) return cached
+  if (bySubKey?.has(subKey)) return bySubKey.get(subKey) as V
 
   const value = compute()
   const entries = bySubKey ?? new Map<SK, V>()

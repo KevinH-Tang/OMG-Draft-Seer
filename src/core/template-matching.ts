@@ -9,6 +9,13 @@ import { matchesSlotCategory } from './ability-category'
 import { MAX_MATCH_CANDIDATES } from './matching'
 
 export const TEMPLATE_SIZE = 16
+export const TEMPLATE_COARSE_SIZE = 4
+export const TEMPLATE_COARSE_CANDIDATES = 32
+export const TEMPLATE_EDGE_RERANK_CANDIDATES = 16
+
+const STRUCTURE_WEIGHT = 0.41
+const EDGE_WEIGHT = 0.35
+const COLOR_WEIGHT = 0.24
 
 export interface CropSignature {
   luma: Uint8Array
@@ -295,13 +302,43 @@ export function colorSimilarity(
   return Math.max(0, 1 - distance / 441.67)
 }
 
+function edgeLuma(luma: Uint8Array): Uint8Array {
+  const size = Math.sqrt(luma.length)
+  const edges = new Uint8Array(luma.length)
+  if (!Number.isInteger(size) || size < 3) return edges
+
+  for (let y = 1; y < size - 1; y += 1) {
+    for (let x = 1; x < size - 1; x += 1) {
+      const index = y * size + x
+      const horizontal =
+        -luma[index - size - 1] +
+        luma[index - size + 1] -
+        2 * luma[index - 1] +
+        2 * luma[index + 1] -
+        luma[index + size - 1] +
+        luma[index + size + 1]
+      const vertical =
+        -luma[index - size - 1] -
+        2 * luma[index - size] -
+        luma[index - size + 1] +
+        luma[index + size - 1] +
+        2 * luma[index + size] +
+        luma[index + size + 1]
+      edges[index] = Math.min(255, Math.hypot(horizontal, vertical) / 4)
+    }
+  }
+  return edges
+}
+
 export function templateScore(
   crop: CropSignature,
   template: { luma: Uint8Array; meanRgb: [number, number, number] },
 ): number {
   return (
-    structuralSimilarity(crop.luma, template.luma) * 0.76 +
-    colorSimilarity(crop.meanRgb, template.meanRgb) * 0.24
+    structuralSimilarity(crop.luma, template.luma) * STRUCTURE_WEIGHT +
+    structuralSimilarity(edgeLuma(crop.luma), edgeLuma(template.luma)) *
+      EDGE_WEIGHT +
+    colorSimilarity(crop.meanRgb, template.meanRgb) * COLOR_WEIGHT
   )
 }
 
@@ -309,6 +346,41 @@ export type DecodedTemplate = {
   luma: Uint8Array
   meanRgb: [number, number, number]
 }
+
+interface PreparedTemplate {
+  template: DecodedTemplate
+  meanLuma: number
+  centeredEnergy: number
+  edge: PreparedLuma
+  coarse: PreparedLuma
+}
+
+interface PreparedLuma {
+  luma: Uint8Array
+  meanLuma: number
+  centeredEnergy: number
+}
+
+interface TemplateCandidate {
+  abilityId: number
+  templates: readonly PreparedTemplate[]
+}
+
+interface ScoredTemplateCandidate {
+  entry: TemplateCandidate
+  score: number
+}
+
+export interface TemplateMatcher {
+  candidatesByCategory: Readonly<
+    Record<SlotCategory, readonly TemplateCandidate[]>
+  >
+}
+
+const TEMPLATE_MATCHER_CACHE = new WeakMap<
+  Map<number, DecodedTemplate[]>,
+  WeakMap<Ability[], TemplateMatcher>
+>()
 
 export function decodeTemplateSignatures(
   signatures: IconSignature[],
@@ -324,25 +396,318 @@ export function decodeTemplateSignatures(
   return templates
 }
 
+function prepareLuma(luma: Uint8Array): PreparedLuma {
+  let meanLuma = 0
+  for (const value of luma) meanLuma += value
+  meanLuma /= luma.length
+
+  let centeredEnergy = 0
+  for (const value of luma) {
+    const centered = value - meanLuma
+    centeredEnergy += centered * centered
+  }
+  return { luma, meanLuma, centeredEnergy }
+}
+
+function downsampleLuma(luma: Uint8Array): Uint8Array {
+  const downsampled = new Uint8Array(
+    TEMPLATE_COARSE_SIZE * TEMPLATE_COARSE_SIZE,
+  )
+  const blockSize = TEMPLATE_SIZE / TEMPLATE_COARSE_SIZE
+  for (let targetY = 0; targetY < TEMPLATE_COARSE_SIZE; targetY += 1) {
+    for (let targetX = 0; targetX < TEMPLATE_COARSE_SIZE; targetX += 1) {
+      let total = 0
+      for (let y = 0; y < blockSize; y += 1) {
+        for (let x = 0; x < blockSize; x += 1) {
+          const sourceX = targetX * blockSize + x
+          const sourceY = targetY * blockSize + y
+          total += luma[sourceY * TEMPLATE_SIZE + sourceX]
+        }
+      }
+      downsampled[targetY * TEMPLATE_COARSE_SIZE + targetX] = Math.round(
+        total / (blockSize * blockSize),
+      )
+    }
+  }
+  return downsampled
+}
+
+function prepareTemplate(template: DecodedTemplate): PreparedTemplate {
+  const prepared = prepareLuma(template.luma)
+  return {
+    template,
+    meanLuma: prepared.meanLuma,
+    centeredEnergy: prepared.centeredEnergy,
+    edge: prepareLuma(edgeLuma(template.luma)),
+    coarse: prepareLuma(downsampleLuma(template.luma)),
+  }
+}
+
+export function buildTemplateMatcher(
+  abilities: Ability[],
+  templates: Map<number, DecodedTemplate[]>,
+): TemplateMatcher {
+  const byAbilities = TEMPLATE_MATCHER_CACHE.get(templates)
+  const cached = byAbilities?.get(abilities)
+  if (cached) return cached
+
+  const candidatesByCategory: Record<SlotCategory, TemplateCandidate[]> = {
+    hero: [],
+    ability: [],
+    ultimate: [],
+  }
+  for (const ability of abilities) {
+    const decoded = templates.get(ability.id)
+    if (!decoded || decoded.length === 0) continue
+    const category = (['hero', 'ability', 'ultimate'] as const).find((value) =>
+      matchesSlotCategory(ability, value),
+    )
+    if (!category) continue
+    candidatesByCategory[category].push({
+      abilityId: ability.id,
+      templates: decoded.map(prepareTemplate),
+    })
+  }
+
+  const matcher: TemplateMatcher = { candidatesByCategory }
+  const entries = byAbilities ?? new WeakMap<Ability[], TemplateMatcher>()
+  entries.set(abilities, matcher)
+  if (!byAbilities) TEMPLATE_MATCHER_CACHE.set(templates, entries)
+  return matcher
+}
+
+function cropLumaStatistics(luma: Uint8Array): {
+  meanLuma: number
+  centeredEnergy: number
+} {
+  let meanLuma = 0
+  for (const value of luma) meanLuma += value
+  meanLuma /= luma.length
+
+  let centeredEnergy = 0
+  for (const value of luma) {
+    const centered = value - meanLuma
+    centeredEnergy += centered * centered
+  }
+  return { meanLuma, centeredEnergy }
+}
+
+function preparedStructuralSimilarity(
+  crop: CropSignature,
+  cropStats: { meanLuma: number; centeredEnergy: number },
+  template: PreparedTemplate,
+): number {
+  if (
+    cropStats.centeredEnergy === 0 ||
+    template.centeredEnergy === 0 ||
+    crop.luma.length !== template.template.luma.length
+  )
+    return 0
+
+  let numerator = 0
+  for (let index = 0; index < crop.luma.length; index += 1) {
+    numerator +=
+      (crop.luma[index] - cropStats.meanLuma) *
+      (template.template.luma[index] - template.meanLuma)
+  }
+  return Math.max(
+    0,
+    (numerator / Math.sqrt(cropStats.centeredEnergy * template.centeredEnergy) +
+      1) /
+      2,
+  )
+}
+
+function preparedTemplateScore(
+  crop: CropSignature,
+  cropStats: { meanLuma: number; centeredEnergy: number },
+  cropEdge: PreparedLuma,
+  template: PreparedTemplate,
+): number {
+  return (
+    preparedStructuralSimilarity(crop, cropStats, template) * STRUCTURE_WEIGHT +
+    preparedLumaSimilarity(cropEdge, template.edge) * EDGE_WEIGHT +
+    colorSimilarity(crop.meanRgb, template.template.meanRgb) * COLOR_WEIGHT
+  )
+}
+
+function preparedBaseTemplateScore(
+  crop: CropSignature,
+  cropStats: { meanLuma: number; centeredEnergy: number },
+  template: PreparedTemplate,
+): number {
+  return (
+    preparedStructuralSimilarity(crop, cropStats, template) * 0.76 +
+    colorSimilarity(crop.meanRgb, template.template.meanRgb) * COLOR_WEIGHT
+  )
+}
+
+function insertTopCandidate(
+  candidates: IconCandidate[],
+  candidate: IconCandidate,
+  limit = MAX_MATCH_CANDIDATES,
+): void {
+  if (!Number.isFinite(candidate.score)) return
+  let index = 0
+  while (
+    index < candidates.length &&
+    candidates[index].score >= candidate.score
+  )
+    index += 1
+  if (index >= limit && candidates.length >= limit) return
+  candidates.splice(index, 0, candidate)
+  if (candidates.length > limit) candidates.pop()
+}
+
+function preparedLumaSimilarity(
+  left: PreparedLuma,
+  right: PreparedLuma,
+): number {
+  if (
+    left.centeredEnergy === 0 ||
+    right.centeredEnergy === 0 ||
+    left.luma.length !== right.luma.length
+  )
+    return 0
+  let numerator = 0
+  for (let index = 0; index < left.luma.length; index += 1) {
+    numerator +=
+      (left.luma[index] - left.meanLuma) * (right.luma[index] - right.meanLuma)
+  }
+  return Math.max(
+    0,
+    (numerator / Math.sqrt(left.centeredEnergy * right.centeredEnergy) + 1) / 2,
+  )
+}
+
+function shortlistTemplateCandidates(
+  crop: CropSignature,
+  entries: readonly TemplateCandidate[],
+  limit: number,
+): Set<number> | undefined {
+  if (entries.length <= limit) return undefined
+  const cropCoarse = prepareLuma(downsampleLuma(crop.luma))
+  const candidates: IconCandidate[] = []
+  for (const entry of entries) {
+    let score = Number.NEGATIVE_INFINITY
+    for (const template of entry.templates) {
+      score = Math.max(
+        score,
+        preparedLumaSimilarity(cropCoarse, template.coarse) * 0.76 +
+          colorSimilarity(crop.meanRgb, template.template.meanRgb) * 0.24,
+      )
+    }
+    insertTopCandidate(candidates, { abilityId: entry.abilityId, score }, limit)
+  }
+  return new Set(candidates.map((candidate) => candidate.abilityId))
+}
+
+function rankPreparedTemplates(
+  crop: CropSignature,
+  entries: readonly TemplateCandidate[],
+  shortlist?: ReadonlySet<number>,
+  useEdgeReranking = false,
+): IconCandidate[] {
+  const cropStats = cropLumaStatistics(crop.luma)
+  if (!useEdgeReranking) {
+    const candidates: IconCandidate[] = []
+    for (const entry of entries) {
+      if (shortlist && !shortlist.has(entry.abilityId)) continue
+      let score = Number.NEGATIVE_INFINITY
+      for (const template of entry.templates)
+        score = Math.max(
+          score,
+          preparedBaseTemplateScore(crop, cropStats, template),
+        )
+      insertTopCandidate(candidates, { abilityId: entry.abilityId, score })
+    }
+    return candidates
+  }
+
+  const rerankCandidates: ScoredTemplateCandidate[] = shortlist
+    ? entries
+        .filter((entry) => shortlist.has(entry.abilityId))
+        .map((entry) => ({ entry, score: 0 }))
+    : []
+  if (!shortlist) {
+    for (const entry of entries) {
+      let score = Number.NEGATIVE_INFINITY
+      for (const template of entry.templates)
+        score = Math.max(
+          score,
+          preparedBaseTemplateScore(crop, cropStats, template),
+        )
+      let index = 0
+      while (
+        index < rerankCandidates.length &&
+        rerankCandidates[index].score >= score
+      )
+        index += 1
+      if (
+        index >= TEMPLATE_EDGE_RERANK_CANDIDATES &&
+        rerankCandidates.length >= TEMPLATE_EDGE_RERANK_CANDIDATES
+      )
+        continue
+      rerankCandidates.splice(index, 0, { entry, score })
+      if (rerankCandidates.length > TEMPLATE_EDGE_RERANK_CANDIDATES)
+        rerankCandidates.pop()
+    }
+  }
+
+  const cropEdge = prepareLuma(edgeLuma(crop.luma))
+  const candidates: IconCandidate[] = []
+  for (const { entry } of rerankCandidates) {
+    let score = Number.NEGATIVE_INFINITY
+    for (const template of entry.templates)
+      score = Math.max(
+        score,
+        preparedTemplateScore(crop, cropStats, cropEdge, template),
+      )
+    insertTopCandidate(candidates, { abilityId: entry.abilityId, score })
+  }
+  return candidates
+}
+
 export function rankByTemplate(
   crop: CropSignature,
   abilities: Ability[],
   category: SlotCategory,
-  templates: Map<number, DecodedTemplate[]>,
+  templates: Map<number, DecodedTemplate[]> | TemplateMatcher,
 ): IconCandidate[] {
-  return abilities
-    .filter(
-      (ability) =>
-        matchesSlotCategory(ability, category) && templates.has(ability.id),
-    )
-    .map((ability) => ({
-      abilityId: ability.id,
-      score: Math.max(
-        ...templates
-          .get(ability.id)!
-          .map((template) => templateScore(crop, template)),
-      ),
-    }))
-    .sort((left, right) => right.score - left.score)
-    .slice(0, MAX_MATCH_CANDIDATES)
+  const matcher =
+    templates instanceof Map
+      ? buildTemplateMatcher(abilities, templates)
+      : templates
+  const entries = matcher.candidatesByCategory[category]
+  const useEdgeReranking = category === 'ability'
+  return rankPreparedTemplates(
+    crop,
+    entries,
+    shortlistTemplateCandidates(
+      crop,
+      entries,
+      useEdgeReranking
+        ? TEMPLATE_EDGE_RERANK_CANDIDATES
+        : TEMPLATE_COARSE_CANDIDATES,
+    ),
+    useEdgeReranking,
+  )
+}
+
+export function rankByTemplateExhaustive(
+  crop: CropSignature,
+  abilities: Ability[],
+  category: SlotCategory,
+  templates: Map<number, DecodedTemplate[]> | TemplateMatcher,
+): IconCandidate[] {
+  const matcher =
+    templates instanceof Map
+      ? buildTemplateMatcher(abilities, templates)
+      : templates
+  return rankPreparedTemplates(
+    crop,
+    matcher.candidatesByCategory[category],
+    undefined,
+    category === 'ability',
+  )
 }

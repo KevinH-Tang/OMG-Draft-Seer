@@ -26,7 +26,7 @@ import {
 const overlayState: OverlayState = {
   recognitionStatus: 'idle',
   candidatePools: { heroIds: [], abilityIds: [], ultimateIds: [] },
-  combinationRecommendations: [],
+  combinationRecommendationGroups: [],
   locale: 'zh-CN',
   tierCategory: 'all',
   tierQuery: '',

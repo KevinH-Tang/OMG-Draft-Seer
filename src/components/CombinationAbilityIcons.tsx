@@ -1,12 +1,12 @@
-import type { Ability, CombinationRecommendation } from '../types'
+import type { Ability } from '../types'
 import { SkillIcon } from './SkillIcon'
 
 export function CombinationAbilityIcons({
-  recommendation,
+  abilityIds,
   abilities,
   variant = 'full',
 }: {
-  recommendation: CombinationRecommendation
+  abilityIds: readonly number[]
   abilities: ReadonlyMap<number, Ability>
   variant?: 'full' | 'compact'
 }) {
@@ -20,7 +20,7 @@ export function CombinationAbilityIcons({
           : 'inline-flex min-w-0 items-center gap-1'
       }
     >
-      {recommendation.abilityIds.map((id, index) => {
+      {abilityIds.map((id, index) => {
         const item = abilities.get(id)
         return (
           <span

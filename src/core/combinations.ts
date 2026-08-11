@@ -2,6 +2,7 @@ import type {
   Ability,
   AbilityStats,
   CombinationRecommendation,
+  CombinationRecommendationGroup,
   RecognizedSlot,
   Snapshot,
 } from '../types'
@@ -20,25 +21,57 @@ const ABILITIES_MAP_CACHE = new WeakMap<Ability[], Map<number, Ability>>()
 
 export interface CombinationRecommendationOptions {
   limit: number
-  minWinRate: number
-  minSynergy: number
+  pairMinWinRate: number
+  pairMinSynergy: number
+  tripleMinWinRate: number
+  tripleMinSynergy: number
 }
 
-export const MAX_COMBINATION_RECOMMENDATIONS = 30
+interface LegacyCombinationRecommendationOptions {
+  minWinRate?: number
+  minSynergy?: number
+}
+
+export const MAX_COMBINATION_RECOMMENDATIONS = 100
 
 export const DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS: CombinationRecommendationOptions =
   {
     limit: MAX_COMBINATION_RECOMMENDATIONS,
-    minWinRate: 0.55,
-    minSynergy: 0.05,
+    pairMinWinRate: 0.55,
+    pairMinSynergy: 0.05,
+    tripleMinWinRate: 0.55,
+    tripleMinSynergy: 0.05,
   }
+
+function normalizeThreshold(
+  value: unknown,
+  fallback: number,
+  minimum: number,
+): number {
+  return Number.isFinite(value) &&
+    Number(value) >= minimum &&
+    Number(value) <= 1
+    ? Number(value)
+    : fallback
+}
 
 export function normalizeCombinationRecommendationOptions(
   value: unknown,
 ): CombinationRecommendationOptions {
   if (!value || typeof value !== 'object')
     return DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS
-  const options = value as Partial<CombinationRecommendationOptions>
+  const options = value as Partial<CombinationRecommendationOptions> &
+    LegacyCombinationRecommendationOptions
+  const legacyMinWinRate = normalizeThreshold(
+    options.minWinRate,
+    DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS.pairMinWinRate,
+    0,
+  )
+  const legacyMinSynergy = normalizeThreshold(
+    options.minSynergy,
+    DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS.pairMinSynergy,
+    -1,
+  )
   return {
     limit:
       Number.isFinite(options.limit) && Number(options.limit) > 0
@@ -47,18 +80,26 @@ export function normalizeCombinationRecommendationOptions(
             MAX_COMBINATION_RECOMMENDATIONS,
           )
         : DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS.limit,
-    minWinRate:
-      Number.isFinite(options.minWinRate) &&
-      Number(options.minWinRate) >= 0 &&
-      Number(options.minWinRate) <= 1
-        ? Number(options.minWinRate)
-        : DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS.minWinRate,
-    minSynergy:
-      Number.isFinite(options.minSynergy) &&
-      Number(options.minSynergy) >= -1 &&
-      Number(options.minSynergy) <= 1
-        ? Number(options.minSynergy)
-        : DEFAULT_COMBINATION_RECOMMENDATION_OPTIONS.minSynergy,
+    pairMinWinRate: normalizeThreshold(
+      options.pairMinWinRate,
+      legacyMinWinRate,
+      0,
+    ),
+    pairMinSynergy: normalizeThreshold(
+      options.pairMinSynergy,
+      legacyMinSynergy,
+      -1,
+    ),
+    tripleMinWinRate: normalizeThreshold(
+      options.tripleMinWinRate,
+      legacyMinWinRate,
+      0,
+    ),
+    tripleMinSynergy: normalizeThreshold(
+      options.tripleMinSynergy,
+      legacyMinSynergy,
+      -1,
+    ),
   }
 }
 
@@ -124,19 +165,95 @@ function buildRecommendation(
   }
 }
 
-function recommendAbilityCombinationsInternal(
+interface CombinationCandidates {
+  pairs: CombinationRecommendation[]
+  triples: CombinationRecommendation[]
+}
+
+function pairKey(abilityIds: readonly number[]): string {
+  return [...abilityIds].sort((left, right) => left - right).join(':')
+}
+
+export function findThirdAbilityId(
+  pairAbilityIds: readonly number[],
+  tripleAbilityIds: readonly number[],
+): number | undefined {
+  const remainingPairIds = [...pairAbilityIds]
+  return tripleAbilityIds.find((abilityId) => {
+    const pairIndex = remainingPairIds.indexOf(abilityId)
+    if (pairIndex < 0) return true
+    remainingPairIds.splice(pairIndex, 1)
+    return false
+  })
+}
+
+export interface CombinationAbilityOccurrence {
+  abilityId: number
+  count: number
+}
+
+export function rankCombinationAbilityOccurrences(
+  groups: readonly CombinationRecommendationGroup[],
+  abilityStats: readonly AbilityStats[],
+  limit = 8,
+): CombinationAbilityOccurrence[] {
+  if (!Number.isFinite(limit) || limit <= 0) return []
+  const occurrences = new Map<
+    number,
+    CombinationAbilityOccurrence & { firstSeen: number }
+  >()
+  let firstSeen = 0
+  const winRates = new Map(
+    abilityStats.map((stat) => [
+      stat.abilityId,
+      calculateWinRate(stat.picks, stat.wins) ?? Number.NEGATIVE_INFINITY,
+    ]),
+  )
+  const countAbility = (abilityId: number) => {
+    const occurrence = occurrences.get(abilityId)
+    if (occurrence) {
+      occurrence.count += 1
+      return
+    }
+    occurrences.set(abilityId, { abilityId, count: 1, firstSeen })
+    firstSeen += 1
+  }
+
+  for (const group of groups) {
+    group.pairAbilityIds.forEach(countAbility)
+    for (const triple of group.triples) {
+      const abilityId = findThirdAbilityId(
+        group.pairAbilityIds,
+        triple.abilityIds,
+      )
+      if (abilityId !== undefined) countAbility(abilityId)
+    }
+  }
+
+  return [...occurrences.values()]
+    .sort(
+      (left, right) =>
+        right.count - left.count ||
+        (winRates.get(right.abilityId) ?? Number.NEGATIVE_INFINITY) -
+          (winRates.get(left.abilityId) ?? Number.NEGATIVE_INFINITY) ||
+        left.firstSeen - right.firstSeen ||
+        left.abilityId - right.abilityId,
+    )
+    .slice(0, Math.floor(limit))
+    .map(({ abilityId, count }) => ({ abilityId, count }))
+}
+
+function buildCombinationCandidates(
   candidateIds: readonly number[],
   selectedIds: readonly number[],
   snapshot: Snapshot,
-  options: CombinationRecommendationOptions,
-): CombinationRecommendation[] {
-  if (options.limit <= 0) return []
-
+): CombinationCandidates {
   const candidateSet = new Set([...candidateIds, ...selectedIds])
   const stats = buildAbilityStatsMap(snapshot.abilityStats)
   const abilities = buildAbilitiesMap(snapshot.abilities)
   const selectedSet = new Set(selectedIds)
-  const recommendations: CombinationRecommendation[] = []
+  const pairs: CombinationRecommendation[] = []
+  const triples: CombinationRecommendation[] = []
 
   for (const pair of buildPairStatsMap(snapshot.pairStats).values()) {
     if (
@@ -156,7 +273,9 @@ function recommendAbilityCombinationsInternal(
       stats,
       selectedSet,
     )
-    if (recommendation) recommendations.push(recommendation)
+    if (recommendation) {
+      pairs.push(recommendation)
+    }
   }
 
   for (const triple of buildTripletStatsMap(
@@ -180,25 +299,63 @@ function recommendAbilityCombinationsInternal(
       stats,
       selectedSet,
     )
-    if (recommendation) recommendations.push(recommendation)
+    if (recommendation) triples.push(recommendation)
   }
 
-  return recommendations
-    .filter(
-      (recommendation) =>
-        recommendation.winRate > options.minWinRate &&
-        recommendation.synergy > options.minSynergy,
+  return { pairs, triples }
+}
+
+function recommendAbilityCombinationsInternal(
+  candidateIds: readonly number[],
+  selectedIds: readonly number[],
+  snapshot: Snapshot,
+  options: CombinationRecommendationOptions,
+): CombinationRecommendation[] {
+  if (options.limit <= 0) return []
+
+  const { pairs, triples } = buildCombinationCandidates(
+    candidateIds,
+    selectedIds,
+    snapshot,
+  )
+
+  return [...pairs, ...triples]
+    .filter((recommendation) =>
+      passesRecommendationThreshold(recommendation, options),
     )
-    .sort(
-      (left, right) =>
-        right.score - left.score ||
-        Math.abs(right.synergy) - Math.abs(left.synergy) ||
-        right.selectedCount - left.selectedCount ||
-        right.picks - left.picks ||
-        left.type.localeCompare(right.type) ||
-        left.abilityIds.join(':').localeCompare(right.abilityIds.join(':')),
-    )
+    .sort(compareRecommendations)
     .slice(0, options.limit)
+}
+
+function passesRecommendationThreshold(
+  recommendation: CombinationRecommendation,
+  options: CombinationRecommendationOptions,
+): boolean {
+  const minWinRate =
+    recommendation.type === 'pair'
+      ? options.pairMinWinRate
+      : options.tripleMinWinRate
+  const minSynergy =
+    recommendation.type === 'pair'
+      ? options.pairMinSynergy
+      : options.tripleMinSynergy
+  return (
+    recommendation.winRate > minWinRate && recommendation.synergy > minSynergy
+  )
+}
+
+function compareRecommendations(
+  left: CombinationRecommendation,
+  right: CombinationRecommendation,
+): number {
+  return (
+    right.score - left.score ||
+    Math.abs(right.synergy) - Math.abs(left.synergy) ||
+    right.selectedCount - left.selectedCount ||
+    right.picks - left.picks ||
+    left.type.localeCompare(right.type) ||
+    left.abilityIds.join(':').localeCompare(right.abilityIds.join(':'))
+  )
 }
 
 export function recommendAbilityCombinations(
@@ -213,4 +370,122 @@ export function recommendAbilityCombinations(
     snapshot,
     normalizeCombinationRecommendationOptions(options),
   )
+}
+
+export function recommendAbilityCombinationGroups(
+  candidateIds: readonly number[],
+  selectedIds: readonly number[],
+  snapshot: Snapshot,
+  options: Partial<CombinationRecommendationOptions> = {},
+): CombinationRecommendationGroup[] {
+  const normalizedOptions = normalizeCombinationRecommendationOptions(options)
+  if (normalizedOptions.limit <= 0) return []
+
+  const { pairs, triples } = buildCombinationCandidates(
+    candidateIds,
+    selectedIds,
+    snapshot,
+  )
+  const groups = new Map<string, CombinationRecommendationGroup>()
+
+  for (const pair of pairs) {
+    groups.set(pairKey(pair.abilityIds), {
+      pairAbilityIds: pair.abilityIds as [number, number],
+      pair,
+      triples: [],
+    })
+  }
+
+  const eligibleTriples = triples.filter((recommendation) =>
+    passesRecommendationThreshold(recommendation, normalizedOptions),
+  )
+  const ownershipCandidates = new Map<
+    CombinationRecommendation,
+    Array<[number, number]>
+  >()
+  const pairAggregationCounts = new Map<string, number>()
+  const suppressedStandalonePairKeys = new Set<string>()
+
+  for (const triple of eligibleTriples) {
+    const [first, second, third] = triple.abilityIds
+    const constituentPairs: Array<[number, number]> = [
+      [first, second],
+      [first, third],
+      [second, third],
+    ]
+    const candidates = constituentPairs.filter((pairAbilityIds) => {
+      const pair = groups.get(pairKey(pairAbilityIds))?.pair
+      return pair === undefined || triple.winRate >= pair.winRate
+    })
+    ownershipCandidates.set(triple, candidates)
+    for (const pairAbilityIds of candidates) {
+      const key = pairKey(pairAbilityIds)
+      pairAggregationCounts.set(key, (pairAggregationCounts.get(key) ?? 0) + 1)
+    }
+  }
+
+  for (const triple of eligibleTriples) {
+    const pairAbilityIds = ownershipCandidates
+      .get(triple)
+      ?.sort((left, right) => {
+        const leftKey = pairKey(left)
+        const rightKey = pairKey(right)
+        const aggregationDifference =
+          (pairAggregationCounts.get(rightKey) ?? 0) -
+          (pairAggregationCounts.get(leftKey) ?? 0)
+        if (aggregationDifference !== 0) return aggregationDifference
+
+        const leftPair = groups.get(leftKey)?.pair
+        const rightPair = groups.get(rightKey)?.pair
+        if (leftPair && !rightPair) return -1
+        if (!leftPair && rightPair) return 1
+        if (leftPair && rightPair) {
+          const synergyDifference = rightPair.synergy - leftPair.synergy
+          if (synergyDifference !== 0) return synergyDifference
+          const recommendationDifference = compareRecommendations(
+            leftPair,
+            rightPair,
+          )
+          if (recommendationDifference !== 0) return recommendationDifference
+        }
+        return leftKey.localeCompare(rightKey)
+      })[0]
+    if (!pairAbilityIds) continue
+
+    const key = pairKey(pairAbilityIds)
+    const group = groups.get(key) ?? { pairAbilityIds, triples: [] }
+    group.triples.push(triple)
+    groups.set(key, group)
+    for (const candidatePairAbilityIds of ownershipCandidates.get(triple) ??
+      []) {
+      const candidateKey = pairKey(candidatePairAbilityIds)
+      if (candidateKey !== key) suppressedStandalonePairKeys.add(candidateKey)
+    }
+  }
+
+  for (const group of groups.values()) {
+    group.triples.sort(compareRecommendations)
+  }
+
+  return [...groups.values()]
+    .filter(
+      (group) =>
+        group.triples.length > 0 ||
+        (!suppressedStandalonePairKeys.has(pairKey(group.pairAbilityIds)) &&
+          group.pair !== undefined &&
+          passesRecommendationThreshold(group.pair, normalizedOptions)),
+    )
+    .sort((left, right) => {
+      if (left.pair && !right.pair) return -1
+      if (!left.pair && right.pair) return 1
+      const leftRank = left.pair ?? left.triples[0]
+      const rightRank = right.pair ?? right.triples[0]
+      return (
+        compareRecommendations(leftRank, rightRank) ||
+        pairKey(left.pairAbilityIds).localeCompare(
+          pairKey(right.pairAbilityIds),
+        )
+      )
+    })
+    .slice(0, normalizedOptions.limit)
 }

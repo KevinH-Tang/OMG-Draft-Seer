@@ -23,20 +23,25 @@ import {
   type OverlayState,
 } from '../platform/overlays'
 import { appResourceUrl } from '../platform/resources'
-import type { Ability, CombinationRecommendation, Snapshot } from '../types'
-import { cn } from '../lib/cn'
 import {
-  formatLogitDelta,
-  formatPairPercent,
-} from '../lib/recommendation-format'
+  listenWindrunSnapshotUpdated,
+  loadRuntimeSnapshot,
+} from '../platform/data-update'
+import type {
+  Ability,
+  CombinationRecommendationGroup,
+  Snapshot,
+} from '../types'
+import { cn } from '../lib/cn'
 import { TIER_STROKE_COLORS, TIER_TEXT_CLASSES } from '../lib/tier-presentation'
-import { CombinationAbilityIcons } from './CombinationAbilityIcons'
+import { CombinationPopularityRow } from './CombinationPopularityRow'
+import { PairRecommendationRow } from './PairRecommendationRow'
 import { SkillIcon } from './SkillIcon'
 
 const EMPTY_OVERLAY_STATE: OverlayState = {
   recognitionStatus: 'idle',
   candidatePools: { heroIds: [], abilityIds: [], ultimateIds: [] },
-  combinationRecommendations: [],
+  combinationRecommendationGroups: [],
   locale: 'zh-CN',
   tierCategory: 'all',
   tierQuery: '',
@@ -50,7 +55,8 @@ function normalizeOverlayState(state: OverlayState | undefined): OverlayState {
     ? {
         ...EMPTY_OVERLAY_STATE,
         ...state,
-        combinationRecommendations: state.combinationRecommendations ?? [],
+        combinationRecommendationGroups:
+          state.combinationRecommendationGroups ?? [],
       }
     : EMPTY_OVERLAY_STATE
 }
@@ -266,11 +272,13 @@ function OverlayTierContent({
 }
 
 function OverlayCombinationContent({
-  recommendations,
+  groups,
   abilities,
+  snapshot,
 }: {
-  recommendations: readonly CombinationRecommendation[]
+  groups: readonly CombinationRecommendationGroup[]
   abilities: ReadonlyMap<number, Ability>
+  snapshot: Snapshot
 }) {
   return (
     <section
@@ -285,53 +293,30 @@ function OverlayCombinationContent({
           {ui('common.combinationWinRate')}
         </span>
       </header>
-      {recommendations.length > 0 ? (
-        <div
-          className="mt-1.5 grid max-h-[465px] gap-1.5 overflow-y-auto overscroll-contain"
-          data-testid="overlay-combination-recommendations-scroll"
-          aria-label={ui('overlay.combinationRecommendations')}
-        >
-          {recommendations.map((recommendation, index) => (
-            <article
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border-subtle pb-1.5 last:border-b-0 last:pb-0"
-              key={`${recommendation.type}-${recommendation.abilityIds.join('-')}`}
-            >
-              <div className="grid min-w-0 gap-1">
-                <span className="font-mono text-[9px] text-text-muted">
-                  {index + 1} · {ui(`common.${recommendation.type}`)} ·{' '}
-                  {recommendation.picks.toLocaleString()} {ui('common.games')}
-                </span>
-                <span
-                  className="truncate"
-                  title={recommendation.abilityIds
-                    .map((id) => abilities.get(id)?.name ?? id)
-                    .join(' + ')}
-                >
-                  <CombinationAbilityIcons
-                    recommendation={recommendation}
-                    abilities={abilities}
-                    variant="compact"
-                  />
-                </span>
-              </div>
-              <div className="grid justify-items-end gap-0.5 font-mono text-[11px]">
-                <strong className="text-text">
-                  {recommendation.score.toFixed(1)}%
-                </strong>
-                <span
-                  className={
-                    recommendation.synergy >= 0
-                      ? 'text-positive'
-                      : 'text-negative'
-                  }
-                  title={`${ui('analysis.combinationSynergyHint')} — ${ui('common.logitDelta')} ${formatLogitDelta(recommendation.logitSynergy)}`}
-                >
-                  {formatPairPercent(recommendation.synergy, true)}
-                </span>
-              </div>
-            </article>
-          ))}
-        </div>
+      {groups.length > 0 ? (
+        <>
+          <CombinationPopularityRow
+            groups={groups}
+            abilities={abilities}
+            abilityStats={snapshot.abilityStats}
+            variant="compact"
+          />
+          <div
+            className="grid max-h-[465px] touch-pan-y gap-1.5 overflow-y-auto overscroll-contain pr-1"
+            data-testid="overlay-combination-recommendations-scroll"
+            aria-label={ui('overlay.combinationRecommendations')}
+          >
+            {groups.map((group, index) => (
+              <PairRecommendationRow
+                group={group}
+                abilities={abilities}
+                rank={index + 1}
+                variant="compact"
+                key={group.pairAbilityIds.join('-')}
+              />
+            ))}
+          </div>
+        </>
       ) : (
         <p className="mb-0 mt-2 text-[11px] text-text-muted">
           {ui('overlay.combinationEmpty')}
@@ -389,8 +374,9 @@ export function FloatingOverlay({
           <OverlayTierContent state={state} snapshot={snapshot} />
           {!isTier && state.recognitionStatus === 'ready' && (
             <OverlayCombinationContent
-              recommendations={state.combinationRecommendations}
+              groups={state.combinationRecommendationGroups}
               abilities={abilities}
+              snapshot={snapshot}
             />
           )}
         </div>
@@ -416,21 +402,43 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
 
   useEffect(() => {
     let active = true
-    fetch(appResourceUrl('/data/snapshots/latest.json'))
-      .then((response) =>
-        response.ok
-          ? (response.json() as Promise<Snapshot>)
-          : Promise.reject(new Error('no local snapshot')),
-      )
+    const controller = new AbortController()
+    loadRuntimeSnapshot(
+      appResourceUrl('/data/snapshots/latest.json'),
+      controller.signal,
+    )
       .then((nextSnapshot) => {
         if (active) setSnapshot(nextSnapshot)
       })
-      .catch(() => undefined)
+      .catch((fetchError: unknown) => {
+        if (fetchError instanceof Error && fetchError.name === 'AbortError')
+          return
+      })
       .finally(() => {
         if (active) setSnapshotSettled(true)
       })
     return () => {
       active = false
+      controller.abort()
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    let unlisten: () => void = () => undefined
+    void listenWindrunSnapshotUpdated((nextSnapshot) => {
+      if (active) setSnapshot(nextSnapshot)
+    })
+      .then((dispose) => {
+        if (active) unlisten = dispose
+        else dispose()
+      })
+      .catch((listenError: unknown) => {
+        console.error('Failed to listen for Windrun data updates', listenError)
+      })
+    return () => {
+      active = false
+      unlisten()
     }
   }, [])
 
@@ -526,6 +534,7 @@ export function OverlayApp({ kind }: { kind: OverlayKind }) {
     () => new Map(snapshot.abilities.map((ability) => [ability.id, ability])),
     [snapshot],
   )
+
   return (
     <Tooltip.Provider delayDuration={250} skipDelayDuration={150}>
       <main className={`overlay-root overlay-root-${kind}`}>

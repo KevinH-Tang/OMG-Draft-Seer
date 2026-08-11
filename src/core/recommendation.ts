@@ -527,10 +527,14 @@ export function scoreDraftBuild(
     grouped.ultimate.length !== BUILD_PICK_LIMITS.ultimate
   )
     return undefined
-  return scoreBuild(
+  const recommendation = scoreBuild(
     [...grouped.hero, ...grouped.ability, ...grouped.ultimate],
     context,
   )
+  return {
+    ...recommendation,
+    pickOrderIds: recommendation.abilityIds.slice(),
+  }
 }
 
 function candidatePriority(

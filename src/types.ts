@@ -128,6 +128,12 @@ export interface CombinationRecommendation {
   selectedCount: number
 }
 
+export interface CombinationRecommendationGroup {
+  pairAbilityIds: [number, number]
+  pair?: CombinationRecommendation
+  triples: CombinationRecommendation[]
+}
+
 export interface Recommendation {
   abilityIds: number[]
   pickOrderIds: number[]

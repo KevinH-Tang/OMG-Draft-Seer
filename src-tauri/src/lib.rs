@@ -16,10 +16,12 @@ use tauri_plugin_global_shortcut::{
 };
 
 mod capture;
+mod data_update;
 
 const MAX_LAYOUT_OVERLAY_DIMENSION: u32 = 16_384;
 const AUTOSTART_ARG: &str = "--minimized";
 const OVERLAY_VISIBILITY_EVENT: &str = "omg-draft-seer-overlay-visibility";
+const WINDRUN_SNAPSHOT_UPDATED_EVENT: &str = "omg-draft-seer-windrun-snapshot-updated";
 const OVERLAY_WINDOW_LABELS: [&str; 3] =
     ["overlay-recommendation", "overlay-tier", "overlay-layout"];
 const FULLSCREEN_OVERLAY_KINDS: [(&str, &str); 2] = [
@@ -1402,12 +1404,13 @@ fn set_overlay_viewport(
     height: u32,
     lifecycle: tauri::State<'_, OverlayLifecycleState>,
 ) -> Result<(), String> {
-    let physical_size = {
+    let update = {
         let mut current = lifecycle
             .0
             .lock()
             .map_err(|_| "overlay visibility state is unavailable".to_owned())?;
         let mut next_viewport = current.viewport;
+        let previous_viewport = current.viewport;
         let physical_size = requested_overlay_size(
             "recommendation",
             Some(width),
@@ -1416,11 +1419,22 @@ fn set_overlay_viewport(
         )?
         .expect("recommendation overlays always use the screenshot viewport");
         current.viewport = next_viewport;
-        physical_size
+        let active_labels = FULLSCREEN_OVERLAY_KINDS
+            .iter()
+            .filter_map(|(_, label)| current.requested_open.contains(*label).then_some(*label))
+            .collect::<Vec<_>>();
+        if previous_viewport == next_viewport && active_labels.is_empty() {
+            None
+        } else {
+            Some((physical_size, active_labels))
+        }
+    };
+    let Some((physical_size, active_labels)) = update else {
+        return Ok(());
     };
     let (position, physical_size) = fullscreen_overlay_bounds(&app)
         .unwrap_or_else(|| (fullscreen_overlay_position(&app), physical_size));
-    for (_, label) in FULLSCREEN_OVERLAY_KINDS {
+    for label in active_labels {
         let Some(window) = app.get_webview_window(label) else {
             continue;
         };
@@ -1584,6 +1598,38 @@ fn get_overlay_shortcut_status(
         .lock()
         .map_err(|_| "shortcut registration state is unavailable".to_owned())?;
     Ok(current.status())
+}
+
+#[tauri::command]
+async fn get_user_windrun_snapshot(
+    app: tauri::AppHandle,
+) -> Result<Option<data_update::Snapshot>, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || data_update::load_snapshot(&app_data_dir))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn update_windrun_snapshot(app: tauri::AppHandle) -> Result<data_update::Snapshot, String> {
+    let snapshot = data_update::fetch_snapshot().await?;
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    let snapshot_to_save = snapshot.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        data_update::save_snapshot(&app_data_dir, &snapshot_to_save)
+    })
+    .await
+    .map_err(|error| error.to_string())??;
+    if let Err(error) = app.emit(WINDRUN_SNAPSHOT_UPDATED_EVENT, ()) {
+        eprintln!("failed to broadcast the Windrun snapshot update: {error}");
+    }
+    Ok(snapshot)
 }
 
 pub fn run() {
@@ -1810,6 +1856,8 @@ pub fn run() {
             set_overlay_viewport,
             set_overlay_shortcut,
             get_overlay_shortcut_status,
+            get_user_windrun_snapshot,
+            update_windrun_snapshot,
             capture::capture_dota2_screenshot
         ])
         .build(tauri::generate_context!())

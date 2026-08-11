@@ -4,9 +4,11 @@ import {
   ArrowLeft,
   CircleAlert,
   CircleCheck,
+  Database,
   Keyboard,
   LoaderCircle,
   Power,
+  RefreshCw,
   RotateCcw,
 } from 'lucide-react'
 import { LanguageSwitcher } from './LanguageSwitcher'
@@ -23,6 +25,7 @@ import {
   shortcutFromKeyboardEvent,
   type OverlayShortcutMode,
 } from '../platform/shortcuts'
+import type { Snapshot } from '../types'
 
 export type LayoutMode = 'auto' | 'manual'
 
@@ -31,7 +34,9 @@ export function SettingsPage({
   overlayShortcut,
   overlayShortcutMode,
   overlayShortcutRegistered,
+  snapshot,
   onBack,
+  onDataUpdate,
   onLayoutModeChange,
   onOverlayShortcutChange,
   onOverlayShortcutModeChange,
@@ -40,7 +45,9 @@ export function SettingsPage({
   overlayShortcut: string
   overlayShortcutMode: OverlayShortcutMode
   overlayShortcutRegistered?: boolean
+  snapshot: Snapshot
   onBack: () => void
+  onDataUpdate: () => Promise<void>
   onLayoutModeChange: (mode: LayoutMode) => void
   onOverlayShortcutChange: (shortcut: string) => void
   onOverlayShortcutModeChange: (mode: OverlayShortcutMode) => void
@@ -52,9 +59,20 @@ export function SettingsPage({
   >()
   const [autostartPending, setAutostartPending] = useState(false)
   const [autostartError, setAutostartError] = useState(false)
+  const [dataUpdatePending, setDataUpdatePending] = useState(false)
+  const [dataUpdateResult, setDataUpdateResult] = useState<
+    'success' | 'error' | undefined
+  >()
   const autostartPendingRef = useRef(false)
   const autostartRequestRef = useRef(0)
   const desktopRuntime = isDesktopRuntime()
+  const generatedAt = new Date(snapshot.generatedAt)
+  const formattedGeneratedAt = Number.isNaN(generatedAt.getTime())
+    ? snapshot.generatedAt
+    : new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(generatedAt)
 
   useEffect(() => {
     if (!desktopRuntime) return
@@ -124,6 +142,20 @@ export function SettingsPage({
     }
   }
 
+  async function updateData() {
+    if (!desktopRuntime || dataUpdatePending) return
+    setDataUpdatePending(true)
+    setDataUpdateResult(undefined)
+    try {
+      await onDataUpdate()
+      setDataUpdateResult('success')
+    } catch {
+      setDataUpdateResult('error')
+    } finally {
+      setDataUpdatePending(false)
+    }
+  }
+
   return (
     <section
       className="w-full pt-1"
@@ -145,6 +177,67 @@ export function SettingsPage({
         </h1>
       </header>
       <div className="grid max-w-[420px] gap-7 pt-6">
+        <section className="w-full" aria-labelledby="data-update-title">
+          <h2
+            id="data-update-title"
+            className="inline-flex items-center gap-2 text-base"
+          >
+            <Database size={16} aria-hidden="true" />
+            {t('settings.dataUpdate')}
+          </h2>
+          <p className="mb-3 mt-1 text-xs text-text-muted">
+            {t('settings.dataSnapshot', {
+              patch: snapshot.patch,
+              date: formattedGeneratedAt,
+            })}
+          </p>
+          <button
+            className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded border border-border bg-surface px-3 py-2 text-xs font-semibold text-text transition-colors hover:border-accent hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-55 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            type="button"
+            aria-busy={dataUpdatePending}
+            data-testid="data-update-button"
+            disabled={!desktopRuntime || dataUpdatePending}
+            onClick={() => void updateData()}
+          >
+            {dataUpdatePending ? (
+              <LoaderCircle
+                className="animate-spin"
+                size={16}
+                aria-hidden="true"
+              />
+            ) : (
+              <RefreshCw size={16} aria-hidden="true" />
+            )}
+            {!desktopRuntime
+              ? t('settings.dataUpdateDesktopOnly')
+              : dataUpdatePending
+                ? t('settings.dataUpdating')
+                : t('settings.dataUpdateAction')}
+          </button>
+          {dataUpdateResult && (
+            <p
+              className={cn(
+                'mb-0 mt-2 inline-flex items-center gap-1.5 text-xs',
+                dataUpdateResult === 'success'
+                  ? 'text-positive'
+                  : 'text-negative',
+              )}
+              role="status"
+              data-testid="data-update-status"
+            >
+              {dataUpdateResult === 'success' ? (
+                <CircleCheck size={13} aria-hidden="true" />
+              ) : (
+                <CircleAlert size={13} aria-hidden="true" />
+              )}
+              {t(
+                dataUpdateResult === 'success'
+                  ? 'settings.dataUpdateSuccess'
+                  : 'settings.dataUpdateError',
+              )}
+            </p>
+          )}
+        </section>
         <section className="w-full" aria-labelledby="layout-mode-title">
           <h2 id="layout-mode-title" className="text-base">
             {t('settings.layoutMode')}
